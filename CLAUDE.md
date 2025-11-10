@@ -23,6 +23,7 @@ This is an **air-gap development kit** designed for offline installation of a co
 - eza - Modern ls replacement with git integration
 - zoxide - Smarter cd that learns your habits
 - delta - Beautiful git diff viewer with syntax highlighting
+- gum - Charm Bracelet TUI toolkit for beautiful interactive prompts
 
 ## Quick Start
 
@@ -51,13 +52,22 @@ make package
 # Extract and install
 tar -xzf airgap-dev-kit.tar.gz
 cd airgap-dev-kit
-./install.sh  # Or: make install
+./install.sh  # Interactive installer with version checking
 
-# 2. Add to PATH (add to ~/.bashrc or ~/.zshrc)
-export PATH="$HOME/bin:$PATH"
+# The installer will:
+# 1. Detect your OS (Linux/macOS)
+# 2. Prompt for installation location (/usr/local/bin or ~/bin)
+# 3. Check for existing binaries and show version comparisons
+# 4. Use gum for beautiful interactive prompts (if available)
+# 5. Install all binaries and configs
+
+# 2. Add to PATH if needed (installer will guide you)
+export PATH="$HOME/bin:$PATH"  # Only if installed to ~/bin
 
 # 3. Launch
-~/bin/wezterm start -- ~/bin/tmux new-session ~/bin/nvim
+wezterm start -- tmux new-session nvim  # If /usr/local/bin
+# or
+~/bin/wezterm start -- ~/bin/tmux new-session ~/bin/nvim  # If ~/bin
 ```
 
 ## What's Included
@@ -87,7 +97,9 @@ export PATH="$HOME/bin:$PATH"
 1. **Zero Internet Dependency**: All binaries are static or self-contained, no package managers required
 2. **Cross-Platform**: Same experience on macOS, regular Linux, and air-gapped Linux boxes
 3. **Static Linking**: Linux binaries use musl static compilation to avoid glibc dependency issues
-4. **Single Command Install**: `./install.sh` handles OS detection and full setup
+4. **Interactive Installation**: Smart version detection prevents accidental overwrites
+5. **Beautiful UX**: Uses Charm Bracelet Gum for elegant TUI prompts when available
+6. **Single Command Install**: `./install.sh` handles OS detection and full setup
 
 ### Binary Strategy
 
@@ -150,6 +162,67 @@ The workflow:
 5. The `install.sh` script automatically extracts plugins on air-gapped machines
 
 **Important**: Ensure your Neovim config in `config/.config/nvim/` has lazy.nvim configured with `install = { missing = false }` to prevent plugin auto-downloads on air-gapped systems.
+
+## Installation Process
+
+The `install.sh` script provides an interactive, intelligent installation experience:
+
+### Features
+
+1. **OS Detection**: Automatically detects macOS vs Linux
+2. **Privilege Management**:
+   - Detects if already running as root
+   - Checks for passwordless sudo
+   - Prompts for sudo password if needed
+   - Falls back to `~/bin` if user declines sudo
+3. **Version Checking**: Before overwriting existing binaries, shows:
+   - Current installed version
+   - New version being installed
+   - Interactive prompt to confirm overwrite
+4. **Beautiful TUI**: Uses [Charm Bracelet Gum](https://github.com/charmbracelet/gum) for elegant prompts with borders and styling
+5. **Graceful Fallback**: If gum is not available, uses plain text prompts
+
+### Installation Flow
+
+```bash
+./install.sh
+
+# Step 1: OS Detection
+Detecting OS...
+Installing linux binaries...
+
+# Step 2: Installation Location
+Install system-wide to /usr/local/bin? (requires sudo) [Y/n]: y
+Installing to: /usr/local/bin (system-wide)
+
+# Step 3: Version Checking (if binary exists)
+╭──────────────────────────────────────────╮
+│ Found existing fzf at /usr/local/bin/fzf │
+│   Current: 0.45.0                         │
+│   New:     0.66.1                         │
+╰──────────────────────────────────────────╯
+Replace with new version? Yes
+
+✓ fzf updated
+
+# Step 4: Summary
+✓ Installation complete!
+
+📍 Installation Location:
+   Binaries: /usr/local/bin
+   Config: ~/.config/nvim/
+   ...
+```
+
+### Smart Overwite Behavior
+
+The installer will **never** silently overwrite existing binaries. For each tool that already exists:
+- Extracts version information using `--version` or `-V` flags
+- Displays current vs. new version
+- Prompts for confirmation
+- Allows skipping individual tools
+
+This prevents accidentally downgrading or disrupting existing installations.
 
 ## Common Commands
 

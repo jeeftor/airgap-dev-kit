@@ -113,6 +113,11 @@ jobs:
           cp -r offline-packages/macos staging-macos/airgap-dev-kit/offline-packages/
           cp offline-packages/lazy-plugins.tar.gz staging-macos/airgap-dev-kit/offline-packages/
 
+          # Ensure gum is included in both packages
+          echo "Verifying gum is included..."
+          ls -lh staging-linux/airgap-dev-kit/offline-packages/linux/gum || echo "Warning: gum not found for Linux"
+          ls -lh staging-macos/airgap-dev-kit/offline-packages/macos/gum || echo "Warning: gum not found for macOS"
+
           # Create tarballs with proper directory structure
           echo "Creating Linux x86_64 package..."
           tar -czf airgap-dev-kit-linux-x86_64.tar.gz -C staging-linux airgap-dev-kit
@@ -221,11 +226,17 @@ jobs:
             4. **Add to PATH:** `export PATH="$HOME/bin:$PATH"` (add to `~/.bashrc` or `~/.zshrc`)
             5. **Launch:** `wezterm start -- tmux new-session nvim`
 
-            ## Binaries Updated
-            - WezTerm
+            ## ✨ Features
+            - **Interactive Installation**: Smart version detection with prompts before overwriting existing tools
+            - **Pretty TUI**: Uses [Charm Bracelet Gum](https://github.com/charmbracelet/gum) for beautiful prompts
+            - **Flexible Installation**: Install to `/usr/local/bin` (system-wide) or `~/bin` (user-local)
+            - **SSH-Friendly**: Detects headless environments and provides appropriate instructions
+
+            ## 📦 Binaries Included
+            - WezTerm (terminal emulator)
             - Neovim (Linux + macOS)
             - tmux, fzf, fd, ripgrep, bat, starship
-            - Optional: btop, eza, zoxide, delta, lsd
+            - Optional: btop, eza, zoxide, delta, lsd, **gum**
             - JetBrainsMono Nerd Font
             - Neovim plugins (via lazy.nvim)
 

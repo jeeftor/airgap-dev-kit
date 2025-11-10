@@ -1,6 +1,74 @@
 #!/usr/bin/env bash
 set -e
 
+# Helper function to check if gum is available (for pretty TUI prompts)
+has_gum() {
+  command -v gum &>/dev/null || [ -f "$PWD/offline-packages/linux/gum" ] || [ -f "$PWD/offline-packages/macos/gum" ]
+}
+
+# Helper function to get version from binary
+get_version() {
+  local binary="$1"
+  local version_flag="${2:---version}"
+
+  if [[ ! -f "$binary" ]]; then
+    echo "not-installed"
+    return
+  fi
+
+  # Try to extract version, handle various formats
+  local version=$("$binary" "$version_flag" 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1 || echo "unknown")
+  echo "$version"
+}
+
+# Helper function to prompt for overwrite
+prompt_overwrite() {
+  local tool_name="$1"
+  local existing_version="$2"
+  local new_version="$3"
+  local install_path="$4"
+
+  if [[ "$existing_version" == "unknown" ]]; then
+    existing_version="(version unknown)"
+  fi
+
+  if [[ "$new_version" == "unknown" ]]; then
+    new_version="(version unknown)"
+  fi
+
+  if has_gum; then
+    # Use gum for pretty prompts if available
+    local GUM="${BIN_DIR}/gum"
+    [[ ! -f "$GUM" ]] && GUM="$PWD/offline-packages/$OS/gum"
+
+    echo ""
+    $GUM style --border rounded --padding "0 1" --margin "1 0" \
+      "Found existing $tool_name at $install_path" \
+      "  Current: $existing_version" \
+      "  New:     $new_version"
+
+    if $GUM confirm "Replace with new version?"; then
+      return 0  # User said yes
+    else
+      return 1  # User said no
+    fi
+  else
+    # Fallback to regular prompt
+    echo ""
+    echo "Found existing $tool_name:"
+    echo "  Location: $install_path"
+    echo "  Current version: $existing_version"
+    echo "  New version: $new_version"
+    read -p "Replace with new version? [y/N]: " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+      return 0  # User said yes
+    else
+      return 1  # User said no
+    fi
+  fi
+}
+
 echo "Detecting OS..."
 if [[ "$OSTYPE" == "darwin"* ]]; then
   OS="macos"
@@ -56,6 +124,58 @@ echo ""
 
 $USE_SUDO mkdir -p "$BIN_DIR"
 
+# Install gum first (so we can use it for prompts)
+if [[ -f offline-packages/$OS/gum ]]; then
+  if [[ -f "$BIN_DIR/gum" ]]; then
+    existing_ver=$(get_version "$BIN_DIR/gum")
+    new_ver=$(get_version "offline-packages/$OS/gum")
+    if prompt_overwrite "gum" "$existing_ver" "$new_ver" "$BIN_DIR/gum"; then
+      $USE_SUDO cp offline-packages/$OS/gum "$BIN_DIR/"
+      $USE_SUDO chmod +x "$BIN_DIR/gum"
+      echo "✓ gum installed"
+    else
+      echo "⊘ Skipped gum"
+    fi
+  else
+    $USE_SUDO cp offline-packages/$OS/gum "$BIN_DIR/"
+    $USE_SUDO chmod +x "$BIN_DIR/gum"
+    echo "✓ gum installed"
+  fi
+fi
+
+# Helper function to install binary with version check
+install_binary() {
+  local source_file="$1"
+  local dest_name="$2"
+  local tool_name="$3"
+  local version_flag="${4:---version}"
+
+  if [[ ! -f "$source_file" ]]; then
+    return  # Skip if source doesn't exist
+  fi
+
+  local dest_path="$BIN_DIR/$dest_name"
+
+  if [[ -f "$dest_path" ]]; then
+    # Binary exists, check version
+    local existing_ver=$(get_version "$dest_path" "$version_flag")
+    local new_ver=$(get_version "$source_file" "$version_flag")
+
+    if prompt_overwrite "$tool_name" "$existing_ver" "$new_ver" "$dest_path"; then
+      $USE_SUDO cp "$source_file" "$dest_path"
+      $USE_SUDO chmod +x "$dest_path"
+      echo "✓ $tool_name updated"
+    else
+      echo "⊘ Skipped $tool_name"
+    fi
+  else
+    # Fresh install
+    $USE_SUDO cp "$source_file" "$dest_path"
+    $USE_SUDO chmod +x "$dest_path"
+    echo "✓ $tool_name installed"
+  fi
+}
+
 if [[ $OS == "linux" ]]; then
   # Check if we have linux binaries
   if [[ ! -d offline-packages/linux ]]; then
@@ -63,27 +183,61 @@ if [[ $OS == "linux" ]]; then
     exit 1
   fi
 
-  $USE_SUDO cp offline-packages/linux/wezterm.AppImage "$BIN_DIR/wezterm"
-  $USE_SUDO cp offline-packages/linux/tmux-3.4-static-x86_64 "$BIN_DIR/tmux"
-  $USE_SUDO cp offline-packages/linux/{fzf,fd,rg,bat,starship} "$BIN_DIR/"
+  echo ""
+  echo "Installing core binaries..."
+  install_binary "offline-packages/linux/wezterm.AppImage" "wezterm" "WezTerm" "--version"
+  install_binary "offline-packages/linux/tmux-3.4-static-x86_64" "tmux" "tmux" "-V"
+  install_binary "offline-packages/linux/fzf" "fzf" "fzf" "--version"
+  install_binary "offline-packages/linux/fd" "fd" "fd" "--version"
+  install_binary "offline-packages/linux/rg" "rg" "ripgrep" "--version"
+  install_binary "offline-packages/linux/bat" "bat" "bat" "--version"
+  install_binary "offline-packages/linux/starship" "starship" "starship" "--version"
 
-  # Optional tools (skip if not present)
-  [ -f offline-packages/linux/lsd ] && $USE_SUDO cp offline-packages/linux/lsd "$BIN_DIR/"
-  [ -f offline-packages/linux/btop ] && $USE_SUDO cp offline-packages/linux/btop "$BIN_DIR/"
-  [ -f offline-packages/linux/eza ] && $USE_SUDO cp offline-packages/linux/eza "$BIN_DIR/"
-  [ -f offline-packages/linux/zoxide ] && $USE_SUDO cp offline-packages/linux/zoxide "$BIN_DIR/"
-  [ -f offline-packages/linux/delta ] && $USE_SUDO cp offline-packages/linux/delta "$BIN_DIR/"
-
-  $USE_SUDO chmod +x "$BIN_DIR"/*
+  echo ""
+  echo "Installing optional tools..."
+  install_binary "offline-packages/linux/lsd" "lsd" "lsd" "--version"
+  install_binary "offline-packages/linux/btop" "btop" "btop" "--version"
+  install_binary "offline-packages/linux/eza" "eza" "eza" "--version"
+  install_binary "offline-packages/linux/zoxide" "zoxide" "zoxide" "--version"
+  install_binary "offline-packages/linux/delta" "delta" "delta" "--version"
 
   # Extract Neovim to /opt (or ~/ if no sudo)
+  echo ""
+  echo "Installing Neovim..."
   if [[ -f offline-packages/linux/nvim-linux64.tar.gz ]]; then
-    if [[ -n "$USE_SUDO" ]]; then
-      $USE_SUDO tar -xzf offline-packages/linux/nvim-linux64.tar.gz -C /opt/
-      $USE_SUDO ln -sf /opt/nvim-linux-x86_64/bin/nvim "$BIN_DIR/nvim"
+    # Check if nvim already exists
+    if [[ -f "$BIN_DIR/nvim" ]]; then
+      existing_ver=$(get_version "$BIN_DIR/nvim" "--version")
+      # Extract to temp to check new version
+      tar -xzf offline-packages/linux/nvim-linux64.tar.gz -C /tmp/
+      new_ver=$(get_version "/tmp/nvim-linux-x86_64/bin/nvim" "--version")
+
+      if prompt_overwrite "Neovim" "$existing_ver" "$new_ver" "$BIN_DIR/nvim"; then
+        if [[ -n "$USE_SUDO" ]]; then
+          $USE_SUDO rm -rf /opt/nvim-linux-x86_64
+          $USE_SUDO mv /tmp/nvim-linux-x86_64 /opt/
+          $USE_SUDO ln -sf /opt/nvim-linux-x86_64/bin/nvim "$BIN_DIR/nvim"
+        else
+          rm -rf ~/nvim-linux-x86_64
+          mv /tmp/nvim-linux-x86_64 ~/
+          ln -sf ~/nvim-linux-x86_64/bin/nvim "$BIN_DIR/nvim"
+        fi
+        echo "✓ Neovim updated"
+      else
+        rm -rf /tmp/nvim-linux-x86_64
+        echo "⊘ Skipped Neovim"
+      fi
     else
-      tar -xzf offline-packages/linux/nvim-linux64.tar.gz -C ~/
-      ln -sf ~/nvim-linux-x86_64/bin/nvim "$BIN_DIR/nvim"
+      # Fresh install
+      tar -xzf offline-packages/linux/nvim-linux64.tar.gz -C /tmp/
+      if [[ -n "$USE_SUDO" ]]; then
+        $USE_SUDO mv /tmp/nvim-linux-x86_64 /opt/
+        $USE_SUDO ln -sf /opt/nvim-linux-x86_64/bin/nvim "$BIN_DIR/nvim"
+      else
+        mv /tmp/nvim-linux-x86_64 ~/
+        ln -sf ~/nvim-linux-x86_64/bin/nvim "$BIN_DIR/nvim"
+      fi
+      echo "✓ Neovim installed"
     fi
   else
     echo "Warning: Neovim tarball not found in offline-packages/linux/"
@@ -95,11 +249,46 @@ else
     exit 1
   fi
 
-  unzip -q offline-packages/macos/WezTerm-macos.zip -d /Applications/
-  tar -xzf offline-packages/macos/nvim-macos-arm64.tar.gz -C /tmp/
-  $USE_SUDO mkdir -p "$BIN_DIR"
-  $USE_SUDO cp /tmp/nvim-macos-arm64/bin/nvim "$BIN_DIR/"
-  rm -rf /tmp/nvim-macos-arm64
+  echo ""
+  echo "Installing macOS binaries..."
+
+  # WezTerm
+  if [[ -d /Applications/WezTerm.app ]]; then
+    echo "WezTerm already installed at /Applications/WezTerm.app"
+    read -p "Overwrite? [y/N]: " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+      unzip -oq offline-packages/macos/WezTerm-macos.zip -d /Applications/
+      echo "✓ WezTerm updated"
+    else
+      echo "⊘ Skipped WezTerm"
+    fi
+  else
+    unzip -q offline-packages/macos/WezTerm-macos.zip -d /Applications/
+    echo "✓ WezTerm installed"
+  fi
+
+  # Neovim
+  echo ""
+  echo "Installing Neovim..."
+  if [[ -f "$BIN_DIR/nvim" ]]; then
+    existing_ver=$(get_version "$BIN_DIR/nvim" "--version")
+    tar -xzf offline-packages/macos/nvim-macos-arm64.tar.gz -C /tmp/
+    new_ver=$(get_version "/tmp/nvim-macos-arm64/bin/nvim" "--version")
+
+    if prompt_overwrite "Neovim" "$existing_ver" "$new_ver" "$BIN_DIR/nvim"; then
+      $USE_SUDO cp /tmp/nvim-macos-arm64/bin/nvim "$BIN_DIR/"
+      echo "✓ Neovim updated"
+    else
+      echo "⊘ Skipped Neovim"
+    fi
+    rm -rf /tmp/nvim-macos-arm64
+  else
+    tar -xzf offline-packages/macos/nvim-macos-arm64.tar.gz -C /tmp/
+    $USE_SUDO cp /tmp/nvim-macos-arm64/bin/nvim "$BIN_DIR/"
+    rm -rf /tmp/nvim-macos-arm64
+    echo "✓ Neovim installed"
+  fi
 fi
 
 # Install Neovim plugins (if bundled)

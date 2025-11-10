@@ -9,6 +9,7 @@ BTOP_VERSION := v1.3.2
 EZA_VERSION := v0.18.2
 ZOX_VERSION := v0.9.8
 DELTA_VERSION := 0.17.0
+GUM_VERSION := v0.15.1
 
 # Detect OS for local testing
 OS := $(shell uname -s)
@@ -39,7 +40,7 @@ status:
 	@ls -lh offline-packages/linux/{wezterm.AppImage,tmux-3.4-static-x86_64,nvim-linux64.tar.gz} 2>/dev/null | awk '{print $$5 "\t" $$9}' || echo "  Some core binaries missing"
 	@echo ""
 	@echo "CLI tools:"
-	@ls -lh offline-packages/linux/{fzf,fd,rg,bat,starship,btop,eza,zoxide,delta} 2>/dev/null | awk '{print $$5 "\t" $$9}' || echo "  Some tools missing"
+	@ls -lh offline-packages/linux/{fzf,fd,rg,bat,starship,btop,eza,zoxide,delta,gum} 2>/dev/null | awk '{print $$5 "\t" $$9}' || echo "  Some tools missing"
 	@echo ""
 	@echo "macOS binaries:"
 	@ls -lh offline-packages/macos/{WezTerm-macos.zip,nvim-macos-arm64.tar.gz} 2>/dev/null | awk '{print $$5 "\t" $$9}' || echo "  Some binaries missing"
@@ -137,6 +138,16 @@ update-linux:
 		echo "  ✓ delta already present"; \
 	fi
 
+	# gum - charm bracelet TUI library
+	@if [ ! -f offline-packages/linux/gum ] || [ $$(stat -f%z offline-packages/linux/gum 2>/dev/null || stat -c%s offline-packages/linux/gum 2>/dev/null) -lt 1000 ]; then \
+		echo "  → gum (pretty TUI toolkit)..."; \
+		curl -fL "https://github.com/charmbracelet/gum/releases/download/$(GUM_VERSION)/gum_$$(echo $(GUM_VERSION) | sed 's/^v//')_Linux_x86_64.tar.gz" | \
+			tar -xz -C /tmp/ && mv /tmp/gum_$$(echo $(GUM_VERSION) | sed 's/^v//')_Linux_x86_64/gum offline-packages/linux/gum && rm -rf /tmp/gum_*; \
+		chmod +x offline-packages/linux/gum; \
+	else \
+		echo "  ✓ gum already present"; \
+	fi
+
 update-macos:
 	@echo "Downloading macOS binaries..."
 	@mkdir -p offline-packages/macos
@@ -157,6 +168,16 @@ update-macos:
 			-o offline-packages/macos/nvim-macos-arm64.tar.gz; \
 	else \
 		echo "  ✓ Neovim macOS already present"; \
+	fi
+
+	# gum - charm bracelet TUI library
+	@if [ ! -f offline-packages/macos/gum ] || [ $$(stat -f%z offline-packages/macos/gum 2>/dev/null || stat -c%s offline-packages/macos/gum 2>/dev/null) -lt 1000 ]; then \
+		echo "  → gum (pretty TUI toolkit)..."; \
+		curl -fL "https://github.com/charmbracelet/gum/releases/download/$(GUM_VERSION)/gum_$$(echo $(GUM_VERSION) | sed 's/^v//')_Darwin_arm64.tar.gz" | \
+			tar -xz -C /tmp/ && mv /tmp/gum_$$(echo $(GUM_VERSION) | sed 's/^v//')_Darwin_arm64/gum offline-packages/macos/gum && rm -rf /tmp/gum_*; \
+		chmod +x offline-packages/macos/gum; \
+	else \
+		echo "  ✓ gum already present"; \
 	fi
 
 update-fonts:
