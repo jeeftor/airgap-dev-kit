@@ -268,14 +268,14 @@ if [[ $OS == "linux" ]]; then
     IFS='|' read -r source dest name flag <<< "$binary_spec"
     [[ ! -f "$source" ]] && continue
 
-    local status=$(needs_update "$source" "$BIN_DIR/$dest" "$flag")
+    status=$(needs_update "$source" "$BIN_DIR/$dest" "$flag")
     case "$status" in
       new)
         NEW_INSTALLS+=("$binary_spec")
         ;;
       update)
-        local existing_ver=$(get_version "$BIN_DIR/$dest" "$flag")
-        local new_ver=$(get_version "$source" "$flag")
+        existing_ver=$(get_version "$BIN_DIR/$dest" "$flag")
+        new_ver=$(get_version "$source" "$flag")
         UPDATES_NEEDED+=("$name ($existing_ver → $new_ver)|$binary_spec")
         ;;
       same)

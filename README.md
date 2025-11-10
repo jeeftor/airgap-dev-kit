@@ -7,25 +7,58 @@ A complete, offline-ready terminal development environment for macOS and Linux, 
 
 ## ⚡ Quick Start
 
-### For Internet-Connected Machines
+### Linux (One-Liner)
 
-**Option 1: Download Latest Release (Recommended)**
-
+**Using curl:**
 ```bash
-# Download pre-built release from GitHub
-wget https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/airgap-dev-kit.tar.gz
+curl -L https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/airgap-dev-kit-linux-x86_64.tar.gz | tar -xz && cd airgap-dev-kit && ./install.sh
+```
+
+**Using wget:**
+```bash
+wget -qO- https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/airgap-dev-kit-linux-x86_64.tar.gz | tar -xz && cd airgap-dev-kit && ./install.sh
+```
+
+### macOS (One-Liner)
+
+**Using curl:**
+```bash
+curl -L https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/airgap-dev-kit-macos-arm64.tar.gz | tar -xz && cd airgap-dev-kit && ./install.sh
+```
+
+### Traditional Install (with verification)
+
+**Linux x86_64:**
+```bash
+# Download latest release
+wget https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/airgap-dev-kit-linux-x86_64.tar.gz
 wget https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/checksums.txt
 
 # Verify integrity
 sha256sum -c checksums.txt
 
 # Extract and install
-tar -xzf airgap-dev-kit.tar.gz
+tar -xzf airgap-dev-kit-linux-x86_64.tar.gz
 cd airgap-dev-kit
 ./install.sh
 ```
 
-**Option 2: Build From Source**
+**macOS ARM64 (Apple Silicon):**
+```bash
+# Download latest release
+curl -LO https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/airgap-dev-kit-macos-arm64.tar.gz
+curl -LO https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/checksums.txt
+
+# Verify integrity
+shasum -a 256 -c checksums.txt
+
+# Extract and install
+tar -xzf airgap-dev-kit-macos-arm64.tar.gz
+cd airgap-dev-kit
+./install.sh
+```
+
+### Build From Source
 
 ```bash
 # Clone repository
