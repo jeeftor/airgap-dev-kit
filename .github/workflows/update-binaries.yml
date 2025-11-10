@@ -8,10 +8,7 @@ on:
   push:
     branches:
       - main
-    paths:
-      - '.github/workflows/update-binaries.yml'
-      - 'Makefile'
-      - 'config/.config/nvim/**'
+      - master  # Support both main and master branch names
 
 jobs:
   build:

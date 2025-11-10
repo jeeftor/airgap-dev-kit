@@ -44,8 +44,9 @@ fonts/JetBrainsMono/
 *.swn
 .*.sw[a-z]
 
-# Neovim
+# Neovim runtime (keep config/.config/nvim/ in repo)
 .nvim/
+config/.config/nvim/lazy-lock.json  # Lock file can be regenerated
 
 # Stow conflicts
 .stow-local-ignore

@@ -1,4 +1,4 @@
-.PHONY: help update verify package clean install
+.PHONY: help update verify package clean install sync-nvim-config
 
 # Version variables - update these when new releases are available
 WEZTERM_VERSION := 20230712-072601-f4abf8fd
@@ -21,12 +21,13 @@ endif
 help:
 	@echo "Air-Gap Dev Kit - Makefile Commands"
 	@echo "===================================="
-	@echo "make update       - Download all missing binaries"
-	@echo "make verify       - Verify all binaries are present and valid"
-	@echo "make package      - Create tarball for offline deployment"
-	@echo "make install      - Install on current machine (runs install.sh)"
-	@echo "make clean        - Remove downloaded binaries (keeps placeholders)"
-	@echo "make clean-all    - Remove everything including package tarballs"
+	@echo "make update            - Download all missing binaries"
+	@echo "make verify            - Verify all binaries are present and valid"
+	@echo "make package           - Create tarball for offline deployment"
+	@echo "make install           - Install on current machine (runs install.sh)"
+	@echo "make sync-nvim-config  - Sync local Neovim config to repo"
+	@echo "make clean             - Remove downloaded binaries (keeps placeholders)"
+	@echo "make clean-all         - Remove everything including package tarballs"
 	@echo ""
 	@echo "Current status:"
 	@$(MAKE) --no-print-directory status
@@ -253,3 +254,19 @@ clean-all: clean
 	@echo "Removing package tarballs..."
 	@rm -f airgap-dev-kit.tar.gz airgap-dev-kit-full.tar.gz
 	@echo "✓ All generated files removed."
+
+sync-nvim-config:
+	@echo "Syncing local Neovim config to repo..."
+	@if [ ! -d ~/.config/nvim ]; then \
+		echo "Error: ~/.config/nvim not found!"; \
+		echo "Please set up your Neovim config first."; \
+		exit 1; \
+	fi
+	@mkdir -p config/.config/nvim
+	@cp -r ~/.config/nvim/* config/.config/nvim/
+	@echo "✓ Neovim config synced from ~/.config/nvim to config/.config/nvim"
+	@echo ""
+	@echo "Files synced:"
+	@ls -lah config/.config/nvim/
+	@echo ""
+	@echo "Don't forget to commit: git add config/.config/nvim && git commit -m 'Update Neovim config'"
