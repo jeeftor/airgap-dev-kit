@@ -115,10 +115,21 @@ if [[ -f ~/bin/starship ]]; then
 fi
 echo ""
 echo "4. Launch your environment:"
-echo "   wezterm start -- tmux new-session nvim"
+if [[ -n "$DISPLAY" || "$OSTYPE" == "darwin"* ]]; then
+  echo "   wezterm start -- tmux new-session nvim  # GUI environment"
+else
+  echo "   tmux new-session nvim  # Headless/SSH (WezTerm requires GUI)"
+fi
 echo ""
 echo "📚 Installed tools:"
-echo "   Core: wezterm, tmux, nvim, fzf, fd, rg, bat, starship"
+if [[ -n "$DISPLAY" || "$OSTYPE" == "darwin"* ]]; then
+  echo "   Terminal: wezterm (GUI), tmux (multiplexer)"
+else
+  echo "   Terminal: tmux (multiplexer)"
+  echo "   Note: WezTerm installed but requires GUI (use on desktop)"
+fi
+echo "   Editor: nvim (with plugins)"
+echo "   CLI Tools: fzf, fd, rg, bat, starship"
 if [[ -f ~/bin/lsd ]]; then echo "   Optional: lsd"; fi
 if [[ -f ~/bin/btop ]]; then echo "   Optional: btop"; fi
 if [[ -f ~/bin/eza ]]; then echo "   Optional: eza"; fi
@@ -126,7 +137,7 @@ if [[ -f ~/bin/zoxide ]]; then echo "   Optional: zoxide"; fi
 if [[ -f ~/bin/delta ]]; then echo "   Optional: delta"; fi
 echo ""
 echo "💡 Tips:"
-echo "   - Use 'fzf' for fuzzy file finding"
+echo "   - Use 'fzf' for fuzzy file finding (Ctrl+R for history)"
 echo "   - Use 'fd <pattern>' instead of 'find'"
 echo "   - Use 'rg <pattern>' instead of 'grep'"
 if [[ -f ~/bin/btop ]]; then
@@ -134,5 +145,14 @@ if [[ -f ~/bin/btop ]]; then
 fi
 if [[ -f ~/bin/zoxide ]]; then
   echo "   - After setup, use 'z <dir>' to jump to directories"
+fi
+if [[ -z "$DISPLAY" && "$OSTYPE" != "darwin"* ]]; then
+  echo ""
+  echo "🔌 SSH/Headless Environment Detected:"
+  echo "   - tmux is your friend: 'tmux new -s work'"
+  echo "   - Create splits: Ctrl+b % (vertical) or Ctrl+b \" (horizontal)"
+  echo "   - Navigate panes: Ctrl+b <arrow keys>"
+  echo "   - Detach: Ctrl+b d, Reattach: 'tmux attach'"
+  echo "   - See shell-setup-example.sh for more tips"
 fi
 echo ""
