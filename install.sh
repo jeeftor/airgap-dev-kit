@@ -183,9 +183,32 @@ if [[ $OS == "linux" ]]; then
     exit 1
   fi
 
+  # Ask about GUI/headless environment
+  echo ""
+  if has_gum && [[ -f "$BIN_DIR/gum" ]]; then
+    if $BIN_DIR/gum confirm "Install WezTerm (GUI terminal emulator)?"; then
+      INSTALL_WEZTERM=true
+    else
+      INSTALL_WEZTERM=false
+    fi
+  else
+    read -p "Install WezTerm (GUI terminal emulator)? Needed for desktop, skip for SSH-only servers [y/N]: " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+      INSTALL_WEZTERM=true
+    else
+      INSTALL_WEZTERM=false
+    fi
+  fi
+
   echo ""
   echo "Installing core binaries..."
-  install_binary "offline-packages/linux/wezterm.AppImage" "wezterm" "WezTerm" "--version"
+
+  if [[ "$INSTALL_WEZTERM" == true ]]; then
+    install_binary "offline-packages/linux/wezterm.AppImage" "wezterm" "WezTerm" "--version"
+  else
+    echo "⊘ Skipped WezTerm (headless environment)"
+  fi
   install_binary "offline-packages/linux/tmux-3.4-static-x86_64" "tmux" "tmux" "-V"
   install_binary "offline-packages/linux/fzf" "fzf" "fzf" "--version"
   install_binary "offline-packages/linux/fd" "fd" "fd" "--version"
@@ -375,18 +398,17 @@ if [[ -f ~/bin/starship ]]; then
 fi
 echo ""
 echo "4. Launch your environment:"
-if [[ -n "$DISPLAY" || "$OSTYPE" == "darwin"* ]]; then
+if [[ "$INSTALL_WEZTERM" == true || "$OSTYPE" == "darwin"* ]]; then
   echo "   wezterm start -- tmux new-session nvim  # GUI environment"
 else
-  echo "   tmux new-session nvim  # Headless/SSH (WezTerm requires GUI)"
+  echo "   tmux new-session nvim  # Headless/SSH"
 fi
 echo ""
 echo "📚 Installed tools:"
-if [[ -n "$DISPLAY" || "$OSTYPE" == "darwin"* ]]; then
+if [[ "$INSTALL_WEZTERM" == true || "$OSTYPE" == "darwin"* ]]; then
   echo "   Terminal: wezterm (GUI), tmux (multiplexer)"
 else
   echo "   Terminal: tmux (multiplexer)"
-  echo "   Note: WezTerm installed but requires GUI (use on desktop)"
 fi
 echo "   Editor: nvim (with plugins)"
 echo "   CLI Tools: fzf, fd, rg, bat, starship"
