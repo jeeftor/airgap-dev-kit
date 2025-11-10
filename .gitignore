@@ -1,0 +1,73 @@
+# Packaged releases
+*.tar.gz
+*.zip
+airgap-dev-kit.tar.gz
+
+# Downloaded binaries (keep placeholder files, ignore actual binaries)
+offline-packages/linux/wezterm.AppImage
+offline-packages/linux/tmux-3.4-static-x86_64
+offline-packages/linux/nvim-linux64.tar.gz
+offline-packages/linux/nvim-linux64/
+offline-packages/linux/fzf
+offline-packages/linux/btop
+offline-packages/linux/eza
+offline-packages/linux/zoxide
+offline-packages/linux/delta
+offline-packages/linux/lsd
+offline-packages/macos/WezTerm-macos.zip
+offline-packages/macos/nvim-macos-arm64.tar.gz
+
+# Bundled Neovim plugins
+offline-packages/lazy-plugins.tar.gz
+
+# Checksums
+checksums.txt
+sha256sums.txt
+
+# Extracted font directories
+fonts/JetBrainsMonoNerdFont-*/
+fonts/JetBrainsMono/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Linux
+*~
+.directory
+
+# Vim swap files
+*.swp
+*.swo
+*.swn
+.*.sw[a-z]
+
+# Neovim
+.nvim/
+
+# Stow conflicts
+.stow-local-ignore
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Build artifacts
+build/
+dist/
+
+# Editor directories
+.vscode/
+.idea/
+*.code-workspace
+
+# Log files
+*.log
+install-*.log
+
+# Test directories
+test-install/
+sandbox/
