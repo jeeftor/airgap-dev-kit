@@ -85,4 +85,54 @@ else
   fc-cache -fv
 fi
 
-echo "Done! Launch with: ~/bin/wezterm"
+echo ""
+echo "=========================================="
+echo "✓ Installation complete!"
+echo "=========================================="
+echo ""
+echo "📋 Next Steps:"
+echo ""
+echo "1. Add tools to your PATH (add to ~/.bashrc or ~/.zshrc):"
+echo "   export PATH=\"\$HOME/bin:\$PATH\""
+echo ""
+echo "2. Source your profile or restart shell:"
+echo "   source ~/.bashrc  # or ~/.zshrc"
+echo ""
+echo "3. Optional: Set up aliases in ~/.bashrc or ~/.zshrc:"
+if [[ -f ~/bin/lsd ]]; then
+  echo "   alias ls='lsd'"
+  echo "   alias ll='lsd -la'"
+  echo "   alias tree='lsd --tree'"
+fi
+if [[ -f ~/bin/bat ]]; then
+  echo "   alias cat='bat --paging=never'"
+fi
+if [[ -f ~/bin/zoxide ]]; then
+  echo "   eval \"\$(zoxide init bash)\"  # or zsh, fish"
+fi
+if [[ -f ~/bin/starship ]]; then
+  echo "   eval \"\$(starship init bash)\"  # or zsh, fish"
+fi
+echo ""
+echo "4. Launch your environment:"
+echo "   wezterm start -- tmux new-session nvim"
+echo ""
+echo "📚 Installed tools:"
+echo "   Core: wezterm, tmux, nvim, fzf, fd, rg, bat, starship"
+if [[ -f ~/bin/lsd ]]; then echo "   Optional: lsd"; fi
+if [[ -f ~/bin/btop ]]; then echo "   Optional: btop"; fi
+if [[ -f ~/bin/eza ]]; then echo "   Optional: eza"; fi
+if [[ -f ~/bin/zoxide ]]; then echo "   Optional: zoxide"; fi
+if [[ -f ~/bin/delta ]]; then echo "   Optional: delta"; fi
+echo ""
+echo "💡 Tips:"
+echo "   - Use 'fzf' for fuzzy file finding"
+echo "   - Use 'fd <pattern>' instead of 'find'"
+echo "   - Use 'rg <pattern>' instead of 'grep'"
+if [[ -f ~/bin/btop ]]; then
+  echo "   - Run 'btop' for system monitoring"
+fi
+if [[ -f ~/bin/zoxide ]]; then
+  echo "   - After setup, use 'z <dir>' to jump to directories"
+fi
+echo ""
