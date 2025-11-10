@@ -2,12 +2,12 @@
 
 # Version variables - update these when new releases are available
 WEZTERM_VERSION := 20230712-072601-f4abf8fd
-FZF_VERSION := 0.55.0
-TMUX_VERSION := 3.4
+FZF_VERSION := 0.66.1
+TMUX_VERSION := 3.5a
 NERD_FONT_VERSION := v3.2.1
 BTOP_VERSION := v1.3.2
 EZA_VERSION := v0.18.2
-ZOX_VERSION := v0.9.4
+ZOX_VERSION := v0.9.8
 DELTA_VERSION := 0.17.0
 
 # Detect OS for local testing
@@ -66,10 +66,10 @@ update-linux:
 		echo "  ✓ WezTerm AppImage already present"; \
 	fi
 
-	# Static tmux
+	# tmux AppImage
 	@if [ ! -f offline-packages/linux/tmux-3.4-static-x86_64 ] || [ $$(stat -f%z offline-packages/linux/tmux-3.4-static-x86_64 2>/dev/null || stat -c%s offline-packages/linux/tmux-3.4-static-x86_64 2>/dev/null) -lt 1000 ]; then \
-		echo "  → tmux static binary..."; \
-		curl -fL "https://github.com/nelsonenzo/tmux-static/releases/download/v$(TMUX_VERSION)/tmux-$(TMUX_VERSION)-static-x86_64" \
+		echo "  → tmux AppImage..."; \
+		curl -fL "https://github.com/nelsonenzo/tmux-appimage/releases/download/$(TMUX_VERSION)/tmux.appimage" \
 			-o offline-packages/linux/tmux-3.4-static-x86_64; \
 		chmod +x offline-packages/linux/tmux-3.4-static-x86_64; \
 	else \
@@ -79,7 +79,7 @@ update-linux:
 	# Neovim Linux
 	@if [ ! -f offline-packages/linux/nvim-linux64.tar.gz ] || [ $$(stat -f%z offline-packages/linux/nvim-linux64.tar.gz 2>/dev/null || stat -c%s offline-packages/linux/nvim-linux64.tar.gz 2>/dev/null) -lt 1000 ]; then \
 		echo "  → Neovim Linux static build..."; \
-		curl -fL "https://github.com/neovim/neovim/releases/download/nightly/nvim-linux64.tar.gz" \
+		curl -fL "https://github.com/neovim/neovim/releases/download/v0.11.5/nvim-linux-x86_64.tar.gz" \
 			-o offline-packages/linux/nvim-linux64.tar.gz; \
 	else \
 		echo "  ✓ Neovim Linux already present"; \
@@ -88,7 +88,7 @@ update-linux:
 	# fzf
 	@if [ ! -f offline-packages/linux/fzf ] || [ $$(stat -f%z offline-packages/linux/fzf 2>/dev/null || stat -c%s offline-packages/linux/fzf 2>/dev/null) -lt 1000 ]; then \
 		echo "  → fzf fuzzy finder..."; \
-		curl -fL "https://github.com/junegunn/fzf/releases/download/$(FZF_VERSION)/fzf-$(FZF_VERSION)-linux_amd64.tar.gz" | \
+		curl -fL "https://github.com/junegunn/fzf/releases/download/v$(FZF_VERSION)/fzf-$(FZF_VERSION)-linux_amd64.tar.gz" | \
 			tar -xz -C offline-packages/linux/ fzf; \
 		chmod +x offline-packages/linux/fzf; \
 	else \
@@ -120,8 +120,8 @@ update-linux:
 	# zoxide - smarter cd
 	@if [ ! -f offline-packages/linux/zoxide ] || [ $$(stat -f%z offline-packages/linux/zoxide 2>/dev/null || stat -c%s offline-packages/linux/zoxide 2>/dev/null) -lt 1000 ]; then \
 		echo "  → zoxide (smarter cd)..."; \
-		curl -fL "https://github.com/ajeetdsouza/zoxide/releases/download/$(ZOX_VERSION)/zoxide-$(ZOX_VERSION)-x86_64-unknown-linux-musl.tar.gz" | \
-			tar -xz -C offline-packages/linux/ zoxide; \
+		curl -fL "https://github.com/ajeetdsouza/zoxide/releases/download/$(ZOX_VERSION)/zoxide-$$(echo $(ZOX_VERSION) | sed 's/^v//')-x86_64-unknown-linux-musl.tar.gz" | \
+			tar -xz -C offline-packages/linux/; \
 		chmod +x offline-packages/linux/zoxide; \
 	else \
 		echo "  ✓ zoxide already present"; \
@@ -150,10 +150,10 @@ update-macos:
 		echo "  ✓ WezTerm macOS already present"; \
 	fi
 
-	# Neovim macOS (already present, but check anyway)
+	# Neovim macOS ARM64
 	@if [ ! -f offline-packages/macos/nvim-macos-arm64.tar.gz ] || [ $$(stat -f%z offline-packages/macos/nvim-macos-arm64.tar.gz 2>/dev/null || stat -c%s offline-packages/macos/nvim-macos-arm64.tar.gz 2>/dev/null) -lt 1000000 ]; then \
 		echo "  → Neovim macOS ARM64..."; \
-		curl -fL "https://github.com/neovim/neovim/releases/download/nightly/nvim-macos-arm64.tar.gz" \
+		curl -fL "https://github.com/neovim/neovim/releases/download/v0.11.5/nvim-macos-arm64.tar.gz" \
 			-o offline-packages/macos/nvim-macos-arm64.tar.gz; \
 	else \
 		echo "  ✓ Neovim macOS already present"; \
