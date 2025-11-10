@@ -86,7 +86,7 @@ update-linux:
 		echo "  ✓ Neovim Linux already present"; \
 	fi
 
-	# fzf
+	# fzf (binary and shell integration scripts)
 	@if [ ! -f offline-packages/linux/fzf ] || [ $$(stat -f%z offline-packages/linux/fzf 2>/dev/null || stat -c%s offline-packages/linux/fzf 2>/dev/null) -lt 1000 ]; then \
 		echo "  → fzf fuzzy finder..."; \
 		curl -fL "https://github.com/junegunn/fzf/releases/download/v$(FZF_VERSION)/fzf-$(FZF_VERSION)-linux_amd64.tar.gz" | \
@@ -94,6 +94,22 @@ update-linux:
 		chmod +x offline-packages/linux/fzf; \
 	else \
 		echo "  ✓ fzf already present"; \
+	fi
+	@if [ ! -f offline-packages/linux/fzf-key-bindings.bash ] || [ ! -f offline-packages/linux/fzf-completion.bash ]; then \
+		echo "  → fzf shell integration scripts..."; \
+		mkdir -p offline-packages/linux/fzf-scripts; \
+		curl -fL "https://raw.githubusercontent.com/junegunn/fzf/v$(FZF_VERSION)/shell/key-bindings.bash" \
+			-o offline-packages/linux/fzf-scripts/key-bindings.bash; \
+		curl -fL "https://raw.githubusercontent.com/junegunn/fzf/v$(FZF_VERSION)/shell/completion.bash" \
+			-o offline-packages/linux/fzf-scripts/completion.bash; \
+		curl -fL "https://raw.githubusercontent.com/junegunn/fzf/v$(FZF_VERSION)/shell/key-bindings.zsh" \
+			-o offline-packages/linux/fzf-scripts/key-bindings.zsh; \
+		curl -fL "https://raw.githubusercontent.com/junegunn/fzf/v$(FZF_VERSION)/shell/completion.zsh" \
+			-o offline-packages/linux/fzf-scripts/completion.zsh; \
+		curl -fL "https://raw.githubusercontent.com/junegunn/fzf/v$(FZF_VERSION)/shell/key-bindings.fish" \
+			-o offline-packages/linux/fzf-scripts/key-bindings.fish; \
+	else \
+		echo "  ✓ fzf shell scripts already present"; \
 	fi
 
 	@echo "  ✓ fd, rg, bat, starship already present (verified earlier)"
@@ -178,6 +194,24 @@ update-macos:
 		chmod +x offline-packages/macos/gum; \
 	else \
 		echo "  ✓ gum already present"; \
+	fi
+
+	# fzf shell integration scripts (shared between macOS and Linux)
+	@if [ ! -d offline-packages/macos/fzf-scripts ]; then \
+		echo "  → fzf shell integration scripts..."; \
+		mkdir -p offline-packages/macos/fzf-scripts; \
+		curl -fL "https://raw.githubusercontent.com/junegunn/fzf/v$(FZF_VERSION)/shell/key-bindings.bash" \
+			-o offline-packages/macos/fzf-scripts/key-bindings.bash; \
+		curl -fL "https://raw.githubusercontent.com/junegunn/fzf/v$(FZF_VERSION)/shell/completion.bash" \
+			-o offline-packages/macos/fzf-scripts/completion.bash; \
+		curl -fL "https://raw.githubusercontent.com/junegunn/fzf/v$(FZF_VERSION)/shell/key-bindings.zsh" \
+			-o offline-packages/macos/fzf-scripts/key-bindings.zsh; \
+		curl -fL "https://raw.githubusercontent.com/junegunn/fzf/v$(FZF_VERSION)/shell/completion.zsh" \
+			-o offline-packages/macos/fzf-scripts/completion.zsh; \
+		curl -fL "https://raw.githubusercontent.com/junegunn/fzf/v$(FZF_VERSION)/shell/key-bindings.fish" \
+			-o offline-packages/macos/fzf-scripts/key-bindings.fish; \
+	else \
+		echo "  ✓ fzf shell scripts already present"; \
 	fi
 
 update-fonts:

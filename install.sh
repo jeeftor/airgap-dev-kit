@@ -415,6 +415,15 @@ if [[ $OS == "linux" ]]; then
   else
     echo "Warning: Neovim tarball not found in offline-packages/linux/"
   fi
+
+  # Install fzf shell integration scripts
+  if [[ -d offline-packages/linux/fzf-scripts ]]; then
+    echo ""
+    echo "Installing fzf shell integration..."
+    mkdir -p ~/.fzf/shell
+    cp offline-packages/linux/fzf-scripts/* ~/.fzf/shell/
+    echo "✓ fzf shell scripts installed to ~/.fzf/shell/"
+  fi
 else
   # Check if we have macOS binaries
   if [[ ! -d offline-packages/macos ]]; then
@@ -466,6 +475,15 @@ else
     $USE_SUDO cp /tmp/nvim-macos-arm64/bin/nvim "$BIN_DIR/"
     rm -rf /tmp/nvim-macos-arm64
     echo "✓ Neovim installed"
+  fi
+
+  # Install fzf shell integration scripts
+  if [[ -d offline-packages/macos/fzf-scripts ]]; then
+    echo ""
+    echo "Installing fzf shell integration..."
+    mkdir -p ~/.fzf/shell
+    cp offline-packages/macos/fzf-scripts/* ~/.fzf/shell/
+    echo "✓ fzf shell scripts installed to ~/.fzf/shell/"
   fi
 fi
 
@@ -639,6 +657,11 @@ add_to_shell_rc() {
 
   if has_gum && [[ -f "$BIN_DIR/gum" ]]; then
     if $BIN_DIR/gum confirm "Add $description to $(basename $rc_file)?"; then
+      # Try to write, handle permission issues
+      if ! echo "" >> "$rc_file" 2>/dev/null; then
+        echo "  Permission denied, fixing ownership..."
+        $USE_SUDO chown $(whoami):$(id -gn) "$rc_file"
+      fi
       echo "" >> "$rc_file"
       echo "# Added by airgap-dev-kit installer" >> "$rc_file"
       echo "$config_line" >> "$rc_file"
@@ -652,6 +675,11 @@ add_to_shell_rc() {
     read -p "Add $description to $(basename $rc_file)? [Y/n]: " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
+      # Try to write, handle permission issues
+      if ! echo "" >> "$rc_file" 2>/dev/null; then
+        echo "  Permission denied, fixing ownership..."
+        $USE_SUDO chown $(whoami):$(id -gn) "$rc_file"
+      fi
       echo "" >> "$rc_file"
       echo "# Added by airgap-dev-kit installer" >> "$rc_file"
       echo "$config_line" >> "$rc_file"
@@ -736,6 +764,19 @@ else
         add_to_shell_rc "$SHELL_RC" "zoxide init fish | source" "Zoxide (z command)"
       else
         add_to_shell_rc "$SHELL_RC" "eval \"\$(zoxide init $SHELL_TYPE)\"" "Zoxide (z command)"
+      fi
+    fi
+
+    # fzf shell integration (Ctrl+R history, Ctrl+T file finder, Alt+C cd)
+    if [[ -d ~/.fzf/shell ]]; then
+      if [[ "$SHELL_TYPE" == "bash" ]]; then
+        add_to_shell_rc "$SHELL_RC" "source ~/.fzf/shell/key-bindings.bash" "fzf key bindings (Ctrl+R, Ctrl+T)"
+        add_to_shell_rc "$SHELL_RC" "source ~/.fzf/shell/completion.bash" "fzf completions"
+      elif [[ "$SHELL_TYPE" == "zsh" ]]; then
+        add_to_shell_rc "$SHELL_RC" "source ~/.fzf/shell/key-bindings.zsh" "fzf key bindings (Ctrl+R, Ctrl+T)"
+        add_to_shell_rc "$SHELL_RC" "source ~/.fzf/shell/completion.zsh" "fzf completions"
+      elif [[ "$SHELL_TYPE" == "fish" ]]; then
+        add_to_shell_rc "$SHELL_RC" "source ~/.fzf/shell/key-bindings.fish" "fzf key bindings"
       fi
     fi
 
