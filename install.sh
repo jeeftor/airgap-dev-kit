@@ -769,6 +769,16 @@ else
 
     # fzf shell integration (Ctrl+R history, Ctrl+T file finder, Alt+C cd)
     if [[ -d ~/.fzf/shell ]]; then
+      # Set FZF defaults (without --height to avoid conflicts with key-bindings)
+      if [[ "$SHELL_TYPE" == "bash" ]] || [[ "$SHELL_TYPE" == "zsh" ]]; then
+        add_to_shell_rc "$SHELL_RC" "export FZF_DEFAULT_OPTS='--border --prompt=\"> \" --pointer=\"▶\" --marker=\"✓\"'" "fzf default options"
+        # Optional: Use fd for fzf if available
+        if [[ -f "$BIN_DIR/fd" ]]; then
+          add_to_shell_rc "$SHELL_RC" "export FZF_DEFAULT_COMMAND='fd --type f --hidden --follow --exclude .git'" "fzf use fd for file search"
+          add_to_shell_rc "$SHELL_RC" "export FZF_CTRL_T_COMMAND=\"\$FZF_DEFAULT_COMMAND\"" "fzf Ctrl+T uses fd"
+        fi
+      fi
+
       if [[ "$SHELL_TYPE" == "bash" ]]; then
         add_to_shell_rc "$SHELL_RC" "source ~/.fzf/shell/key-bindings.bash" "fzf key bindings (Ctrl+R, Ctrl+T)"
         add_to_shell_rc "$SHELL_RC" "source ~/.fzf/shell/completion.bash" "fzf completions"
