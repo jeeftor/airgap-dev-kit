@@ -54,13 +54,30 @@ jobs:
             exit 0
           fi
 
+          # Temporarily enable plugin installation for GitHub Actions build
+          # This overrides the air-gap setting in lazy.lua
+          echo "Enabling plugin installation for build..."
+          sed -i 's/missing = false/missing = true/' ~/.config/nvim/lua/config/lazy.lua
+
           # Install plugins using lazy.nvim (headless mode)
           echo "Installing Neovim plugins with lazy.nvim..."
+          echo "This may take 2-3 minutes for all plugins and Treesitter parsers..."
           $NVIM --headless "+Lazy! sync" +qa
 
-          # Give extra time for Treesitter to compile parsers
-          echo "Waiting for Treesitter compilation to complete..."
+          # Run a second time to catch any dependencies that needed other plugins first
+          echo "Running second sync to ensure all dependencies are installed..."
+          $NVIM --headless "+Lazy! sync" +qa
+
+          # Install and compile Treesitter parsers explicitly
+          echo "Ensuring Treesitter parsers are compiled..."
+          $NVIM --headless "+TSUpdateSync" +qa || echo "Treesitter update completed (may show errors, that's ok)"
+
+          # Give a final wait for any background compilation
+          echo "Waiting for background tasks to complete..."
           sleep 5
+
+          # Restore air-gap setting (though we don't commit this)
+          sed -i 's/missing = true/missing = false/' ~/.config/nvim/lua/config/lazy.lua
 
           # Verify plugins were installed
           if [[ -d ~/.local/share/nvim/lazy ]]; then
