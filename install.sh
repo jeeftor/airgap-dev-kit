@@ -9,7 +9,20 @@ else
 fi
 
 echo "Installing $OS binaries..."
-mkdir -p ~/bin
+
+# Determine install location - prefer system dirs if we have sudo, otherwise use ~/bin
+if [[ $EUID -eq 0 ]] || sudo -n true 2>/dev/null; then
+  BIN_DIR="/usr/local/bin"
+  echo "Installing to: $BIN_DIR (system-wide)"
+  USE_SUDO="sudo"
+else
+  BIN_DIR="$HOME/bin"
+  echo "Installing to: $BIN_DIR (user-local, no sudo available)"
+  echo "Note: Add $BIN_DIR to PATH or re-run with sudo for system-wide install"
+  USE_SUDO=""
+fi
+
+$USE_SUDO mkdir -p "$BIN_DIR"
 
 if [[ $OS == "linux" ]]; then
   # Check if we have linux binaries
@@ -18,20 +31,28 @@ if [[ $OS == "linux" ]]; then
     exit 1
   fi
 
-  cp offline-packages/linux/wezterm.AppImage ~/bin/wezterm
-  cp offline-packages/linux/tmux-3.4-static-x86_64 ~/bin/tmux
-  cp offline-packages/linux/{fzf,fd,rg,bat,starship} ~/bin/
+  $USE_SUDO cp offline-packages/linux/wezterm.AppImage "$BIN_DIR/wezterm"
+  $USE_SUDO cp offline-packages/linux/tmux-3.4-static-x86_64 "$BIN_DIR/tmux"
+  $USE_SUDO cp offline-packages/linux/{fzf,fd,rg,bat,starship} "$BIN_DIR/"
 
   # Optional tools (skip if not present)
-  [ -f offline-packages/linux/lsd ] && cp offline-packages/linux/lsd ~/bin/
-  [ -f offline-packages/linux/btop ] && cp offline-packages/linux/btop ~/bin/
-  [ -f offline-packages/linux/eza ] && cp offline-packages/linux/eza ~/bin/
-  [ -f offline-packages/linux/zoxide ] && cp offline-packages/linux/zoxide ~/bin/
-  [ -f offline-packages/linux/delta ] && cp offline-packages/linux/delta ~/bin/
+  [ -f offline-packages/linux/lsd ] && $USE_SUDO cp offline-packages/linux/lsd "$BIN_DIR/"
+  [ -f offline-packages/linux/btop ] && $USE_SUDO cp offline-packages/linux/btop "$BIN_DIR/"
+  [ -f offline-packages/linux/eza ] && $USE_SUDO cp offline-packages/linux/eza "$BIN_DIR/"
+  [ -f offline-packages/linux/zoxide ] && $USE_SUDO cp offline-packages/linux/zoxide "$BIN_DIR/"
+  [ -f offline-packages/linux/delta ] && $USE_SUDO cp offline-packages/linux/delta "$BIN_DIR/"
 
-  # Extract Neovim - handle both possible locations
+  $USE_SUDO chmod +x "$BIN_DIR"/*
+
+  # Extract Neovim to /opt (or ~/ if no sudo)
   if [[ -f offline-packages/linux/nvim-linux64.tar.gz ]]; then
-    tar -xzf offline-packages/linux/nvim-linux64.tar.gz -C ~/
+    if [[ -n "$USE_SUDO" ]]; then
+      $USE_SUDO tar -xzf offline-packages/linux/nvim-linux64.tar.gz -C /opt/
+      $USE_SUDO ln -sf /opt/nvim-linux-x86_64/bin/nvim "$BIN_DIR/nvim"
+    else
+      tar -xzf offline-packages/linux/nvim-linux64.tar.gz -C ~/
+      ln -sf ~/nvim-linux-x86_64/bin/nvim "$BIN_DIR/nvim"
+    fi
   else
     echo "Warning: Neovim tarball not found in offline-packages/linux/"
   fi
@@ -42,11 +63,12 @@ else
     exit 1
   fi
 
-  unzip offline-packages/macos/WezTerm-macos.zip -d /Applications/
-  tar -xzf offline-packages/macos/nvim-macos-arm64.tar.gz -C /opt/homebrew/bin/ --strip-components=1
+  unzip -q offline-packages/macos/WezTerm-macos.zip -d /Applications/
+  tar -xzf offline-packages/macos/nvim-macos-arm64.tar.gz -C /tmp/
+  $USE_SUDO mkdir -p "$BIN_DIR"
+  $USE_SUDO cp /tmp/nvim-macos-arm64/bin/nvim "$BIN_DIR/"
+  rm -rf /tmp/nvim-macos-arm64
 fi
-
-chmod +x ~/bin/*
 
 # Install Neovim plugins (if bundled)
 if [[ -f offline-packages/lazy-plugins.tar.gz ]]; then
@@ -90,13 +112,30 @@ echo "=========================================="
 echo "✓ Installation complete!"
 echo "=========================================="
 echo ""
+echo "📍 Installation Location:"
+echo "   Binaries: $BIN_DIR"
+if [[ -n "$USE_SUDO" ]]; then
+  echo "   Neovim: /opt/nvim-linux-x86_64/ (symlinked to $BIN_DIR/nvim)"
+else
+  echo "   Neovim: ~/nvim-linux-x86_64/bin/nvim (symlinked to $BIN_DIR/nvim)"
+fi
+echo "   Config: ~/.config/nvim/"
+echo "   Fonts: ~/.local/share/fonts/ (Linux) or /Applications/Font Book (macOS)"
+echo ""
 echo "📋 Next Steps:"
 echo ""
-echo "1. Add tools to your PATH (add to ~/.bashrc or ~/.zshrc):"
-echo "   export PATH=\"\$HOME/bin:\$PATH\""
-echo ""
-echo "2. Source your profile or restart shell:"
-echo "   source ~/.bashrc  # or ~/.zshrc"
+if [[ "$BIN_DIR" == "$HOME/bin" ]]; then
+  echo "1. Add tools to your PATH (add to ~/.bashrc or ~/.zshrc):"
+  echo "   export PATH=\"\$HOME/bin:\$PATH\""
+  echo ""
+  echo "2. Source your profile or restart shell:"
+  echo "   source ~/.bashrc  # or ~/.zshrc"
+else
+  echo "1. Tools installed to $BIN_DIR (already in PATH ✓)"
+  echo ""
+  echo "2. Optionally set up aliases in ~/.bashrc or ~/.zshrc"
+  echo "   See: shell-setup-example.sh"
+fi
 echo ""
 echo "3. Optional: Set up aliases in ~/.bashrc or ~/.zshrc:"
 if [[ -f ~/bin/lsd ]]; then
