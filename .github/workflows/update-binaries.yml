@@ -53,6 +53,10 @@ jobs:
           echo "Installing Neovim plugins with lazy.nvim..."
           $NVIM --headless "+Lazy! sync" +qa
 
+          # Give extra time for Treesitter to compile parsers
+          echo "Waiting for Treesitter compilation to complete..."
+          sleep 5
+
           # Verify plugins were installed
           if [[ -d ~/.local/share/nvim/lazy ]]; then
             echo "Plugins installed successfully:"
@@ -65,7 +69,16 @@ jobs:
           # Bundle plugins into tarball
           echo "Bundling plugins..."
           cd ~/.local/share/nvim
-          tar -czf lazy-plugins.tar.gz lazy/ lazy-lock.json
+
+          # Include lazy-lock.json if it exists, otherwise just bundle lazy/
+          if [[ -f ~/.config/nvim/lazy-lock.json ]]; then
+            echo "Including lazy-lock.json from config directory"
+            cp ~/.config/nvim/lazy-lock.json .
+            tar -czf lazy-plugins.tar.gz lazy/ lazy-lock.json
+          else
+            echo "No lazy-lock.json found, bundling plugins only"
+            tar -czf lazy-plugins.tar.gz lazy/
+          fi
 
           # Move to offline-packages
           mv lazy-plugins.tar.gz $GITHUB_WORKSPACE/offline-packages/

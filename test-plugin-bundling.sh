@@ -65,7 +65,16 @@ echo ""
 # Bundle plugins into tarball
 echo "📦 Bundling plugins..."
 cd /tmp/nvim-plugin-test/data/nvim
-tar -czf lazy-plugins.tar.gz lazy/ lazy-lock.json 2>/dev/null || tar -czf lazy-plugins.tar.gz lazy/
+
+# Include lazy-lock.json if it exists
+if [[ -f ~/.config/nvim-test/lazy-lock.json ]]; then
+  echo "Including lazy-lock.json from config directory"
+  cp ~/.config/nvim-test/lazy-lock.json .
+  tar -czf lazy-plugins.tar.gz lazy/ lazy-lock.json
+else
+  echo "No lazy-lock.json found, bundling plugins only"
+  tar -czf lazy-plugins.tar.gz lazy/
+fi
 
 echo "✓ Plugins bundled to: lazy-plugins.tar.gz"
 ls -lh lazy-plugins.tar.gz
