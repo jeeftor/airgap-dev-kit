@@ -79,7 +79,7 @@ wezterm start -- tmux new-session nvim  # If /usr/local/bin
   - Vim-style pane navigation
   - Beautiful status bar with system info
   - Smart split commands: `|` and `-`
-- **Editor**: Neovim with pre-configured settings and plugins
+- **Editor**: Neovim with LazyVim (full-featured IDE setup)
 - **Tools**: fzf, fd, ripgrep, bat, starship, lsd, gum (all static/musl binaries)
 - **Font**: JetBrainsMono Nerd Font (112MB, includes icons)
 - **Configs**: Managed via GNU Stow (symlinks to ~/.config/)
@@ -982,6 +982,69 @@ export FZF_DEFAULT_OPTS='--height 40% --border'
 # Use with bat for preview:
 alias preview='fzf --preview="bat --color=always {}"'
 ```
+
+## LazyVim Configuration
+
+The kit includes the official **LazyVim starter** configuration, providing a complete IDE experience:
+
+### What is LazyVim?
+
+LazyVim is a Neovim setup powered by lazy.nvim that transforms Neovim into a modern IDE. It includes:
+
+- **Beautiful Dashboard**: Fancy startup screen with quick actions
+- **File Explorer**: Neo-tree for browsing files
+- **Fuzzy Finding**: Telescope for finding files, text, and more
+- **LSP Support**: Full language server protocol with autocompletion
+- **Treesitter**: Advanced syntax highlighting
+- **Git Integration**: Fugitive and gitsigns
+- **Status Line**: Lualine with beautiful icons
+- **Notifications**: Beautiful popup notifications
+- **Which-key**: Shows available keybindings
+- **And much more**: 50+ pre-configured plugins
+
+### Key Bindings
+
+**Leader key**: `Space`
+
+**Essential shortcuts**:
+- `Space` + `Space` - Find files
+- `Space` + `/` - Search in files (grep)
+- `Space` + `e` - Toggle file explorer
+- `Space` + `ff` - Find files
+- `Space` + `fg` - Live grep
+- `Space` + `fb` - Find buffers
+- `Ctrl-/` - Toggle terminal
+
+**LSP** (when editing code):
+- `gd` - Go to definition
+- `gr` - Go to references
+- `K` - Hover documentation
+- `Space` + `ca` - Code actions
+- `Space` + `rn` - Rename symbol
+
+**Window management**:
+- `Ctrl-h/j/k/l` - Navigate windows
+- `Ctrl-w s` - Split horizontal
+- `Ctrl-w v` - Split vertical
+
+### Air-Gap Modifications
+
+The LazyVim config has been modified for air-gap environments:
+- `install.missing = false` - Won't try to auto-install plugins
+- `checker.enabled = false` - Won't check for updates
+- `change_detection.enabled = false` - Won't watch for changes
+
+All plugins are pre-bundled by GitHub Actions, so LazyVim works completely offline!
+
+### Customization
+
+LazyVim is designed to be customized. Add your own plugins and settings in:
+- `~/.config/nvim/lua/plugins/` - Custom plugin specifications
+- `~/.config/nvim/lua/config/options.lua` - Neovim options
+- `~/.config/nvim/lua/config/keymaps.lua` - Custom keybindings
+- `~/.config/nvim/lua/config/autocmds.lua` - Auto commands
+
+See the [LazyVim documentation](https://www.lazyvim.org) for more details (view offline after installation).
 
 ## Fancy Tmux Configuration
 
