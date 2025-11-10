@@ -129,10 +129,14 @@ if [[ -f offline-packages/$OS/gum ]]; then
   if [[ -f "$BIN_DIR/gum" ]]; then
     existing_ver=$(get_version "$BIN_DIR/gum")
     new_ver=$(get_version "offline-packages/$OS/gum")
-    if prompt_overwrite "gum" "$existing_ver" "$new_ver" "$BIN_DIR/gum"; then
+
+    # Skip if same version
+    if [[ "$existing_ver" == "$new_ver" ]]; then
+      echo "✓ gum (already up-to-date: $existing_ver)"
+    elif prompt_overwrite "gum" "$existing_ver" "$new_ver" "$BIN_DIR/gum"; then
       $USE_SUDO cp offline-packages/$OS/gum "$BIN_DIR/"
       $USE_SUDO chmod +x "$BIN_DIR/gum"
-      echo "✓ gum installed"
+      echo "✓ gum updated ($existing_ver → $new_ver)"
     else
       echo "⊘ Skipped gum"
     fi
