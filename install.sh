@@ -449,13 +449,18 @@ else
     tar -xzf offline-packages/macos/nvim-macos-arm64.tar.gz -C /tmp/
     new_ver=$(get_version "/tmp/nvim-macos-arm64/bin/nvim" "--version")
 
-    if prompt_overwrite "Neovim" "$existing_ver" "$new_ver" "$BIN_DIR/nvim"; then
+    # Skip if same version
+    if [[ "$existing_ver" == "$new_ver" ]]; then
+      echo "✓ Neovim (already up-to-date: $existing_ver)"
+      rm -rf /tmp/nvim-macos-arm64
+    elif prompt_overwrite "Neovim" "$existing_ver" "$new_ver" "$BIN_DIR/nvim"; then
       $USE_SUDO cp /tmp/nvim-macos-arm64/bin/nvim "$BIN_DIR/"
-      echo "✓ Neovim updated"
+      echo "✓ Neovim updated ($existing_ver → $new_ver)"
+      rm -rf /tmp/nvim-macos-arm64
     else
       echo "⊘ Skipped Neovim"
+      rm -rf /tmp/nvim-macos-arm64
     fi
-    rm -rf /tmp/nvim-macos-arm64
   else
     tar -xzf offline-packages/macos/nvim-macos-arm64.tar.gz -C /tmp/
     $USE_SUDO cp /tmp/nvim-macos-arm64/bin/nvim "$BIN_DIR/"
