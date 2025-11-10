@@ -12,6 +12,12 @@ echo "Installing $OS binaries..."
 mkdir -p ~/bin
 
 if [[ $OS == "linux" ]]; then
+  # Check if we have linux binaries
+  if [[ ! -d offline-packages/linux ]]; then
+    echo "Error: Linux binaries not found. Did you download the macOS package by mistake?"
+    exit 1
+  fi
+
   cp offline-packages/linux/wezterm.AppImage ~/bin/wezterm
   cp offline-packages/linux/tmux-3.4-static-x86_64 ~/bin/tmux
   cp offline-packages/linux/{fzf,fd,rg,bat,starship} ~/bin/
@@ -23,8 +29,19 @@ if [[ $OS == "linux" ]]; then
   [ -f offline-packages/linux/zoxide ] && cp offline-packages/linux/zoxide ~/bin/
   [ -f offline-packages/linux/delta ] && cp offline-packages/linux/delta ~/bin/
 
-  tar -xzf offline-packages/linux/nvim-linux64.tar.gz -C ~/
+  # Extract Neovim - handle both possible locations
+  if [[ -f offline-packages/linux/nvim-linux64.tar.gz ]]; then
+    tar -xzf offline-packages/linux/nvim-linux64.tar.gz -C ~/
+  else
+    echo "Warning: Neovim tarball not found in offline-packages/linux/"
+  fi
 else
+  # Check if we have macOS binaries
+  if [[ ! -d offline-packages/macos ]]; then
+    echo "Error: macOS binaries not found. Did you download the Linux package by mistake?"
+    exit 1
+  fi
+
   unzip offline-packages/macos/WezTerm-macos.zip -d /Applications/
   tar -xzf offline-packages/macos/nvim-macos-arm64.tar.gz -C /opt/homebrew/bin/ --strip-components=1
 fi
