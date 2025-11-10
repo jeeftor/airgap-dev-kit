@@ -32,8 +32,8 @@ jobs:
           cd $GITHUB_WORKSPACE/offline-packages/linux
           tar -xzf nvim-linux64.tar.gz
 
-          # Set NVIM to the extracted binary path
-          NVIM="$GITHUB_WORKSPACE/offline-packages/linux/nvim-linux64/bin/nvim"
+          # Set NVIM to the extracted binary path (tarball extracts to nvim-linux-x86_64/)
+          NVIM="$GITHUB_WORKSPACE/offline-packages/linux/nvim-linux-x86_64/bin/nvim"
 
           # Verify Neovim is working
           $NVIM --version
