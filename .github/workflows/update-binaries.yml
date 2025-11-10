@@ -251,3 +251,22 @@ jobs:
             offline-packages/lazy-plugins.tar.gz
             checksums.txt
           retention-days: 30
+
+      - name: Cleanup old releases
+        run: |
+          echo "Keeping only the last 3 releases..."
+
+          # Get all releases sorted by creation date (newest first)
+          RELEASES=$(gh release list --limit 100 --json tagName,createdAt --jq 'sort_by(.createdAt) | reverse | .[].tagName')
+
+          # Skip first 3, delete the rest
+          echo "$RELEASES" | tail -n +4 | while read -r tag; do
+            if [[ -n "$tag" ]]; then
+              echo "Deleting old release: $tag"
+              gh release delete "$tag" --yes --cleanup-tag
+            fi
+          done
+
+          echo "✓ Cleanup complete. Kept last 3 releases."
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
