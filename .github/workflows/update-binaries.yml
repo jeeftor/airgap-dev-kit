@@ -29,17 +29,19 @@ jobs:
           echo "Setting up Neovim for plugin installation..."
 
           # Extract the downloaded Neovim binary
-          cd offline-packages/linux
+          cd $GITHUB_WORKSPACE/offline-packages/linux
           tar -xzf nvim-linux64.tar.gz
-          export PATH="$PWD/nvim-linux64/bin:$PATH"
+
+          # Set NVIM to the extracted binary path
+          NVIM="$GITHUB_WORKSPACE/offline-packages/linux/nvim-linux64/bin/nvim"
 
           # Verify Neovim is working
-          nvim --version
+          $NVIM --version
 
           # Set up Neovim config from repo
           mkdir -p ~/.config/nvim
-          if [[ -d ../../config/.config/nvim ]]; then
-            cp -r ../../config/.config/nvim/* ~/.config/nvim/
+          if [[ -d $GITHUB_WORKSPACE/config/.config/nvim ]]; then
+            cp -r $GITHUB_WORKSPACE/config/.config/nvim/* ~/.config/nvim/
             echo "Neovim config copied from repo"
           else
             echo "Warning: No Neovim config found in config/.config/nvim/"
@@ -49,7 +51,7 @@ jobs:
 
           # Install plugins using lazy.nvim (headless mode)
           echo "Installing Neovim plugins with lazy.nvim..."
-          nvim --headless "+Lazy! sync" +qa
+          $NVIM --headless "+Lazy! sync" +qa
 
           # Verify plugins were installed
           if [[ -d ~/.local/share/nvim/lazy ]]; then
