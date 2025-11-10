@@ -143,6 +143,27 @@ if [[ -f offline-packages/$OS/gum ]]; then
   fi
 fi
 
+# Helper function to check if binary needs update
+needs_update() {
+  local source_file="$1"
+  local dest_path="$2"
+  local version_flag="$3"
+
+  if [[ ! -f "$dest_path" ]]; then
+    echo "new"  # New installation
+    return
+  fi
+
+  local existing_ver=$(get_version "$dest_path" "$version_flag")
+  local new_ver=$(get_version "$source_file" "$version_flag")
+
+  if [[ "$existing_ver" == "$new_ver" ]]; then
+    echo "same"  # Same version, skip
+  else
+    echo "update"  # Different version, needs update
+  fi
+}
+
 # Helper function to install binary with version check
 install_binary() {
   local source_file="$1"
@@ -161,10 +182,16 @@ install_binary() {
     local existing_ver=$(get_version "$dest_path" "$version_flag")
     local new_ver=$(get_version "$source_file" "$version_flag")
 
+    # Skip if same version
+    if [[ "$existing_ver" == "$new_ver" ]]; then
+      echo "✓ $tool_name (already up-to-date: $existing_ver)"
+      return
+    fi
+
     if prompt_overwrite "$tool_name" "$existing_ver" "$new_ver" "$dest_path"; then
       $USE_SUDO cp "$source_file" "$dest_path"
       $USE_SUDO chmod +x "$dest_path"
-      echo "✓ $tool_name updated"
+      echo "✓ $tool_name updated ($existing_ver → $new_ver)"
     else
       echo "⊘ Skipped $tool_name"
     fi
@@ -201,28 +228,143 @@ if [[ $OS == "linux" ]]; then
     fi
   fi
 
-  echo ""
-  echo "Installing core binaries..."
+  # Collect binaries that need updates
+  declare -a BINARIES_TO_CHECK=()
+  declare -a BINARY_SOURCES=()
+  declare -a BINARY_DESTS=()
+  declare -a BINARY_NAMES=()
+  declare -a BINARY_FLAGS=()
 
+  # Core binaries
   if [[ "$INSTALL_WEZTERM" == true ]]; then
-    install_binary "offline-packages/linux/wezterm.AppImage" "wezterm" "WezTerm" "--version"
-  else
-    echo "⊘ Skipped WezTerm (headless environment)"
+    BINARIES_TO_CHECK+=("offline-packages/linux/wezterm.AppImage|wezterm|WezTerm|--version")
   fi
-  install_binary "offline-packages/linux/tmux-3.4-static-x86_64" "tmux" "tmux" "-V"
-  install_binary "offline-packages/linux/fzf" "fzf" "fzf" "--version"
-  install_binary "offline-packages/linux/fd" "fd" "fd" "--version"
-  install_binary "offline-packages/linux/rg" "rg" "ripgrep" "--version"
-  install_binary "offline-packages/linux/bat" "bat" "bat" "--version"
-  install_binary "offline-packages/linux/starship" "starship" "starship" "--version"
+  BINARIES_TO_CHECK+=(
+    "offline-packages/linux/tmux-3.4-static-x86_64|tmux|tmux|-V"
+    "offline-packages/linux/fzf|fzf|fzf|--version"
+    "offline-packages/linux/fd|fd|fd|--version"
+    "offline-packages/linux/rg|rg|ripgrep|--version"
+    "offline-packages/linux/bat|bat|bat|--version"
+    "offline-packages/linux/starship|starship|starship|--version"
+  )
 
-  echo ""
-  echo "Installing optional tools..."
-  install_binary "offline-packages/linux/lsd" "lsd" "lsd" "--version"
-  install_binary "offline-packages/linux/btop" "btop" "btop" "--version"
-  install_binary "offline-packages/linux/eza" "eza" "eza" "--version"
-  install_binary "offline-packages/linux/zoxide" "zoxide" "zoxide" "--version"
-  install_binary "offline-packages/linux/delta" "delta" "delta" "--version"
+  # Optional tools
+  [[ -f "offline-packages/linux/lsd" ]] && BINARIES_TO_CHECK+=("offline-packages/linux/lsd|lsd|lsd|--version")
+  [[ -f "offline-packages/linux/btop" ]] && BINARIES_TO_CHECK+=("offline-packages/linux/btop|btop|btop|--version")
+  [[ -f "offline-packages/linux/eza" ]] && BINARIES_TO_CHECK+=("offline-packages/linux/eza|eza|eza|--version")
+  [[ -f "offline-packages/linux/zoxide" ]] && BINARIES_TO_CHECK+=("offline-packages/linux/zoxide|zoxide|zoxide|--version")
+  [[ -f "offline-packages/linux/delta" ]] && BINARIES_TO_CHECK+=("offline-packages/linux/delta|delta|delta|--version")
+
+  # Scan for updates needed
+  declare -a UPDATES_NEEDED=()
+  declare -a NEW_INSTALLS=()
+  declare -a UP_TO_DATE=()
+
+  for binary_spec in "${BINARIES_TO_CHECK[@]}"; do
+    IFS='|' read -r source dest name flag <<< "$binary_spec"
+    [[ ! -f "$source" ]] && continue
+
+    local status=$(needs_update "$source" "$BIN_DIR/$dest" "$flag")
+    case "$status" in
+      new)
+        NEW_INSTALLS+=("$binary_spec")
+        ;;
+      update)
+        local existing_ver=$(get_version "$BIN_DIR/$dest" "$flag")
+        local new_ver=$(get_version "$source" "$flag")
+        UPDATES_NEEDED+=("$name ($existing_ver → $new_ver)|$binary_spec")
+        ;;
+      same)
+        UP_TO_DATE+=("$name")
+        ;;
+    esac
+  done
+
+  # Show what's up to date
+  if [[ ${#UP_TO_DATE[@]} -gt 0 ]]; then
+    echo ""
+    echo "Already up-to-date:"
+    for tool in "${UP_TO_DATE[@]}"; do
+      echo "  ✓ $tool"
+    done
+  fi
+
+  # If there are updates or new installs, prompt with multi-select
+  if [[ ${#UPDATES_NEEDED[@]} -gt 0 ]] || [[ ${#NEW_INSTALLS[@]} -gt 0 ]]; then
+    echo ""
+
+    # Build selection list
+    declare -a INSTALL_CHOICES=()
+    for item in "${NEW_INSTALLS[@]}"; do
+      IFS='|' read -r source dest name flag <<< "$item"
+      INSTALL_CHOICES+=("$name (new)|$item")
+    done
+    for item in "${UPDATES_NEEDED[@]}"; do
+      INSTALL_CHOICES+=("$item")
+    done
+
+    # Use gum for multi-select if available
+    declare -a SELECTED_BINARIES=()
+    if has_gum && [[ -f "$BIN_DIR/gum" ]]; then
+      echo "Select binaries to install/update:"
+      echo ""
+
+      # Create choices file
+      for choice in "${INSTALL_CHOICES[@]}"; do
+        IFS='|' read -r display spec <<< "$choice"
+        echo "$display"
+      done > /tmp/binary_choices.txt
+
+      # Run gum choose with multi-select
+      if selected=$($BIN_DIR/gum choose --no-limit < /tmp/binary_choices.txt); then
+        while IFS= read -r line; do
+          # Find the matching spec
+          for choice in "${INSTALL_CHOICES[@]}"; do
+            IFS='|' read -r display spec <<< "$choice"
+            if [[ "$display" == "$line" ]]; then
+              SELECTED_BINARIES+=("$spec")
+              break
+            fi
+          done
+        done <<< "$selected"
+      else
+        echo "No binaries selected."
+      fi
+      rm -f /tmp/binary_choices.txt
+    else
+      # Fallback: install all updates
+      echo "The following binaries will be installed/updated:"
+      for choice in "${INSTALL_CHOICES[@]}"; do
+        IFS='|' read -r display spec <<< "$choice"
+        echo "  • $display"
+      done
+      echo ""
+      read -p "Continue? [Y/n]: " -n 1 -r
+      echo
+      if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
+        for choice in "${INSTALL_CHOICES[@]}"; do
+          IFS='|' read -r display spec <<< "$choice"
+          SELECTED_BINARIES+=("$spec")
+        done
+      fi
+    fi
+
+    # Install selected binaries
+    echo ""
+    echo "Installing binaries..."
+    for binary_spec in "${SELECTED_BINARIES[@]}"; do
+      IFS='|' read -r source dest name flag <<< "$binary_spec"
+      # Use simplified install (no prompting since already selected)
+      if [[ -f "$source" ]]; then
+        $USE_SUDO cp "$source" "$BIN_DIR/$dest"
+        $USE_SUDO chmod +x "$BIN_DIR/$dest"
+        echo "✓ $name installed"
+      fi
+    done
+  else
+    echo ""
+    echo "✓ All binaries are already up-to-date!"
+  fi
 
   # Extract Neovim to /opt (or ~/ if no sudo)
   echo ""
@@ -328,14 +470,24 @@ if command -v stow &>/dev/null && [[ -d config ]]; then
   stow -t ~ config
 elif [[ -d config ]]; then
   echo "Installing configs (copying)..."
+  # Ensure .config is owned by the user, not root
+  if [[ -d ~/.config ]] && [[ ! -w ~/.config ]]; then
+    echo "  Fixing permissions on ~/.config..."
+    $USE_SUDO chown -R $(whoami):$(id -gn) ~/.config
+  fi
+
   # Copy config files directly (stow not available)
   if [[ -d config/.config ]]; then
     mkdir -p ~/.config
-    cp -r config/.config/* ~/.config/
+    cp -r config/.config/* ~/.config/ 2>/dev/null || {
+      echo "  Permission issue detected, using sudo for config copy..."
+      $USE_SUDO cp -r config/.config/* ~/.config/
+      $USE_SUDO chown -R $(whoami):$(id -gn) ~/.config
+    }
   fi
   # Copy other dotfiles if they exist
   for file in config/.*; do
-    [[ -f "$file" ]] && cp "$file" ~/
+    [[ -f "$file" ]] && cp "$file" ~/ 2>/dev/null || $USE_SUDO cp "$file" ~/
   done
   echo "✓ Configs installed"
 else
