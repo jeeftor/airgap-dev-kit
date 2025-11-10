@@ -24,6 +24,9 @@ jobs:
       - name: Download macOS binaries
         run: make update-macos
 
+      - name: Download fonts
+        run: make update-fonts
+
       - name: Bundle Neovim plugins
         run: |
           echo "Setting up Neovim for plugin installation..."
