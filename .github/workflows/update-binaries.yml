@@ -94,16 +94,33 @@ jobs:
       - name: Verify binaries
         run: make verify
 
-      - name: Create release package
+      - name: Create platform-specific packages
         run: |
+          echo "Creating Linux x86_64 package..."
+          tar --exclude='*.tar.gz' --exclude='.git' --exclude='.claude' --exclude='Makefile' \
+              --exclude='test-plugin-bundling.sh' --exclude='nvim-linux-x86_64' \
+              --exclude='offline-packages/macos' \
+              -czf airgap-dev-kit-linux-x86_64.tar.gz \
+              install.sh offline-packages/linux/ offline-packages/lazy-plugins.tar.gz fonts/ config/
+
+          echo "Creating macOS ARM64 package..."
+          tar --exclude='*.tar.gz' --exclude='.git' --exclude='.claude' --exclude='Makefile' \
+              --exclude='test-plugin-bundling.sh' --exclude='nvim-linux-x86_64' \
+              --exclude='offline-packages/linux' \
+              -czf airgap-dev-kit-macos-arm64.tar.gz \
+              install.sh offline-packages/macos/ offline-packages/lazy-plugins.tar.gz fonts/ config/
+
+          echo "Creating combined package (both platforms)..."
           make package
-          echo "Package created:"
-          ls -lh airgap-dev-kit.tar.gz
+
+          echo "Packages created:"
+          ls -lh airgap-dev-kit*.tar.gz
 
       - name: Calculate checksums
         run: |
-          sha256sum airgap-dev-kit.tar.gz > checksums.txt
-          sha256sum offline-packages/lazy-plugins.tar.gz >> checksums.txt
+          sha256sum airgap-dev-kit-linux-x86_64.tar.gz > checksums.txt
+          sha256sum airgap-dev-kit-macos-arm64.tar.gz >> checksums.txt
+          sha256sum airgap-dev-kit.tar.gz >> checksums.txt
           echo "Checksums:"
           cat checksums.txt
 
@@ -118,53 +135,68 @@ jobs:
             **Build Date:** ${{ github.event.repository.updated_at }}
             **Run Number:** ${{ github.run_number }}
 
-            ## What's Included
+            ## 📦 Available Packages
 
-            - **airgap-dev-kit.tar.gz**: Complete kit with all binaries and configurations
-            - **lazy-plugins.tar.gz**: Pre-downloaded Neovim plugins (bundled separately)
-            - **checksums.txt**: SHA256 checksums for verification
+            Choose the package for your platform:
 
-            ## Quick Start - Internet-Connected Machine
+            | Package | Platform | Size | Description |
+            |---------|----------|------|-------------|
+            | **airgap-dev-kit-linux-x86_64.tar.gz** | Linux x86_64 | ~200MB | Linux-only binaries |
+            | **airgap-dev-kit-macos-arm64.tar.gz** | macOS ARM64 | ~150MB | macOS-only binaries (Apple Silicon) |
+            | **airgap-dev-kit.tar.gz** | Both | ~350MB | Combined (use if you have mixed environments) |
+            | **checksums.txt** | All | <1KB | SHA256 checksums for verification |
 
-            **Option 1: Using wget**
+            ## 🚀 Quick Start - Linux (x86_64)
+
+            **Using wget:**
             ```bash
-            # Download all files
-            wget https://github.com/jeeftor/airgap-dev-kit/releases/download/v${{ github.run_number }}-${{ github.run_id }}/airgap-dev-kit.tar.gz
+            wget https://github.com/jeeftor/airgap-dev-kit/releases/download/v${{ github.run_number }}-${{ github.run_id }}/airgap-dev-kit-linux-x86_64.tar.gz
             wget https://github.com/jeeftor/airgap-dev-kit/releases/download/v${{ github.run_number }}-${{ github.run_id }}/checksums.txt
-
-            # Verify integrity
             sha256sum -c checksums.txt
-
-            # Extract and install
-            tar -xzf airgap-dev-kit.tar.gz
+            tar -xzf airgap-dev-kit-linux-x86_64.tar.gz
             cd airgap-dev-kit
             ./install.sh
             ```
 
-            **Option 2: Using curl**
+            **Using curl:**
             ```bash
-            # Download all files
-            curl -LO https://github.com/jeeftor/airgap-dev-kit/releases/download/v${{ github.run_number }}-${{ github.run_id }}/airgap-dev-kit.tar.gz
+            curl -LO https://github.com/jeeftor/airgap-dev-kit/releases/download/v${{ github.run_number }}-${{ github.run_id }}/airgap-dev-kit-linux-x86_64.tar.gz
             curl -LO https://github.com/jeeftor/airgap-dev-kit/releases/download/v${{ github.run_number }}-${{ github.run_id }}/checksums.txt
-
-            # Verify integrity
-            shasum -a 256 -c checksums.txt  # macOS
-            # OR
-            sha256sum -c checksums.txt      # Linux
-
-            # Extract and install
-            tar -xzf airgap-dev-kit.tar.gz
+            sha256sum -c checksums.txt
+            tar -xzf airgap-dev-kit-linux-x86_64.tar.gz
             cd airgap-dev-kit
             ./install.sh
             ```
 
-            ## Air-Gap Installation
+            ## 🍎 Quick Start - macOS (ARM64 / Apple Silicon)
 
-            1. Transfer `airgap-dev-kit.tar.gz` to air-gapped machine via USB/CD
-            2. Extract: `tar -xzf airgap-dev-kit.tar.gz`
-            3. Install: `cd airgap-dev-kit && ./install.sh`
-            4. Add to PATH: `export PATH="$HOME/bin:$PATH"` (add to `~/.bashrc` or `~/.zshrc`)
-            5. Launch: `wezterm start -- tmux new-session nvim`
+            **Using wget:**
+            ```bash
+            wget https://github.com/jeeftor/airgap-dev-kit/releases/download/v${{ github.run_number }}-${{ github.run_id }}/airgap-dev-kit-macos-arm64.tar.gz
+            wget https://github.com/jeeftor/airgap-dev-kit/releases/download/v${{ github.run_number }}-${{ github.run_id }}/checksums.txt
+            shasum -a 256 -c checksums.txt
+            tar -xzf airgap-dev-kit-macos-arm64.tar.gz
+            cd airgap-dev-kit
+            ./install.sh
+            ```
+
+            **Using curl:**
+            ```bash
+            curl -LO https://github.com/jeeftor/airgap-dev-kit/releases/download/v${{ github.run_number }}-${{ github.run_id }}/airgap-dev-kit-macos-arm64.tar.gz
+            curl -LO https://github.com/jeeftor/airgap-dev-kit/releases/download/v${{ github.run_number }}-${{ github.run_id }}/checksums.txt
+            shasum -a 256 -c checksums.txt
+            tar -xzf airgap-dev-kit-macos-arm64.tar.gz
+            cd airgap-dev-kit
+            ./install.sh
+            ```
+
+            ## 🔒 Air-Gap Installation
+
+            1. **Transfer** package to air-gapped machine via USB/CD
+            2. **Extract:** `tar -xzf airgap-dev-kit-<platform>.tar.gz`
+            3. **Install:** `cd airgap-dev-kit && ./install.sh`
+            4. **Add to PATH:** `export PATH="$HOME/bin:$PATH"` (add to `~/.bashrc` or `~/.zshrc`)
+            5. **Launch:** `wezterm start -- tmux new-session nvim`
 
             ## Binaries Updated
             - WezTerm
@@ -178,6 +210,8 @@ jobs:
 
             *This release was automatically generated by GitHub Actions*
           files: |
+            airgap-dev-kit-linux-x86_64.tar.gz
+            airgap-dev-kit-macos-arm64.tar.gz
             airgap-dev-kit.tar.gz
             checksums.txt
           draft: false
