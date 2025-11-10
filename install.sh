@@ -11,16 +11,48 @@ fi
 echo "Installing $OS binaries..."
 
 # Determine install location - prefer system dirs if we have sudo, otherwise use ~/bin
-if [[ $EUID -eq 0 ]] || sudo -n true 2>/dev/null; then
+if [[ $EUID -eq 0 ]]; then
+  # Already running as root
+  BIN_DIR="/usr/local/bin"
+  echo "Installing to: $BIN_DIR (system-wide)"
+  USE_SUDO=""
+elif sudo -n true 2>/dev/null; then
+  # Can sudo without password
   BIN_DIR="/usr/local/bin"
   echo "Installing to: $BIN_DIR (system-wide)"
   USE_SUDO="sudo"
 else
-  BIN_DIR="$HOME/bin"
-  echo "Installing to: $BIN_DIR (user-local, no sudo available)"
-  echo "Note: Add $BIN_DIR to PATH or re-run with sudo for system-wide install"
-  USE_SUDO=""
+  # Try to prompt for sudo password
+  echo ""
+  echo "This installer can install to /usr/local/bin (recommended) or ~/bin"
+  echo ""
+  read -p "Install system-wide to /usr/local/bin? (requires sudo) [Y/n]: " -n 1 -r
+  echo
+
+  if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
+    # User wants system-wide install, prompt for sudo
+    if sudo -v; then
+      BIN_DIR="/usr/local/bin"
+      echo "Installing to: $BIN_DIR (system-wide)"
+      USE_SUDO="sudo"
+      # Keep sudo alive in background
+      while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
+    else
+      echo "Sudo authentication failed. Falling back to user install."
+      BIN_DIR="$HOME/bin"
+      echo "Installing to: $BIN_DIR (user-local)"
+      USE_SUDO=""
+    fi
+  else
+    # User chose user install
+    BIN_DIR="$HOME/bin"
+    echo "Installing to: $BIN_DIR (user-local)"
+    echo "Note: You'll need to add this to your PATH"
+    USE_SUDO=""
+  fi
 fi
+
+echo ""
 
 $USE_SUDO mkdir -p "$BIN_DIR"
 
