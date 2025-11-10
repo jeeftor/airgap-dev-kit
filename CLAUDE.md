@@ -370,7 +370,11 @@ config/
 └── .tmux.conf
 ```
 
-Run `stow -t ~ config` to symlink into home directory.
+**Note:** GNU Stow is optional. The installer will:
+- Use `stow -t ~ config` if stow is available (creates symlinks)
+- Otherwise, copy files directly to `~/.config/` (no symlinks)
+
+Both methods work fine - symlinks are just easier to update.
 
 ### Updating Binary Versions
 

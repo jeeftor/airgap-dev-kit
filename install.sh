@@ -56,8 +56,25 @@ if [[ -f offline-packages/lazy-plugins.tar.gz ]]; then
   echo "✓ Neovim plugins installed"
 fi
 
-# Symlink configs
-stow -t ~ config
+# Install configs
+if command -v stow &>/dev/null && [[ -d config ]]; then
+  echo "Symlinking configs with stow..."
+  stow -t ~ config
+elif [[ -d config ]]; then
+  echo "Installing configs (copying)..."
+  # Copy config files directly (stow not available)
+  if [[ -d config/.config ]]; then
+    mkdir -p ~/.config
+    cp -r config/.config/* ~/.config/
+  fi
+  # Copy other dotfiles if they exist
+  for file in config/.*; do
+    [[ -f "$file" ]] && cp "$file" ~/
+  done
+  echo "✓ Configs installed"
+else
+  echo "⚠ No config directory found, skipping config installation"
+fi
 
 # Fonts
 if [[ $OS == "macos" ]]; then
