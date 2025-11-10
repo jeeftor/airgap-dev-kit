@@ -204,17 +204,13 @@ package:
 	@$(MAKE) --no-print-directory verify
 	@echo ""
 	@echo "Building tarball: airgap-dev-kit.tar.gz"
-	@tar --exclude='*.tar.gz' --exclude='.git' --exclude='.claude' --exclude='Makefile' \
-		-czf airgap-dev-kit.tar.gz \
-		install.sh \
-		offline-packages/ \
-		fonts/ \
-		config/ 2>/dev/null || tar \
-		--exclude='*.tar.gz' --exclude='.git' --exclude='.claude' --exclude='Makefile' \
-		-czf airgap-dev-kit.tar.gz \
-		install.sh \
-		offline-packages/ \
-		fonts/
+	@# Build file list dynamically to handle optional directories
+	@FILES="install.sh offline-packages/"; \
+	if [ -d fonts ]; then FILES="$$FILES fonts/"; fi; \
+	if [ -d config ]; then FILES="$$FILES config/"; fi; \
+	tar --exclude='*.tar.gz' --exclude='.git' --exclude='.claude' --exclude='Makefile' \
+		--exclude='test-plugin-bundling.sh' --exclude='nvim-linux-x86_64' \
+		-czf airgap-dev-kit.tar.gz $$FILES
 	@echo ""
 	@ls -lh airgap-dev-kit.tar.gz
 	@echo ""
