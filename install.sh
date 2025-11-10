@@ -381,7 +381,11 @@ if [[ $OS == "linux" ]]; then
       tar -xzf offline-packages/linux/nvim-linux64.tar.gz -C /tmp/
       new_ver=$(get_version "/tmp/nvim-linux-x86_64/bin/nvim" "--version")
 
-      if prompt_overwrite "Neovim" "$existing_ver" "$new_ver" "$BIN_DIR/nvim"; then
+      # Skip if same version
+      if [[ "$existing_ver" == "$new_ver" ]]; then
+        echo "✓ Neovim (already up-to-date: $existing_ver)"
+        rm -rf /tmp/nvim-linux-x86_64
+      elif prompt_overwrite "Neovim" "$existing_ver" "$new_ver" "$BIN_DIR/nvim"; then
         if [[ -n "$USE_SUDO" ]]; then
           $USE_SUDO rm -rf /opt/nvim-linux-x86_64
           $USE_SUDO mv /tmp/nvim-linux-x86_64 /opt/
@@ -391,7 +395,7 @@ if [[ $OS == "linux" ]]; then
           mv /tmp/nvim-linux-x86_64 ~/
           ln -sf ~/nvim-linux-x86_64/bin/nvim "$BIN_DIR/nvim"
         fi
-        echo "✓ Neovim updated"
+        echo "✓ Neovim updated ($existing_ver → $new_ver)"
       else
         rm -rf /tmp/nvim-linux-x86_64
         echo "⊘ Skipped Neovim"
@@ -489,9 +493,14 @@ elif [[ -d config ]]; then
       $USE_SUDO chown -R $(whoami):$(id -gn) ~/.config
     }
   fi
-  # Copy other dotfiles if they exist
+  # Copy other dotfiles if they exist (but skip . and ..)
   for file in config/.*; do
-    [[ -f "$file" ]] && cp "$file" ~/ 2>/dev/null || $USE_SUDO cp "$file" ~/
+    # Skip . and .. directories
+    [[ "$file" == "config/." ]] || [[ "$file" == "config/.." ]] && continue
+    # Only process actual files
+    if [[ -f "$file" ]]; then
+      cp "$file" ~/ 2>/dev/null || $USE_SUDO cp "$file" ~/
+    fi
   done
   echo "✓ Configs installed"
 else
