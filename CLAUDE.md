@@ -73,11 +73,19 @@ wezterm start -- tmux new-session nvim  # If /usr/local/bin
 ## What's Included
 
 - **Terminal**: WezTerm (AppImage for Linux, .app for macOS)
-- **Multiplexer**: tmux 3.4 static binary
-- **Editor**: Neovim nightly (static builds)
-- **Tools**: fzf, fd, ripgrep, bat, starship, lsd (all static/musl binaries)
+- **Multiplexer**: tmux 3.4 static binary with fancy Catppuccin Mocha theme
+  - Custom prefix: `Ctrl-a` instead of `Ctrl-b`
+  - Mouse support enabled
+  - Vim-style pane navigation
+  - Beautiful status bar with system info
+  - Smart split commands: `|` and `-`
+- **Editor**: Neovim with pre-configured settings and plugins
+- **Tools**: fzf, fd, ripgrep, bat, starship, lsd, gum (all static/musl binaries)
 - **Font**: JetBrainsMono Nerd Font (112MB, includes icons)
 - **Configs**: Managed via GNU Stow (symlinks to ~/.config/)
+  - `.tmux.conf` - Fancy tmux configuration
+  - `.config/nvim/` - Neovim with lazy.nvim
+  - `.config/starship.toml` - Custom shell prompt
 - **Plugins**: Neovim plugins pre-downloaded with lazy.nvim
 - **Docs**: Man pages, shell completions (bash/zsh/fish)
 
@@ -974,6 +982,82 @@ export FZF_DEFAULT_OPTS='--height 40% --border'
 # Use with bat for preview:
 alias preview='fzf --preview="bat --color=always {}"'
 ```
+
+## Fancy Tmux Configuration
+
+The included `.tmux.conf` provides a beautiful, functional tmux setup:
+
+### Features
+
+- **Custom Prefix**: `Ctrl-a` instead of default `Ctrl-b`
+- **Mouse Support**: Click to select panes, scroll through history
+- **Catppuccin Mocha Theme**: Beautiful color scheme with rounded borders
+- **Smart Key Bindings**:
+  - `Ctrl-a |` - Split horizontally
+  - `Ctrl-a -` - Split vertically
+  - `Ctrl-a r` - Reload configuration
+  - `Alt-Arrow` - Navigate panes (no prefix needed!)
+  - `Shift-Arrow` - Switch windows (no prefix needed!)
+  - `Ctrl-a h/j/k/l` - Vim-style pane navigation
+  - `Ctrl-a S` - Synchronize panes (type in all at once)
+- **Beautiful Status Bar**:
+  - Session name with icon
+  - Current pane info
+  - Username and hostname
+  - Date and time
+  - Prefix indicator (shows "PREFIX" when Ctrl-a is pressed)
+- **Copy Mode**: Vim-style keybindings (`v` to select, `y` to yank)
+
+### Quick Reference
+
+```bash
+# Start new tmux session
+tmux new -s work
+
+# Or use installed aliases:
+tn work              # Create new session named "work"
+tl                   # List all sessions
+ta work              # Attach to session "work"
+
+# Inside tmux:
+Ctrl-a |             # Split pane vertically
+Ctrl-a -             # Split pane horizontally
+Alt-Arrows           # Navigate between panes
+Ctrl-a c             # Create new window
+Shift-Left/Right     # Switch windows
+Ctrl-a d             # Detach from session
+Ctrl-a S             # Toggle pane synchronization
+```
+
+## Uninstallation
+
+To remove the Air-Gap Dev Kit:
+
+```bash
+./uninstall.sh
+```
+
+The uninstall script will:
+1. **Detect installations** in `/usr/local/bin` and `~/bin`
+2. **Prompt for confirmation** (with gum if available)
+3. **Remove binaries**: wezterm, tmux, nvim, fzf, fd, rg, bat, starship, gum, etc.
+4. **Remove configurations**:
+   - `~/.config/nvim/` (with prompt)
+   - `~/.tmux.conf`
+   - `~/.config/starship.toml`
+   - `~/.local/share/nvim/` plugins (with prompt)
+5. **Remove fonts**: JetBrainsMono Nerd Font (with prompt)
+6. **Clean shell configs**: Removes lines added by installer from `.bashrc`/`.zshrc`
+7. **Create backups**: `~/.bashrc.airgap-backup`, `~/.zshrc.airgap-backup`
+
+### Uninstall Options
+
+The uninstaller is interactive and allows you to:
+- Keep Neovim config and plugins (if you want to preserve your setup)
+- Keep fonts
+- Preserve custom configurations
+
+All shell configuration changes made by the installer are automatically removed, with backups created for safety.
 
 ## Troubleshooting
 

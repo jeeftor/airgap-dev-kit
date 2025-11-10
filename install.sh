@@ -438,3 +438,190 @@ if [[ -z "$DISPLAY" && "$OSTYPE" != "darwin"* ]]; then
   echo "   - See shell-setup-example.sh for more tips"
 fi
 echo ""
+
+# ==============================================================================
+# Optional: Shell Configuration Setup
+# ==============================================================================
+
+echo ""
+echo "=========================================="
+echo "Shell Configuration"
+echo "=========================================="
+echo ""
+
+# Helper function to check if a line exists in a file
+config_exists() {
+  local file="$1"
+  local pattern="$2"
+  [[ -f "$file" ]] && grep -qF "$pattern" "$file"
+}
+
+# Helper function to add configuration to shell RC file
+add_to_shell_rc() {
+  local rc_file="$1"
+  local config_line="$2"
+  local description="$3"
+
+  if config_exists "$rc_file" "$config_line"; then
+    echo "  ✓ $description (already configured)"
+    return 0
+  fi
+
+  if has_gum && [[ -f "$BIN_DIR/gum" ]]; then
+    if $BIN_DIR/gum confirm "Add $description to $(basename $rc_file)?"; then
+      echo "" >> "$rc_file"
+      echo "# Added by airgap-dev-kit installer" >> "$rc_file"
+      echo "$config_line" >> "$rc_file"
+      echo "  ✓ Added $description"
+      return 0
+    else
+      echo "  ⊘ Skipped $description"
+      return 1
+    fi
+  else
+    read -p "Add $description to $(basename $rc_file)? [Y/n]: " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
+      echo "" >> "$rc_file"
+      echo "# Added by airgap-dev-kit installer" >> "$rc_file"
+      echo "$config_line" >> "$rc_file"
+      echo "  ✓ Added $description"
+      return 0
+    else
+      echo "  ⊘ Skipped $description"
+      return 1
+    fi
+  fi
+}
+
+# Detect user's shell
+DETECTED_SHELLS=()
+[[ -f "$HOME/.bashrc" ]] && DETECTED_SHELLS+=("$HOME/.bashrc")
+[[ -f "$HOME/.zshrc" ]] && DETECTED_SHELLS+=("$HOME/.zshrc")
+[[ -f "$HOME/.config/fish/config.fish" ]] && DETECTED_SHELLS+=("$HOME/.config/fish/config.fish")
+
+if [[ ${#DETECTED_SHELLS[@]} -eq 0 ]]; then
+  echo "No shell configuration files found (.bashrc, .zshrc, config.fish)"
+  echo "You can manually add configurations later using shell-setup-example.sh as reference"
+else
+  echo "Detected shell configuration files:"
+  for shell_rc in "${DETECTED_SHELLS[@]}"; do
+    echo "  • $(basename $shell_rc)"
+  done
+  echo ""
+
+  if has_gum && [[ -f "$BIN_DIR/gum" ]]; then
+    if ! $BIN_DIR/gum confirm "Configure shells automatically?"; then
+      echo ""
+      echo "Skipped automatic shell configuration."
+      echo "See shell-setup-example.sh for manual setup instructions."
+      exit 0
+    fi
+  else
+    read -p "Configure shells automatically? [Y/n]: " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]] && [[ -n $REPLY ]]; then
+      echo ""
+      echo "Skipped automatic shell configuration."
+      echo "See shell-setup-example.sh for manual setup instructions."
+      exit 0
+    fi
+  fi
+
+  echo ""
+
+  for SHELL_RC in "${DETECTED_SHELLS[@]}"; do
+    echo "Configuring $(basename $SHELL_RC)..."
+    echo ""
+
+    # Determine shell type
+    SHELL_TYPE="bash"
+    if [[ "$SHELL_RC" == *"zshrc"* ]]; then
+      SHELL_TYPE="zsh"
+    elif [[ "$SHELL_RC" == *"fish"* ]]; then
+      SHELL_TYPE="fish"
+    fi
+
+    # PATH configuration (only if needed)
+    if [[ "$BIN_DIR" == "$HOME/bin" ]]; then
+      if [[ "$SHELL_TYPE" == "fish" ]]; then
+        add_to_shell_rc "$SHELL_RC" "set -gx PATH \$HOME/bin \$PATH" "PATH configuration"
+      else
+        add_to_shell_rc "$SHELL_RC" "export PATH=\"\$HOME/bin:\$PATH\"" "PATH configuration"
+      fi
+    fi
+
+    # Starship prompt
+    if command -v starship &>/dev/null || [[ -f "$BIN_DIR/starship" ]]; then
+      if [[ "$SHELL_TYPE" == "fish" ]]; then
+        add_to_shell_rc "$SHELL_RC" "starship init fish | source" "Starship prompt"
+      else
+        add_to_shell_rc "$SHELL_RC" "eval \"\$(starship init $SHELL_TYPE)\"" "Starship prompt"
+      fi
+    fi
+
+    # Zoxide (smarter cd)
+    if [[ -f "$BIN_DIR/zoxide" ]]; then
+      if [[ "$SHELL_TYPE" == "fish" ]]; then
+        add_to_shell_rc "$SHELL_RC" "zoxide init fish | source" "Zoxide (z command)"
+      else
+        add_to_shell_rc "$SHELL_RC" "eval \"\$(zoxide init $SHELL_TYPE)\"" "Zoxide (z command)"
+      fi
+    fi
+
+    # Aliases
+    if [[ "$SHELL_TYPE" != "fish" ]]; then
+      # lsd or eza
+      if [[ -f "$BIN_DIR/lsd" ]]; then
+        add_to_shell_rc "$SHELL_RC" "alias ls='lsd'" "lsd alias (modern ls)"
+        add_to_shell_rc "$SHELL_RC" "alias ll='lsd -la'" "ll alias"
+        add_to_shell_rc "$SHELL_RC" "alias tree='lsd --tree'" "tree alias"
+      elif [[ -f "$BIN_DIR/eza" ]]; then
+        add_to_shell_rc "$SHELL_RC" "alias ls='eza --icons'" "eza alias (modern ls)"
+        add_to_shell_rc "$SHELL_RC" "alias ll='eza -la --icons'" "ll alias"
+        add_to_shell_rc "$SHELL_RC" "alias tree='eza --tree --icons'" "tree alias"
+      fi
+
+      # bat
+      if [[ -f "$BIN_DIR/bat" ]]; then
+        add_to_shell_rc "$SHELL_RC" "alias cat='bat --paging=never'" "bat alias (syntax highlighting)"
+      fi
+
+      # fd
+      if [[ -f "$BIN_DIR/fd" ]]; then
+        add_to_shell_rc "$SHELL_RC" "alias find='fd'" "fd alias (faster find)"
+      fi
+
+      # ripgrep
+      if [[ -f "$BIN_DIR/rg" ]]; then
+        add_to_shell_rc "$SHELL_RC" "alias grep='rg'" "ripgrep alias (faster grep)"
+      fi
+
+      # neovim
+      if [[ -f "$BIN_DIR/nvim" ]]; then
+        add_to_shell_rc "$SHELL_RC" "alias vim='nvim'" "nvim alias"
+        add_to_shell_rc "$SHELL_RC" "alias vi='nvim'" "vi alias"
+        add_to_shell_rc "$SHELL_RC" "export EDITOR='nvim'" "EDITOR environment variable"
+      fi
+
+      # tmux helper alias
+      if [[ -f "$BIN_DIR/tmux" ]]; then
+        add_to_shell_rc "$SHELL_RC" "alias ta='tmux attach -t'" "tmux attach alias"
+        add_to_shell_rc "$SHELL_RC" "alias tl='tmux list-sessions'" "tmux list alias"
+        add_to_shell_rc "$SHELL_RC" "alias tn='tmux new -s'" "tmux new session alias"
+      fi
+    fi
+
+    echo ""
+  done
+
+  echo "=========================================="
+  echo "✓ Shell configuration complete!"
+  echo "=========================================="
+  echo ""
+  echo "To apply changes, either:"
+  echo "  • Restart your terminal, or"
+  echo "  • Run: source ~/.bashrc  (or ~/.zshrc)"
+fi
+
+echo ""
