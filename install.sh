@@ -139,28 +139,40 @@ fi
 echo ""
 
 # Determine install location - prompt user FIRST
-echo "Choose installation location:"
-echo ""
-echo "1. System-wide (/usr/local/bin) - Recommended if you have sudo access"
-echo "   • Available to all users"
-echo "   • Requires root/sudo privileges"
-echo ""
-echo "2. User-local (~/.local/bin or ~/bin) - Best for restricted environments"
-echo "   • No root access needed"
-echo "   • Only available to current user"
-echo "   • Requires adding to PATH manually"
-echo ""
-
 # Check if we're already root
 if [[ $EUID -eq 0 ]]; then
   echo "Note: Running as root, defaulting to system-wide install"
-  INSTALL_CHOICE="1"
-# Check if we can sudo without password
-elif sudo -n true 2>/dev/null; then
-  echo "Note: Passwordless sudo detected"
-  read -p "Install location [1=system-wide, 2=user-local]: " -n 1 -r INSTALL_CHOICE
-  echo
+  INSTALL_CHOICE="System-wide"
+elif command -v gum &> /dev/null; then
+  # Use gum for a nice interactive prompt
+  INSTALL_CHOICE=$(gum choose --header "Choose installation location:" \
+    "System-wide (/usr/local/bin) - Available to all users, requires sudo" \
+    "User-local (~/.local/bin) - No sudo needed, current user only")
+  
+  # Extract the choice type
+  if [[ "$INSTALL_CHOICE" == System-wide* ]]; then
+    INSTALL_CHOICE="1"
+  else
+    INSTALL_CHOICE="2"
+  fi
 else
+  # Fallback to basic prompt if gum not available
+  echo "Choose installation location:"
+  echo ""
+  echo "1. System-wide (/usr/local/bin) - Recommended if you have sudo access"
+  echo "   • Available to all users"
+  echo "   • Requires root/sudo privileges"
+  echo ""
+  echo "2. User-local (~/.local/bin or ~/bin) - Best for restricted environments"
+  echo "   • No root access needed"
+  echo "   • Only available to current user"
+  echo "   • Requires adding to PATH manually"
+  echo ""
+  
+  if sudo -n true 2>/dev/null; then
+    echo "Note: Passwordless sudo detected"
+  fi
+  
   read -p "Install location [1=system-wide, 2=user-local]: " -n 1 -r INSTALL_CHOICE
   echo
 fi
@@ -350,24 +362,19 @@ if [[ $OS == "linux" ]]; then
     BINARIES_TO_CHECK+=("offline-packages/linux/wezterm.AppImage|wezterm|WezTerm|--version")
   fi
   BINARIES_TO_CHECK+=(
-    "offline-packages/linux/tmux-3.4-static-x86_64|tmux|tmux|-V"
-    "offline-packages/linux/fzf|fzf|fzf|--version"
-    "offline-packages/linux/fd|fd|fd|--version"
-    "offline-packages/linux/rg|rg|ripgrep|--version"
-    "offline-packages/linux/bat|bat|bat|--version"
-    "offline-packages/linux/starship|starship|starship|--version"
+    "offline-packages/$OS/tmux-3.4-static-x86_64|tmux|tmux|-V"
+    "offline-packages/$OS/fzf|fzf|fzf|--version"
+    "offline-packages/$OS/fd|fd|fd|--version"
+    "offline-packages/$OS/rg|rg|ripgrep|--version"
+    "offline-packages/$OS/bat|bat|bat|--version"
+    "offline-packages/$OS/starship|starship|starship|--version"
+    "offline-packages/$OS/eza|eza|eza (modern ls)|--version"
+    "offline-packages/$OS/lazygit|lazygit|lazygit|--version"
+    "offline-packages/$OS/zoxide|zoxide|zoxide|--version"
+    "offline-packages/$OS/delta|delta|delta|--version"
+    "offline-packages/$OS/jq|jq|jq|--version"
+    "offline-packages/$OS/btop|btop|btop|--version"
   )
-
-  # Optional tools
-  [[ -f "offline-packages/$OS/lsd" ]] && BINARIES_TO_CHECK+=("offline-packages/$OS/lsd|lsd|lsd|--version")
-  [[ -f "offline-packages/$OS/eza" ]] && BINARIES_TO_CHECK+=("offline-packages/$OS/eza|eza|eza|--version")
-  
-  # New essential tools
-  [[ -f "offline-packages/$OS/lazygit" ]] && BINARIES_TO_CHECK+=("offline-packages/$OS/lazygit|lazygit|lazygit|--version")
-  [[ -f "offline-packages/$OS/zoxide" ]] && BINARIES_TO_CHECK+=("offline-packages/$OS/zoxide|zoxide|zoxide|--version")
-  [[ -f "offline-packages/$OS/delta" ]] && BINARIES_TO_CHECK+=("offline-packages/$OS/delta|delta|delta|--version")
-  [[ -f "offline-packages/$OS/jq" ]] && BINARIES_TO_CHECK+=("offline-packages/$OS/jq|jq|jq|--version")
-  [[ -f "offline-packages/$OS/btop" ]] && BINARIES_TO_CHECK+=("offline-packages/$OS/btop|btop|btop|--version")
   
   # LSP servers
   [[ -f "offline-packages/$OS/lua-language-server" ]] && BINARIES_TO_CHECK+=("offline-packages/$OS/lua-language-server|lua-language-server|lua-language-server (Lua LSP)|--version")
