@@ -1,0 +1,341 @@
+name: Test Air-Gap Dev Kit
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  test-build-linux:
+    name: Build & Verify Linux Package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Download Linux binaries
+        run: make update-linux
+      
+      - name: Verify binaries downloaded
+        run: |
+          echo "Checking for required binaries..."
+          test -f offline-packages/linux/nvim-linux64.tar.gz || { echo "✗ Neovim missing"; exit 1; }
+          test -f offline-packages/linux/tmux || { echo "✗ tmux missing"; exit 1; }
+          test -f offline-packages/linux/fzf || { echo "✗ fzf missing"; exit 1; }
+          test -f offline-packages/linux/fd || { echo "✗ fd missing"; exit 1; }
+          test -f offline-packages/linux/rg || { echo "✗ ripgrep missing"; exit 1; }
+          test -f offline-packages/linux/bat || { echo "✗ bat missing"; exit 1; }
+          test -f offline-packages/linux/starship || { echo "✗ starship missing"; exit 1; }
+          test -f offline-packages/linux/stow || { echo "✗ stow missing"; exit 1; }
+          test -f offline-packages/linux/gum || { echo "✗ gum missing"; exit 1; }
+          test -f offline-packages/linux/lazygit || { echo "✗ lazygit missing"; exit 1; }
+          test -f offline-packages/linux/zoxide || { echo "✗ zoxide missing"; exit 1; }
+          test -f offline-packages/linux/delta || { echo "✗ delta missing"; exit 1; }
+          test -f offline-packages/linux/jq || { echo "✗ jq missing"; exit 1; }
+          test -f offline-packages/linux/btop || { echo "✗ btop missing"; exit 1; }
+          echo "✓ All required binaries present"
+      
+      - name: Create package
+        run: make package
+      
+      - name: Verify package created
+        run: |
+          test -f airgap-dev-kit-full.tar.gz || { echo "✗ Package not created"; exit 1; }
+          echo "✓ Package created successfully"
+      
+      - name: Upload package as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: airgap-dev-kit-linux
+          path: airgap-dev-kit-full.tar.gz
+          retention-days: 7
+
+  test-install-ubuntu:
+    name: Test Installation (Ubuntu Latest)
+    runs-on: ubuntu-latest
+    needs: test-build-linux
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Download binaries
+        run: make update-linux
+      
+      - name: Test user-local installation
+        run: |
+          # Choose option 2 (user-local) and skip shell config prompts
+          echo -e "2\nn\n" | ./install.sh || true
+      
+      - name: Verify binaries installed
+        run: |
+          test -f ~/.local/bin/nvim || { echo "✗ nvim not installed"; exit 1; }
+          test -f ~/.local/bin/tmux || { echo "✗ tmux not installed"; exit 1; }
+          test -f ~/.local/bin/fzf || { echo "✗ fzf not installed"; exit 1; }
+          test -f ~/.local/bin/fd || { echo "✗ fd not installed"; exit 1; }
+          test -f ~/.local/bin/rg || { echo "✗ rg not installed"; exit 1; }
+          test -f ~/.local/bin/bat || { echo "✗ bat not installed"; exit 1; }
+          test -f ~/.local/bin/starship || { echo "✗ starship not installed"; exit 1; }
+          echo "✓ All binaries installed"
+      
+      - name: Verify installation log created
+        run: |
+          test -f ~/.airgap-dev-kit-install.log || { echo "✗ Install log not created"; exit 1; }
+          echo "✓ Installation log created"
+          echo "Log contents:"
+          head -20 ~/.airgap-dev-kit-install.log
+      
+      - name: Test binaries are functional
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          nvim --version | head -1
+          tmux -V
+          fzf --version
+          fd --version
+          rg --version
+          bat --version
+          starship --version
+          echo "✓ All binaries functional"
+      
+      - name: Verify configs installed
+        run: |
+          test -d ~/.config/nvim || test -L ~/.config/nvim || { echo "✗ nvim config not installed"; exit 1; }
+          echo "✓ Configs installed"
+      
+      - name: Test uninstallation
+        run: |
+          # Answer yes to all prompts
+          yes | ./uninstall.sh || true
+      
+      - name: Verify binaries removed
+        run: |
+          ! test -f ~/.local/bin/nvim || { echo "✗ nvim not removed"; exit 1; }
+          ! test -f ~/.local/bin/tmux || { echo "✗ tmux not removed"; exit 1; }
+          echo "✓ Uninstall successful"
+
+  test-install-ubuntu-20:
+    name: Test Installation (Ubuntu 20.04)
+    runs-on: ubuntu-20.04
+    needs: test-build-linux
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Download binaries
+        run: make update-linux
+      
+      - name: Test installation
+        run: echo -e "2\nn\n" | ./install.sh || true
+      
+      - name: Verify installation
+        run: |
+          test -f ~/.local/bin/nvim
+          export PATH="$HOME/.local/bin:$PATH"
+          nvim --version
+          echo "✓ Works on Ubuntu 20.04"
+
+  test-build-macos:
+    name: Build & Verify macOS Package
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Download macOS binaries
+        run: make update-macos
+      
+      - name: Verify binaries downloaded
+        run: |
+          test -f offline-packages/macos/WezTerm-macos.zip || { echo "✗ WezTerm missing"; exit 1; }
+          test -f offline-packages/macos/tmux || { echo "✗ tmux missing"; exit 1; }
+          test -f offline-packages/macos/nvim-macos-arm64.tar.gz || { echo "✗ Neovim missing"; exit 1; }
+          test -f offline-packages/macos/fzf || { echo "✗ fzf missing"; exit 1; }
+          test -f offline-packages/macos/stow || { echo "✗ stow missing"; exit 1; }
+          echo "✓ All required binaries present"
+
+  test-install-macos:
+    name: Test Installation (macOS)
+    runs-on: macos-latest
+    needs: test-build-macos
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Download binaries
+        run: make update-macos
+      
+      - name: Test user-local installation
+        run: echo -e "2\nn\n" | ./install.sh || true
+      
+      - name: Verify installation
+        run: |
+          test -f ~/.local/bin/nvim || { echo "✗ nvim not installed"; exit 1; }
+          test -f ~/.local/bin/tmux || { echo "✗ tmux not installed"; exit 1; }
+          echo "✓ Binaries installed"
+      
+      - name: Test binaries work
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          nvim --version | head -1
+          tmux -V
+          echo "✓ Binaries functional on macOS"
+
+  test-stow-bundled:
+    name: Test Bundled Stow
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Download binaries
+        run: make update-linux
+      
+      - name: Remove system stow
+        run: sudo apt-get remove -y stow || true
+      
+      - name: Verify stow not in PATH
+        run: |
+          ! command -v stow || { echo "✗ Stow still in PATH"; exit 1; }
+          echo "✓ System stow removed"
+      
+      - name: Install (should use bundled stow)
+        run: echo -e "2\nn\n" | ./install.sh || true
+      
+      - name: Verify bundled stow installed
+        run: |
+          test -f ~/.local/bin/stow || { echo "✗ Bundled stow not installed"; exit 1; }
+          ~/.local/bin/stow --version
+          echo "✓ Bundled stow works"
+
+  test-tracking-log:
+    name: Test Installation Tracking
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Download binaries
+        run: make update-linux
+      
+      - name: Install
+        run: echo -e "2\nn\n" | ./install.sh || true
+      
+      - name: Verify log created
+        run: |
+          test -f ~/.airgap-dev-kit-install.log || { echo "✗ Log not created"; exit 1; }
+          echo "✓ Log file created"
+      
+      - name: Verify log contents
+        run: |
+          grep -q "BINARY|" ~/.airgap-dev-kit-install.log || { echo "✗ No BINARY entries"; exit 1; }
+          grep -q "METADATA|" ~/.airgap-dev-kit-install.log || { echo "✗ No METADATA entries"; exit 1; }
+          echo "✓ Log contains expected entries"
+          echo ""
+          echo "Sample log entries:"
+          grep "BINARY\|METADATA" ~/.airgap-dev-kit-install.log | head -10
+      
+      - name: Verify uninstaller reads log
+        run: |
+          yes | ./uninstall.sh 2>&1 | tee uninstall.log
+          grep -q "installation log" uninstall.log || { echo "⚠ Uninstaller may not be using log"; }
+          echo "✓ Uninstaller completed"
+
+  test-reinstall-no-duplicates:
+    name: Test Reinstall (No Duplicates)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Download binaries
+        run: make update-linux
+      
+      - name: First install
+        run: echo -e "2\ny\n" | ./install.sh || true
+      
+      - name: Count shell config entries (first install)
+        run: |
+          count1=$(grep -c "airgap-dev-kit" ~/.bashrc 2>/dev/null || echo "0")
+          echo "After first install: $count1 entries"
+          echo "$count1" > /tmp/count1.txt
+      
+      - name: Second install
+        run: echo -e "2\ny\n" | ./install.sh || true
+      
+      - name: Count shell config entries (second install)
+        run: |
+          count2=$(grep -c "airgap-dev-kit" ~/.bashrc 2>/dev/null || echo "0")
+          echo "After second install: $count2 entries"
+          
+          count1=$(cat /tmp/count1.txt)
+          if [ "$count2" -gt "$count1" ]; then
+            echo "✗ Duplicate entries detected ($count1 -> $count2)"
+            echo "Contents of ~/.bashrc:"
+            cat ~/.bashrc
+            exit 1
+          fi
+          echo "✓ No duplicates created"
+
+  test-offline-package:
+    name: Test Offline Package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Build complete package
+        run: |
+          make update-linux
+          make package
+      
+      - name: Extract package to temp location
+        run: |
+          mkdir /tmp/test-install
+          tar -xzf airgap-dev-kit-full.tar.gz -C /tmp/test-install
+      
+      - name: Test installation from package
+        run: |
+          cd /tmp/test-install/airgap-dev-kit
+          echo -e "2\nn\n" | ./install.sh || true
+      
+      - name: Verify installation worked
+        run: |
+          test -f ~/.local/bin/nvim || { echo "✗ Installation from package failed"; exit 1; }
+          echo "✓ Offline package installation successful"
+
+  test-dry-run:
+    name: Test Dry Run Mode
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Download binaries
+        run: make update-linux
+      
+      - name: Test dry run
+        run: |
+          ./install.sh --dry-run 2>&1 | tee dryrun.log
+          grep -q "DRY RUN" dryrun.log || { echo "✗ Dry run mode not detected"; exit 1; }
+          echo "✓ Dry run mode works"
+      
+      - name: Verify nothing installed
+        run: |
+          ! test -f ~/.local/bin/nvim || { echo "✗ Files were installed in dry run"; exit 1; }
+          ! test -f ~/.airgap-dev-kit-install.log || { echo "✗ Log created in dry run"; exit 1; }
+          echo "✓ Dry run made no changes"
+
+  test-help:
+    name: Test Help Output
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Test help flag
+        run: |
+          ./install.sh --help 2>&1 | tee help.log
+          grep -q "Usage:" help.log || { echo "✗ Help output missing"; exit 1; }
+          grep -q "dry-run" help.log || { echo "✗ Dry run option not documented"; exit 1; }
+          echo "✓ Help output works"

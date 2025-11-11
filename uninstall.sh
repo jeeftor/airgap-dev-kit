@@ -4,6 +4,9 @@
 
 set -e
 
+# Installation log file
+INSTALL_LOG="$HOME/.airgap-dev-kit-install.log"
+
 echo "=========================================="
 echo "Air-Gap Dev Kit - Uninstaller"
 echo "=========================================="
@@ -14,6 +17,18 @@ has_gum() {
   command -v gum &>/dev/null
 }
 
+# Check if we have an installation log
+if [[ -f "$INSTALL_LOG" ]]; then
+  echo "✓ Found installation log: $INSTALL_LOG"
+  echo "  Using tracked installation data for precise uninstallation"
+  USE_LOG=true
+else
+  echo "⚠ No installation log found at: $INSTALL_LOG"
+  echo "  Will use fallback method (may not remove everything)"
+  USE_LOG=false
+fi
+echo ""
+
 # Detect OS
 if [[ "$OSTYPE" == "darwin"* ]]; then
   OS="macos"
@@ -23,6 +38,39 @@ fi
 
 echo "Detected OS: $OS"
 echo ""
+
+# Parse installation log if available
+parse_install_log() {
+  if [[ ! -f "$INSTALL_LOG" ]]; then
+    return 1
+  fi
+  
+  # Extract metadata
+  BIN_DIR=$(grep "^METADATA|BIN_DIR=" "$INSTALL_LOG" | head -1 | cut -d'=' -f2)
+  USE_SUDO_ORIG=$(grep "^METADATA|USE_SUDO=" "$INSTALL_LOG" | head -1 | cut -d'=' -f2)
+  
+  echo "Installation details from log:"
+  echo "  Binary directory: $BIN_DIR"
+  echo "  Used sudo: $USE_SUDO_ORIG"
+  echo ""
+  
+  # Count items
+  BINARY_COUNT=$(grep "^BINARY|" "$INSTALL_LOG" | wc -l | tr -d ' ')
+  CONFIG_COUNT=$(grep "^CONFIG|" "$INSTALL_LOG" | wc -l | tr -d ' ')
+  STOW_COUNT=$(grep "^STOW_PACKAGE|" "$INSTALL_LOG" | wc -l | tr -d ' ')
+  SHELL_COUNT=$(grep "^SHELL_CONFIG|" "$INSTALL_LOG" | wc -l | tr -d ' ')
+  
+  echo "Items to remove:"
+  echo "  Binaries: $BINARY_COUNT"
+  echo "  Config files: $CONFIG_COUNT"
+  echo "  Stow packages: $STOW_COUNT"
+  echo "  Shell configurations: $SHELL_COUNT"
+  echo ""
+}
+
+if [[ "$USE_LOG" == true ]]; then
+  parse_install_log
+fi
 
 # Check for installation directories
 INSTALL_LOCATIONS=()
@@ -120,20 +168,40 @@ BINARIES=(
   "gum"
 )
 
-# Remove binaries
+# Remove binaries (using log if available)
 echo "Removing binaries..."
-for location in "${INSTALL_LOCATIONS[@]}"; do
-  for binary in "${BINARIES[@]}"; do
-    if [[ -f "$location/$binary" ]]; then
-      if [[ "$location" == "/usr/local/bin" ]]; then
-        $USE_SUDO rm -f "$location/$binary"
+if [[ "$USE_LOG" == true ]]; then
+  # Use log for precise removal
+  while IFS='|' read -r type path backup timestamp; do
+    if [[ "$type" == "BINARY" && -f "$path" ]]; then
+      if [[ "$path" == /usr/local/bin/* ]]; then
+        $USE_SUDO rm -f "$path"
       else
-        rm -f "$location/$binary"
+        rm -f "$path"
       fi
-      echo "  ✓ Removed $binary from $location"
+      echo "  ✓ Removed $(basename $path) from $(dirname $path)"
+      
+      # Restore backup if requested
+      if [[ -n "$backup" && -f "$backup" ]]; then
+        echo "    (Backup available: $backup)"
+      fi
     fi
+  done < <(grep "^BINARY|" "$INSTALL_LOG")
+else
+  # Fallback: use hardcoded list
+  for location in "${INSTALL_LOCATIONS[@]}"; do
+    for binary in "${BINARIES[@]}"; do
+      if [[ -f "$location/$binary" ]]; then
+        if [[ "$location" == "/usr/local/bin" ]]; then
+          $USE_SUDO rm -f "$location/$binary"
+        else
+          rm -f "$location/$binary"
+        fi
+        echo "  ✓ Removed $binary from $location"
+      fi
+    done
   done
-done
+fi
 
 # Remove Neovim installation directories
 if [[ $OS == "linux" ]]; then
@@ -167,7 +235,50 @@ fi
 echo ""
 echo "Removing configurations..."
 
-# Remove configs
+# Unstow packages if using Stow
+if [[ "$USE_LOG" == true ]] && command -v stow &>/dev/null; then
+  STOW_PACKAGES=$(grep "^STOW_PACKAGE|" "$INSTALL_LOG" | cut -d'|' -f2)
+  if [[ -n "$STOW_PACKAGES" ]]; then
+    echo "  Unstowing packages..."
+    for package in $STOW_PACKAGES; do
+      if [[ -d "config/$package" ]]; then
+        cd config && stow -D -t ~ "$package" && cd ..
+        echo "    ✓ Unstowed $package"
+      fi
+    done
+  fi
+fi
+
+# Remove configs (using log if available)
+if [[ "$USE_LOG" == true ]]; then
+  while IFS='|' read -r type path backup timestamp; do
+    if [[ "$type" == "CONFIG" ]]; then
+      if [[ -e "$path" ]]; then
+        if has_gum; then
+          if gum confirm "Remove config: $path?"; then
+            rm -rf "$path"
+            echo "  ✓ Removed $path"
+            if [[ -n "$backup" && -e "$backup" ]]; then
+              echo "    (Backup available: $backup)"
+            fi
+          fi
+        else
+          read -p "Remove config: $path? [y/N]: " -n 1 -r
+          echo
+          if [[ $REPLY =~ ^[Yy]$ ]]; then
+            rm -rf "$path"
+            echo "  ✓ Removed $path"
+            if [[ -n "$backup" && -e "$backup" ]]; then
+              echo "    (Backup available: $backup)"
+            fi
+          fi
+        fi
+      fi
+    fi
+  done < <(grep "^CONFIG|" "$INSTALL_LOG")
+fi
+
+# Fallback: Remove common configs
 if [[ -d "$HOME/.config/nvim" ]]; then
   if has_gum; then
     if gum confirm "Remove Neovim config (~/.config/nvim/)?"; then
@@ -272,9 +383,39 @@ echo "=========================================="
 echo ""
 echo "The following were preserved:"
 echo "  • Shell config backups: ~/.bashrc.airgap-backup, ~/.zshrc.airgap-backup"
+if [[ "$USE_LOG" == true ]]; then
+  # Check for backups in log
+  BACKUP_COUNT=$(grep -c "||" "$INSTALL_LOG" | grep -v "^0$" || echo "0")
+  if [[ "$BACKUP_COUNT" -gt 0 ]]; then
+    echo "  • File backups (see installation log for details)"
+  fi
+fi
 echo "  • Any custom configurations you added manually"
 echo ""
 echo "To restore shell configs, run:"
 echo "  mv ~/.bashrc.airgap-backup ~/.bashrc"
 echo "  mv ~/.zshrc.airgap-backup ~/.zshrc"
 echo ""
+
+# Offer to remove installation log
+if [[ "$USE_LOG" == true ]]; then
+  echo "Installation log: $INSTALL_LOG"
+  if has_gum; then
+    if gum confirm "Remove installation log?"; then
+      rm -f "$INSTALL_LOG"
+      echo "✓ Installation log removed"
+    else
+      echo "Installation log preserved for reference"
+    fi
+  else
+    read -p "Remove installation log? [y/N]: " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+      rm -f "$INSTALL_LOG"
+      echo "✓ Installation log removed"
+    else
+      echo "Installation log preserved for reference"
+    fi
+  fi
+  echo ""
+fi

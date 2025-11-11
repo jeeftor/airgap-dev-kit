@@ -164,6 +164,121 @@ update-linux:
 		echo "  ✓ gum already present"; \
 	fi
 
+	# stow - GNU Stow for dotfile management (Perl script, works everywhere)
+	@if [ ! -f offline-packages/linux/stow ] || [ $$(stat -f%z offline-packages/linux/stow 2>/dev/null || stat -c%s offline-packages/linux/stow 2>/dev/null) -lt 1000 ]; then \
+		echo "  → GNU Stow (dotfile manager)..."; \
+		mkdir -p /tmp/stow-download; \
+		curl -fL "https://ftp.gnu.org/gnu/stow/stow-latest.tar.gz" | tar -xz -C /tmp/stow-download --strip-components=1; \
+		cp /tmp/stow-download/bin/stow offline-packages/linux/stow; \
+		cp /tmp/stow-download/bin/chkstow offline-packages/linux/chkstow; \
+		chmod +x offline-packages/linux/stow offline-packages/linux/chkstow; \
+		rm -rf /tmp/stow-download; \
+	else \
+		echo "  ✓ stow already present"; \
+	fi
+
+	# lazygit - Terminal UI for git
+	@if [ ! -f offline-packages/linux/lazygit ]; then \
+		echo "  → lazygit (git TUI)..."; \
+		curl -fL "https://github.com/jesseduffield/lazygit/releases/download/v0.43.1/lazygit_0.43.1_Linux_x86_64.tar.gz" \
+			| tar -xz -C offline-packages/linux/ lazygit; \
+		chmod +x offline-packages/linux/lazygit; \
+	else \
+		echo "  ✓ lazygit already present"; \
+	fi
+
+	# zoxide - Smarter cd command
+	@if [ ! -f offline-packages/linux/zoxide ]; then \
+		echo "  → zoxide (smarter cd)..."; \
+		curl -fL "https://github.com/ajeetdsouza/zoxide/releases/download/v0.9.4/zoxide-0.9.4-x86_64-unknown-linux-musl.tar.gz" \
+			| tar -xz -C offline-packages/linux/ zoxide; \
+		chmod +x offline-packages/linux/zoxide; \
+	else \
+		echo "  ✓ zoxide already present"; \
+	fi
+
+	# delta - Better git diffs
+	@if [ ! -f offline-packages/linux/delta ]; then \
+		echo "  → delta (git diff viewer)..."; \
+		mkdir -p /tmp/delta-download; \
+		curl -fL "https://github.com/dandavison/delta/releases/download/0.17.0/delta-0.17.0-x86_64-unknown-linux-musl.tar.gz" \
+			| tar -xz -C /tmp/delta-download --strip-components=1; \
+		mv /tmp/delta-download/delta offline-packages/linux/; \
+		chmod +x offline-packages/linux/delta; \
+		rm -rf /tmp/delta-download; \
+	else \
+		echo "  ✓ delta already present"; \
+	fi
+
+	# jq - JSON processor
+	@if [ ! -f offline-packages/linux/jq ]; then \
+		echo "  → jq (JSON processor)..."; \
+		curl -fL "https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-amd64" \
+			-o offline-packages/linux/jq; \
+		chmod +x offline-packages/linux/jq; \
+	else \
+		echo "  ✓ jq already present"; \
+	fi
+
+	# btop - System monitor
+	@if [ ! -f offline-packages/linux/btop ]; then \
+		echo "  → btop (system monitor)..."; \
+		mkdir -p /tmp/btop-download; \
+		curl -fL "https://github.com/aristocratos/btop/releases/download/v1.3.2/btop-x86_64-linux-musl.tbz" \
+			| tar -xj -C /tmp/btop-download; \
+		mv /tmp/btop-download/btop/bin/btop offline-packages/linux/; \
+		chmod +x offline-packages/linux/btop; \
+		rm -rf /tmp/btop-download; \
+	else \
+		echo "  ✓ btop already present"; \
+	fi
+
+	# gopls - Go language server
+	@if [ ! -f offline-packages/linux/gopls ]; then \
+		echo "  → gopls (Go LSP)..."; \
+		curl -fL "https://github.com/golang/tools/releases/download/gopls%2Fv0.16.2/gopls-v0.16.2-linux-amd64.tar.gz" \
+			| tar -xz -C offline-packages/linux/ gopls; \
+		chmod +x offline-packages/linux/gopls; \
+	else \
+		echo "  ✓ gopls already present"; \
+	fi
+
+	# lua-language-server - Lua LSP
+	@if [ ! -f offline-packages/linux/lua-language-server ]; then \
+		echo "  → lua-language-server (Lua LSP)..."; \
+		mkdir -p /tmp/lua-ls-download; \
+		curl -fL "https://github.com/LuaLS/lua-language-server/releases/download/3.10.5/lua-language-server-3.10.5-linux-x64.tar.gz" \
+			| tar -xz -C /tmp/lua-ls-download; \
+		mv /tmp/lua-ls-download/bin/lua-language-server offline-packages/linux/; \
+		chmod +x offline-packages/linux/lua-language-server; \
+		rm -rf /tmp/lua-ls-download; \
+	else \
+		echo "  ✓ lua-language-server already present"; \
+	fi
+
+	# marksman - Markdown LSP
+	@if [ ! -f offline-packages/linux/marksman ]; then \
+		echo "  → marksman (Markdown LSP)..."; \
+		curl -fL "https://github.com/artempyanykh/marksman/releases/download/2023-12-09/marksman-linux-x64" \
+			-o offline-packages/linux/marksman; \
+		chmod +x offline-packages/linux/marksman; \
+	else \
+		echo "  ✓ marksman already present"; \
+	fi
+
+	# shellcheck - Shell script linter/analyzer
+	@if [ ! -f offline-packages/linux/shellcheck ]; then \
+		echo "  → shellcheck (Shell linter)..."; \
+		mkdir -p /tmp/shellcheck-download; \
+		curl -fL "https://github.com/koalaman/shellcheck/releases/download/v0.10.0/shellcheck-v0.10.0.linux.x86_64.tar.xz" \
+			| tar -xJ -C /tmp/shellcheck-download --strip-components=1; \
+		mv /tmp/shellcheck-download/shellcheck offline-packages/linux/; \
+		chmod +x offline-packages/linux/shellcheck; \
+		rm -rf /tmp/shellcheck-download; \
+	else \
+		echo "  ✓ shellcheck already present"; \
+	fi
+
 update-macos:
 	@echo "Downloading macOS binaries..."
 	@mkdir -p offline-packages/macos
@@ -194,6 +309,121 @@ update-macos:
 		chmod +x offline-packages/macos/gum; \
 	else \
 		echo "  ✓ gum already present"; \
+	fi
+
+	# stow - GNU Stow for dotfile management (Perl script, same for all platforms)
+	@if [ ! -f offline-packages/macos/stow ] || [ $$(stat -f%z offline-packages/macos/stow 2>/dev/null || stat -c%s offline-packages/macos/stow 2>/dev/null) -lt 1000 ]; then \
+		echo "  → GNU Stow (dotfile manager)..."; \
+		mkdir -p /tmp/stow-download; \
+		curl -fL "https://ftp.gnu.org/gnu/stow/stow-latest.tar.gz" | tar -xz -C /tmp/stow-download --strip-components=1; \
+		cp /tmp/stow-download/bin/stow offline-packages/macos/stow; \
+		cp /tmp/stow-download/bin/chkstow offline-packages/macos/chkstow; \
+		chmod +x offline-packages/macos/stow offline-packages/macos/chkstow; \
+		rm -rf /tmp/stow-download; \
+	else \
+		echo "  ✓ stow already present"; \
+	fi
+
+	# lazygit - Terminal UI for git
+	@if [ ! -f offline-packages/macos/lazygit ]; then \
+		echo "  → lazygit (git TUI)..."; \
+		curl -fL "https://github.com/jesseduffield/lazygit/releases/download/v0.43.1/lazygit_0.43.1_Darwin_arm64.tar.gz" \
+			| tar -xz -C offline-packages/macos/ lazygit; \
+		chmod +x offline-packages/macos/lazygit; \
+	else \
+		echo "  ✓ lazygit already present"; \
+	fi
+
+	# zoxide - Smarter cd command
+	@if [ ! -f offline-packages/macos/zoxide ]; then \
+		echo "  → zoxide (smarter cd)..."; \
+		curl -fL "https://github.com/ajeetdsouza/zoxide/releases/download/v0.9.4/zoxide-0.9.4-aarch64-apple-darwin.tar.gz" \
+			| tar -xz -C offline-packages/macos/ zoxide; \
+		chmod +x offline-packages/macos/zoxide; \
+	else \
+		echo "  ✓ zoxide already present"; \
+	fi
+
+	# delta - Better git diffs
+	@if [ ! -f offline-packages/macos/delta ]; then \
+		echo "  → delta (git diff viewer)..."; \
+		mkdir -p /tmp/delta-download; \
+		curl -fL "https://github.com/dandavison/delta/releases/download/0.17.0/delta-0.17.0-aarch64-apple-darwin.tar.gz" \
+			| tar -xz -C /tmp/delta-download --strip-components=1; \
+		mv /tmp/delta-download/delta offline-packages/macos/; \
+		chmod +x offline-packages/macos/delta; \
+		rm -rf /tmp/delta-download; \
+	else \
+		echo "  ✓ delta already present"; \
+	fi
+
+	# jq - JSON processor
+	@if [ ! -f offline-packages/macos/jq ]; then \
+		echo "  → jq (JSON processor)..."; \
+		curl -fL "https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-macos-arm64" \
+			-o offline-packages/macos/jq; \
+		chmod +x offline-packages/macos/jq; \
+	else \
+		echo "  ✓ jq already present"; \
+	fi
+
+	# btop - System monitor
+	@if [ ! -f offline-packages/macos/btop ]; then \
+		echo "  → btop (system monitor)..."; \
+		mkdir -p /tmp/btop-download; \
+		curl -fL "https://github.com/aristocratos/btop/releases/download/v1.3.2/btop-aarch64-apple-darwin.tbz" \
+			| tar -xj -C /tmp/btop-download; \
+		mv /tmp/btop-download/btop/bin/btop offline-packages/macos/; \
+		chmod +x offline-packages/macos/btop; \
+		rm -rf /tmp/btop-download; \
+	else \
+		echo "  ✓ btop already present"; \
+	fi
+
+	# gopls - Go language server
+	@if [ ! -f offline-packages/macos/gopls ]; then \
+		echo "  → gopls (Go LSP)..."; \
+		curl -fL "https://github.com/golang/tools/releases/download/gopls%2Fv0.16.2/gopls-v0.16.2-darwin-arm64.tar.gz" \
+			| tar -xz -C offline-packages/macos/ gopls; \
+		chmod +x offline-packages/macos/gopls; \
+	else \
+		echo "  ✓ gopls already present"; \
+	fi
+
+	# lua-language-server - Lua LSP
+	@if [ ! -f offline-packages/macos/lua-language-server ]; then \
+		echo "  → lua-language-server (Lua LSP)..."; \
+		mkdir -p /tmp/lua-ls-download; \
+		curl -fL "https://github.com/LuaLS/lua-language-server/releases/download/3.10.5/lua-language-server-3.10.5-darwin-arm64.tar.gz" \
+			| tar -xz -C /tmp/lua-ls-download; \
+		mv /tmp/lua-ls-download/bin/lua-language-server offline-packages/macos/; \
+		chmod +x offline-packages/macos/lua-language-server; \
+		rm -rf /tmp/lua-ls-download; \
+	else \
+		echo "  ✓ lua-language-server already present"; \
+	fi
+
+	# marksman - Markdown LSP
+	@if [ ! -f offline-packages/macos/marksman ]; then \
+		echo "  → marksman (Markdown LSP)..."; \
+		curl -fL "https://github.com/artempyanykh/marksman/releases/download/2023-12-09/marksman-macos-arm64" \
+			-o offline-packages/macos/marksman; \
+		chmod +x offline-packages/macos/marksman; \
+	else \
+		echo "  ✓ marksman already present"; \
+	fi
+
+	# shellcheck - Shell script linter/analyzer
+	@if [ ! -f offline-packages/macos/shellcheck ]; then \
+		echo "  → shellcheck (Shell linter)..."; \
+		mkdir -p /tmp/shellcheck-download; \
+		curl -fL "https://github.com/koalaman/shellcheck/releases/download/v0.10.0/shellcheck-v0.10.0.darwin.aarch64.tar.xz" \
+			| tar -xJ -C /tmp/shellcheck-download --strip-components=1; \
+		mv /tmp/shellcheck-download/shellcheck offline-packages/macos/; \
+		chmod +x offline-packages/macos/shellcheck; \
+		rm -rf /tmp/shellcheck-download; \
+	else \
+		echo "  ✓ shellcheck already present"; \
 	fi
 
 	# fzf shell integration scripts (shared between macOS and Linux)

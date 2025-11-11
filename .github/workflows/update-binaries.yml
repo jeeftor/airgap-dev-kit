@@ -250,10 +250,30 @@ jobs:
             - **SSH-Friendly**: Detects headless environments and provides appropriate instructions
 
             ## 📦 Binaries Included
+            
+            **Core Tools:**
             - WezTerm (terminal emulator)
-            - Neovim (Linux + macOS)
-            - tmux, fzf, fd, ripgrep, bat, starship
-            - Optional: btop, eza, zoxide, delta, lsd, **gum**
+            - Neovim (text editor with plugins)
+            - tmux (terminal multiplexer)
+            - fzf (fuzzy finder)
+            - fd (better find)
+            - ripgrep (better grep)
+            - bat (better cat)
+            - starship (prompt)
+            - gum (TUI toolkit)
+            
+            **New Essential Tools:**
+            - **lazygit** (git TUI)
+            - **zoxide** (smarter cd)
+            - **delta** (git diff viewer)
+            - **jq** (JSON processor)
+            - **btop** (system monitor)
+            
+            **Optional:**
+            - lsd/eza (better ls)
+            - GNU Stow (dotfile manager)
+            
+            **Extras:**
             - JetBrainsMono Nerd Font
             - Neovim plugins (via lazy.nvim)
 

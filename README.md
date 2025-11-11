@@ -117,6 +117,8 @@ wezterm start -- tmux new-session nvim
 - **eza** - Another modern ls with git integration
 - **zoxide** - Smarter cd that learns your habits
 - **delta** - Stunning git diff viewer with syntax highlighting
+- **stow** - GNU Stow for dotfile symlink management (bundled)
+- **gum** - Charm Bracelet TUI toolkit for pretty prompts (bundled)
 
 ### Extras
 - **JetBrainsMono Nerd Font** - Patched font with programming ligatures and icons
@@ -131,6 +133,8 @@ wezterm start -- tmux new-session nvim
 - ✅ **Cross-Platform** - Works on macOS (ARM64) and Linux (x86_64)
 - ✅ **Air-Gap Ready** - Neovim plugins pre-bundled for offline use
 - ✅ **One-Command Install** - `./install.sh` does everything
+- ✅ **Installation Tracking** - Complete undo system with automatic backups
+- ✅ **Flexible Installation** - System-wide or user-local, with or without root
 - ✅ **Reproducible** - Checksums and version pinning
 
 ## 📦 GitHub Actions Automation
@@ -191,25 +195,38 @@ cp offline-packages/linux/your-tool ~/bin/
 
 ### What `install.sh` Does
 
-1. **Detects OS** - Determines macOS vs Linux
-2. **Copies binaries** - Installs to `~/bin/` (Linux) or system paths (macOS)
-3. **Extracts Neovim** - Unpacks and installs text editor
-4. **Installs plugins** - Extracts pre-downloaded Neovim plugins
-5. **Symlinks configs** - Uses GNU Stow to link dotfiles
-6. **Installs fonts** - JetBrainsMono Nerd Font for icons
+1. **Prompts for installation location** - System-wide (`/usr/local/bin`) or user-local (`~/.local/bin`)
+2. **Detects OS** - Determines macOS vs Linux
+3. **Installs binaries** - Copies to chosen location with version checking
+4. **Extracts Neovim** - Unpacks and installs text editor
+5. **Installs plugins** - Extracts pre-downloaded Neovim plugins
+6. **Configures dotfiles** - Uses GNU Stow (if available) or direct copy
+7. **Installs fonts** - JetBrainsMono Nerd Font for icons
+8. **Configures shell** - Optionally adds PATH and tool initialization to shell RC files
 
 ### Directory Structure After Install
 
+**System-wide install:**
+```
+/usr/local/bin/        # Binaries (requires sudo)
+├── wezterm, tmux, nvim, fzf, fd, rg, bat, starship
+└── (optional: btop, lsd, eza, zoxide, delta, gum)
+```
+
+**User-local install:**
+```
+~/.local/bin/          # Binaries (no sudo needed)
+├── wezterm, tmux, nvim, fzf, fd, rg, bat, starship
+└── (optional: btop, lsd, eza, zoxide, delta, gum)
+```
+
+**Configuration files (both install types):**
 ```
 ~/
-├── bin/
-│   ├── wezterm, tmux, nvim, fzf, fd, rg, bat, starship
-│   └── (optional: btop, lsd, eza, zoxide, delta)
 ├── .config/
-│   ├── nvim/          # Neovim config (via Stow)
-│   ├── wezterm/       # Terminal config
+│   ├── nvim/          # Neovim config (symlinked via Stow or copied)
 │   └── starship.toml  # Prompt config
-├── .tmux.conf         # Tmux config (via Stow)
+├── .tmux.conf         # Tmux config
 └── .local/share/
     ├── fonts/         # JetBrainsMono Nerd Font
     └── nvim/lazy/     # Pre-installed Neovim plugins
@@ -223,31 +240,45 @@ cp offline-packages/linux/your-tool ~/bin/
 - `make` - Build automation
 
 ### Air-Gapped Machine (for installing)
-- **GNU Stow** - Config symlink management
-  - Debian/Ubuntu: `apt-get install stow`
-  - RHEL/Fedora: `dnf install stow`
-  - Arch: `pacman -S stow`
-  - macOS: `brew install stow` (or include in kit)
+- **No external dependencies required!**
+  - GNU Stow is bundled in the package for dotfile management
+  - Falls back to direct copy if Stow fails
+  - Everything needed is included
 
 ## 📖 Documentation
 
+- [INSTALLATION-TRACKING.md](INSTALLATION-TRACKING.md) - Installation tracking & undo system
+- [config/README.md](config/README.md) - GNU Stow configuration guide
+- [CHANGES.md](CHANGES.md) - Recent changes and improvements
 - [CLAUDE.md](CLAUDE.md) - Comprehensive developer guide
 - [Releases](https://github.com/jeeftor/airgap-dev-kit/releases) - Download pre-built packages
 - [Actions](https://github.com/jeeftor/airgap-dev-kit/actions) - View build status
 
 ## 🐛 Troubleshooting
 
-**Binaries not found after install:**
+**Binaries not found after user-local install:**
 ```bash
 # Add to ~/.bashrc or ~/.zshrc
-export PATH="$HOME/bin:$PATH"
+export PATH="$HOME/.local/bin:$PATH"
 source ~/.bashrc  # or ~/.zshrc
+
+# Or if you used ~/bin instead:
+export PATH="$HOME/bin:$PATH"
 ```
 
 **Permission denied errors:**
 ```bash
-chmod +x ~/bin/*
+# For user-local install
+chmod +x ~/.local/bin/*
+
+# For system-wide install (if needed)
+sudo chmod +x /usr/local/bin/*
 ```
+
+**Can't install system-wide (no sudo access):**
+- Choose option 2 (user-local install) when prompted
+- Installer will automatically use `~/.local/bin`
+- Remember to add to PATH as shown above
 
 **macOS security warnings:**
 ```bash
@@ -257,16 +288,65 @@ xattr -cr /Applications/WezTerm.app
 
 **Stow conflicts:**
 ```bash
+# The installer now handles this automatically with backups
+# But if you need to manually fix:
+
 # Remove old symlinks
-stow -D config -t ~
-# Backup conflicting files, then re-run
-stow config -t ~
+cd config && stow -D -t ~ */
+
+# Backup conflicting files
+mv ~/.config/nvim ~/.config/nvim.backup
+
+# Re-stow
+cd config && stow -t ~ */
+```
+
+**Config directory structure issues:**
+```bash
+# If you're getting Stow errors, restructure the config directory:
+./restructure-config-for-stow.sh
+
+# See config/README.md for details on proper Stow structure
 ```
 
 **Neovim plugins missing:**
 - Ensure `offline-packages/lazy-plugins.tar.gz` exists
 - GitHub Actions should bundle this automatically
 - Or manually run: `nvim --headless "+Lazy! sync" +qa` on internet machine
+
+**Installation fails with "command not found":**
+- Make sure you're running `./install.sh` from the extracted `airgap-dev-kit` directory
+- Check that install.sh is executable: `chmod +x install.sh`
+
+## 🗑️ Uninstallation
+
+The kit includes a smart uninstaller that uses the installation log:
+
+```bash
+./uninstall.sh
+```
+
+**Features:**
+- ✅ Reads installation log (`~/.airgap-dev-kit-install.log`)
+- ✅ Shows exactly what will be removed
+- ✅ Preserves backups created during installation
+- ✅ Properly unstows Stow packages
+- ✅ Cleans shell configurations
+- ✅ Falls back to manual search if no log exists
+
+**What gets removed:**
+- All installed binaries
+- Configuration files (with confirmation)
+- Neovim plugins and data
+- Shell RC modifications
+- Fonts (optional)
+
+**What gets preserved:**
+- Backup files (`.backup-*` files)
+- Shell config backups (`.bashrc.airgap-backup`)
+- Custom modifications you made
+
+See [INSTALLATION-TRACKING.md](INSTALLATION-TRACKING.md) for details.
 
 ## 🔐 Security
 

@@ -1,6 +1,50 @@
 #!/usr/bin/env bash
 set -e
 
+# Parse command line arguments
+DRY_RUN=false
+for arg in "$@"; do
+  case $arg in
+    --dry-run|-n)
+      DRY_RUN=true
+      shift
+      ;;
+    --help|-h)
+      echo "Usage: $0 [OPTIONS]"
+      echo ""
+      echo "Options:"
+      echo "  --dry-run, -n    Show what would be installed without actually installing"
+      echo "  --help, -h       Show this help message"
+      exit 0
+      ;;
+  esac
+done
+
+# Installation tracking file
+INSTALL_LOG="$HOME/.airgap-dev-kit-install.log"
+
+# Initialize installation log
+init_install_log() {
+  cat > "$INSTALL_LOG" << EOF
+# Air-Gap Dev Kit Installation Log
+# Generated: $(date)
+# This file tracks what was installed and can be used for uninstallation
+#
+# Format: TYPE|PATH|BACKUP_PATH|TIMESTAMP
+# Types: BINARY, CONFIG, SYMLINK, DIRECTORY, SHELL_CONFIG
+EOF
+  echo "# Installation started at $(date)" >> "$INSTALL_LOG"
+}
+
+# Log an installed item
+log_install() {
+  local type="$1"
+  local path="$2"
+  local backup="${3:-}"
+  local timestamp=$(date +%Y%m%d-%H%M%S)
+  echo "$type|$path|$backup|$timestamp" >> "$INSTALL_LOG"
+}
+
 # Helper function to check if gum is available (for pretty TUI prompts)
 has_gum() {
   command -v gum &>/dev/null || [ -f "$PWD/offline-packages/linux/gum" ] || [ -f "$PWD/offline-packages/macos/gum" ]
@@ -76,53 +120,102 @@ else
   OS="linux"
 fi
 
-echo "Installing $OS binaries..."
+echo ""
+echo "=========================================="
+echo "Air-Gap Dev Kit Installer"
+if [[ "$DRY_RUN" == true ]]; then
+  echo "(DRY RUN MODE - No changes will be made)"
+fi
+echo "=========================================="
+echo ""
 
-# Determine install location - prefer system dirs if we have sudo, otherwise use ~/bin
-if [[ $EUID -eq 0 ]]; then
-  # Already running as root
-  BIN_DIR="/usr/local/bin"
-  echo "Installing to: $BIN_DIR (system-wide)"
-  USE_SUDO=""
-elif sudo -n true 2>/dev/null; then
-  # Can sudo without password
-  BIN_DIR="/usr/local/bin"
-  echo "Installing to: $BIN_DIR (system-wide)"
-  USE_SUDO="sudo"
+# Initialize installation tracking
+if [[ "$DRY_RUN" == false ]]; then
+  init_install_log
+  echo "Installation tracking: $INSTALL_LOG"
 else
-  # Try to prompt for sudo password
-  echo ""
-  echo "This installer can install to /usr/local/bin (recommended) or ~/bin"
-  echo ""
-  read -p "Install system-wide to /usr/local/bin? (requires sudo) [Y/n]: " -n 1 -r
-  echo
+  echo "DRY RUN: Would create installation log at: $INSTALL_LOG"
+fi
+echo ""
 
-  if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
-    # User wants system-wide install, prompt for sudo
-    if sudo -v; then
-      BIN_DIR="/usr/local/bin"
-      echo "Installing to: $BIN_DIR (system-wide)"
-      USE_SUDO="sudo"
-      # Keep sudo alive in background
-      while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
-    else
-      echo "Sudo authentication failed. Falling back to user install."
-      BIN_DIR="$HOME/bin"
-      echo "Installing to: $BIN_DIR (user-local)"
-      USE_SUDO=""
-    fi
-  else
-    # User chose user install
-    BIN_DIR="$HOME/bin"
-    echo "Installing to: $BIN_DIR (user-local)"
-    echo "Note: You'll need to add this to your PATH"
-    USE_SUDO=""
-  fi
+# Determine install location - prompt user FIRST
+echo "Choose installation location:"
+echo ""
+echo "1. System-wide (/usr/local/bin) - Recommended if you have sudo access"
+echo "   • Available to all users"
+echo "   • Requires root/sudo privileges"
+echo ""
+echo "2. User-local (~/.local/bin or ~/bin) - Best for restricted environments"
+echo "   • No root access needed"
+echo "   • Only available to current user"
+echo "   • Requires adding to PATH manually"
+echo ""
+
+# Check if we're already root
+if [[ $EUID -eq 0 ]]; then
+  echo "Note: Running as root, defaulting to system-wide install"
+  INSTALL_CHOICE="1"
+# Check if we can sudo without password
+elif sudo -n true 2>/dev/null; then
+  echo "Note: Passwordless sudo detected"
+  read -p "Install location [1=system-wide, 2=user-local]: " -n 1 -r INSTALL_CHOICE
+  echo
+else
+  read -p "Install location [1=system-wide, 2=user-local]: " -n 1 -r INSTALL_CHOICE
+  echo
+fi
+
+# Default to user-local if no choice made
+if [[ -z "$INSTALL_CHOICE" ]]; then
+  INSTALL_CHOICE="2"
 fi
 
 echo ""
 
-$USE_SUDO mkdir -p "$BIN_DIR"
+# Set up installation paths based on choice
+if [[ "$INSTALL_CHOICE" == "1" ]]; then
+  # System-wide installation
+  if [[ $EUID -eq 0 ]]; then
+    # Already running as root
+    BIN_DIR="/usr/local/bin"
+    USE_SUDO=""
+    echo "✓ Installing to: $BIN_DIR (system-wide, as root)"
+  elif sudo -v; then
+    # Prompt for sudo and verify
+    BIN_DIR="/usr/local/bin"
+    USE_SUDO="sudo"
+    echo "✓ Installing to: $BIN_DIR (system-wide, with sudo)"
+    # Keep sudo alive in background
+    while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
+  else
+    echo "✗ Sudo authentication failed. Falling back to user-local install."
+    BIN_DIR="$HOME/.local/bin"
+    USE_SUDO=""
+    echo "✓ Installing to: $BIN_DIR (user-local)"
+  fi
+else
+  # User-local installation
+  BIN_DIR="$HOME/.local/bin"
+  USE_SUDO=""
+  echo "✓ Installing to: $BIN_DIR (user-local)"
+fi
+
+echo ""
+echo "Installing $OS binaries..."
+
+# Log installation metadata
+log_install "METADATA" "OS=$OS" "" ""
+log_install "METADATA" "BIN_DIR=$BIN_DIR" "" ""
+log_install "METADATA" "USE_SUDO=$USE_SUDO" "" ""
+log_install "DIRECTORY" "$BIN_DIR" "" ""
+
+echo ""
+
+if [[ "$DRY_RUN" == true ]]; then
+  echo "DRY RUN: Would create directory: $BIN_DIR"
+else
+  $USE_SUDO mkdir -p "$BIN_DIR"
+fi
 
 # Install gum first (so we can use it for prompts)
 if [[ -f offline-packages/$OS/gum ]]; then
@@ -144,6 +237,7 @@ if [[ -f offline-packages/$OS/gum ]]; then
     $USE_SUDO cp offline-packages/$OS/gum "$BIN_DIR/"
     $USE_SUDO chmod +x "$BIN_DIR/gum"
     echo "✓ gum installed"
+    log_install "BINARY" "$BIN_DIR/gum" "" ""
   fi
 fi
 
@@ -180,6 +274,7 @@ install_binary() {
   fi
 
   local dest_path="$BIN_DIR/$dest_name"
+  local backup_path=""
 
   if [[ -f "$dest_path" ]]; then
     # Binary exists, check version
@@ -189,21 +284,32 @@ install_binary() {
     # Skip if same version
     if [[ "$existing_ver" == "$new_ver" ]]; then
       echo "✓ $tool_name (already up-to-date: $existing_ver)"
+      log_install "BINARY" "$dest_path" "" ""
       return
     fi
 
     if prompt_overwrite "$tool_name" "$existing_ver" "$new_ver" "$dest_path"; then
+      # Create backup before overwriting
+      backup_path="${dest_path}.backup-$(date +%Y%m%d-%H%M%S)"
+      $USE_SUDO cp "$dest_path" "$backup_path"
+      
       $USE_SUDO cp "$source_file" "$dest_path"
       $USE_SUDO chmod +x "$dest_path"
       echo "✓ $tool_name updated ($existing_ver → $new_ver)"
+      log_install "BINARY" "$dest_path" "$backup_path" ""
     else
       echo "⊘ Skipped $tool_name"
     fi
   else
     # Fresh install
-    $USE_SUDO cp "$source_file" "$dest_path"
-    $USE_SUDO chmod +x "$dest_path"
-    echo "✓ $tool_name installed"
+    if [[ "$DRY_RUN" == true ]]; then
+      echo "DRY RUN: Would install $tool_name to $dest_path"
+    else
+      $USE_SUDO cp "$source_file" "$dest_path"
+      $USE_SUDO chmod +x "$dest_path"
+      echo "✓ $tool_name installed"
+      log_install "BINARY" "$dest_path" "" ""
+    fi
   fi
 }
 
@@ -253,11 +359,21 @@ if [[ $OS == "linux" ]]; then
   )
 
   # Optional tools
-  [[ -f "offline-packages/linux/lsd" ]] && BINARIES_TO_CHECK+=("offline-packages/linux/lsd|lsd|lsd|--version")
-  [[ -f "offline-packages/linux/btop" ]] && BINARIES_TO_CHECK+=("offline-packages/linux/btop|btop|btop|--version")
-  [[ -f "offline-packages/linux/eza" ]] && BINARIES_TO_CHECK+=("offline-packages/linux/eza|eza|eza|--version")
-  [[ -f "offline-packages/linux/zoxide" ]] && BINARIES_TO_CHECK+=("offline-packages/linux/zoxide|zoxide|zoxide|--version")
-  [[ -f "offline-packages/linux/delta" ]] && BINARIES_TO_CHECK+=("offline-packages/linux/delta|delta|delta|--version")
+  [[ -f "offline-packages/$OS/lsd" ]] && BINARIES_TO_CHECK+=("offline-packages/$OS/lsd|lsd|lsd|--version")
+  [[ -f "offline-packages/$OS/eza" ]] && BINARIES_TO_CHECK+=("offline-packages/$OS/eza|eza|eza|--version")
+  
+  # New essential tools
+  [[ -f "offline-packages/$OS/lazygit" ]] && BINARIES_TO_CHECK+=("offline-packages/$OS/lazygit|lazygit|lazygit|--version")
+  [[ -f "offline-packages/$OS/zoxide" ]] && BINARIES_TO_CHECK+=("offline-packages/$OS/zoxide|zoxide|zoxide|--version")
+  [[ -f "offline-packages/$OS/delta" ]] && BINARIES_TO_CHECK+=("offline-packages/$OS/delta|delta|delta|--version")
+  [[ -f "offline-packages/$OS/jq" ]] && BINARIES_TO_CHECK+=("offline-packages/$OS/jq|jq|jq|--version")
+  [[ -f "offline-packages/$OS/btop" ]] && BINARIES_TO_CHECK+=("offline-packages/$OS/btop|btop|btop|--version")
+  
+  # LSP servers
+  [[ -f "offline-packages/$OS/gopls" ]] && BINARIES_TO_CHECK+=("offline-packages/$OS/gopls|gopls|gopls (Go LSP)|version")
+  [[ -f "offline-packages/$OS/lua-language-server" ]] && BINARIES_TO_CHECK+=("offline-packages/$OS/lua-language-server|lua-language-server|lua-language-server (Lua LSP)|--version")
+  [[ -f "offline-packages/$OS/marksman" ]] && BINARIES_TO_CHECK+=("offline-packages/$OS/marksman|marksman|marksman (Markdown LSP)|--version")
+  [[ -f "offline-packages/$OS/shellcheck" ]] && BINARIES_TO_CHECK+=("offline-packages/$OS/shellcheck|shellcheck|shellcheck (Shell linter)|--version")
 
   # Scan for updates needed
   declare -a UPDATES_NEEDED=()
@@ -360,9 +476,20 @@ if [[ $OS == "linux" ]]; then
       IFS='|' read -r source dest name flag <<< "$binary_spec"
       # Use simplified install (no prompting since already selected)
       if [[ -f "$source" ]]; then
-        $USE_SUDO cp "$source" "$BIN_DIR/$dest"
-        $USE_SUDO chmod +x "$BIN_DIR/$dest"
-        echo "✓ $name installed"
+        # Backup if exists
+        if [[ -f "$BIN_DIR/$dest" ]]; then
+          backup_path="$BIN_DIR/$dest.backup-$(date +%Y%m%d-%H%M%S)"
+          $USE_SUDO cp "$BIN_DIR/$dest" "$backup_path"
+          $USE_SUDO cp "$source" "$BIN_DIR/$dest"
+          $USE_SUDO chmod +x "$BIN_DIR/$dest"
+          echo "✓ $name installed"
+          log_install "BINARY" "$BIN_DIR/$dest" "$backup_path" ""
+        else
+          $USE_SUDO cp "$source" "$BIN_DIR/$dest"
+          $USE_SUDO chmod +x "$BIN_DIR/$dest"
+          echo "✓ $name installed"
+          log_install "BINARY" "$BIN_DIR/$dest" "" ""
+        fi
       fi
     done
   else
@@ -390,10 +517,14 @@ if [[ $OS == "linux" ]]; then
           $USE_SUDO rm -rf /opt/nvim-linux-x86_64
           $USE_SUDO mv /tmp/nvim-linux-x86_64 /opt/
           $USE_SUDO ln -sf /opt/nvim-linux-x86_64/bin/nvim "$BIN_DIR/nvim"
+          log_install "DIRECTORY" "/opt/nvim-linux-x86_64" "" ""
+          log_install "SYMLINK" "$BIN_DIR/nvim" "/opt/nvim-linux-x86_64/bin/nvim" ""
         else
           rm -rf ~/nvim-linux-x86_64
           mv /tmp/nvim-linux-x86_64 ~/
           ln -sf ~/nvim-linux-x86_64/bin/nvim "$BIN_DIR/nvim"
+          log_install "DIRECTORY" "$HOME/nvim-linux-x86_64" "" ""
+          log_install "SYMLINK" "$BIN_DIR/nvim" "$HOME/nvim-linux-x86_64/bin/nvim" ""
         fi
         echo "✓ Neovim updated ($existing_ver → $new_ver)"
       else
@@ -406,9 +537,13 @@ if [[ $OS == "linux" ]]; then
       if [[ -n "$USE_SUDO" ]]; then
         $USE_SUDO mv /tmp/nvim-linux-x86_64 /opt/
         $USE_SUDO ln -sf /opt/nvim-linux-x86_64/bin/nvim "$BIN_DIR/nvim"
+        log_install "DIRECTORY" "/opt/nvim-linux-x86_64" "" ""
+        log_install "SYMLINK" "$BIN_DIR/nvim" "/opt/nvim-linux-x86_64/bin/nvim" ""
       else
         mv /tmp/nvim-linux-x86_64 ~/
         ln -sf ~/nvim-linux-x86_64/bin/nvim "$BIN_DIR/nvim"
+        log_install "DIRECTORY" "$HOME/nvim-linux-x86_64" "" ""
+        log_install "SYMLINK" "$BIN_DIR/nvim" "$HOME/nvim-linux-x86_64/bin/nvim" ""
       fi
       echo "✓ Neovim installed"
     fi
@@ -492,42 +627,131 @@ if [[ -f offline-packages/lazy-plugins.tar.gz ]]; then
   echo "Installing Neovim plugins..."
   mkdir -p ~/.local/share/nvim
   tar -xzf offline-packages/lazy-plugins.tar.gz -C ~/.local/share/nvim/
+  log_install "DIRECTORY" "$HOME/.local/share/nvim/lazy" "" ""
   echo "✓ Neovim plugins installed"
 fi
 
 # Install configs
-if command -v stow &>/dev/null && [[ -d config ]]; then
-  echo "Symlinking configs with stow..."
-  stow -t ~ config
-elif [[ -d config ]]; then
-  echo "Installing configs (copying)..."
-  # Ensure .config is owned by the user, not root
+echo ""
+echo "Installing configuration files..."
+
+if [[ ! -d config ]]; then
+  echo "⚠ No config directory found, skipping config installation"
+else
+  # Ensure .config directory exists and has correct permissions
+  mkdir -p ~/.config
   if [[ -d ~/.config ]] && [[ ! -w ~/.config ]]; then
     echo "  Fixing permissions on ~/.config..."
     $USE_SUDO chown -R $(whoami):$(id -gn) ~/.config
   fi
 
-  # Copy config files directly (stow not available)
-  if [[ -d config/.config ]]; then
-    mkdir -p ~/.config
-    cp -r config/.config/* ~/.config/ 2>/dev/null || {
-      echo "  Permission issue detected, using sudo for config copy..."
-      $USE_SUDO cp -r config/.config/* ~/.config/
-      $USE_SUDO chown -R $(whoami):$(id -gn) ~/.config
-    }
-  fi
-  # Copy other dotfiles if they exist (but skip . and ..)
-  for file in config/.*; do
-    # Skip . and .. directories
-    [[ "$file" == "config/." ]] || [[ "$file" == "config/.." ]] && continue
-    # Only process actual files
-    if [[ -f "$file" ]]; then
-      cp "$file" ~/ 2>/dev/null || $USE_SUDO cp "$file" ~/
+  # Install bundled Stow if not already available
+  if ! command -v stow &>/dev/null; then
+    if [[ -f "offline-packages/$OS/stow" ]]; then
+      echo "  Installing bundled GNU Stow..."
+      $USE_SUDO cp offline-packages/$OS/stow "$BIN_DIR/"
+      $USE_SUDO chmod +x "$BIN_DIR/stow"
+      log_install "BINARY" "$BIN_DIR/stow" "" ""
+      if [[ -f "offline-packages/$OS/chkstow" ]]; then
+        $USE_SUDO cp offline-packages/$OS/chkstow "$BIN_DIR/"
+        $USE_SUDO chmod +x "$BIN_DIR/chkstow"
+        log_install "BINARY" "$BIN_DIR/chkstow" "" ""
+      fi
+      echo "  ✓ GNU Stow installed"
     fi
-  done
-  echo "✓ Configs installed"
-else
-  echo "⚠ No config directory found, skipping config installation"
+  fi
+
+  # Check if we have GNU Stow available (system or bundled)
+  if command -v stow &>/dev/null || [[ -f "$BIN_DIR/stow" ]]; then
+    echo "  Using GNU Stow for symlink management..."
+    STOW_CMD="stow"
+    [[ -f "$BIN_DIR/stow" ]] && STOW_CMD="$BIN_DIR/stow"
+    
+    # Stow expects packages as subdirectories of config/
+    # Each package should contain the directory structure relative to $HOME
+    # Example: config/nvim/.config/nvim/init.lua -> ~/.config/nvim/init.lua
+    
+    # Try to stow each package directory
+    cd config
+    for package in */; do
+      package_name="${package%/}"
+      echo "  → Stowing package: $package_name"
+      if $STOW_CMD -t ~ "$package_name" 2>&1 | grep -q "conflict"; then
+        echo "    ⚠ Conflicts detected. Backing up existing files..."
+        # Backup conflicting files
+        $STOW_CMD -t ~ "$package_name" 2>&1 | grep "existing target" | while read -r line; do
+          conflict_file=$(echo "$line" | grep -oP '(?<=existing target is ).*')
+          if [[ -n "$conflict_file" ]]; then
+            backup_path=~/"${conflict_file}.backup-$(date +%Y%m%d-%H%M%S)"
+            mv ~/"$conflict_file" "$backup_path"
+            log_install "CONFIG" ~/"$conflict_file" "$backup_path" ""
+          fi
+        done
+        # Try again
+        if $STOW_CMD -t ~ "$package_name"; then
+          echo "    ✓ $package_name stowed"
+          log_install "STOW_PACKAGE" "$package_name" "" ""
+        else
+          echo "    ✗ Failed to stow $package_name"
+        fi
+      else
+        echo "    ✓ $package_name stowed"
+        log_install "STOW_PACKAGE" "$package_name" "" ""
+      fi
+    done
+    cd ..
+  else
+    echo "  GNU Stow not found, using direct copy method..."
+    echo "  Note: Install 'stow' for better dotfile management with symlinks"
+    
+    # Fallback: Copy files directly
+    # Handle .config subdirectory
+    if [[ -d config/.config ]]; then
+      echo "  → Copying .config files..."
+      for config_item in config/.config/*; do
+        if [[ -e "$config_item" ]]; then
+          dest_path="$HOME/.config/$(basename "$config_item")"
+          # Backup if exists
+          if [[ -e "$dest_path" ]]; then
+            backup_path="${dest_path}.backup-$(date +%Y%m%d-%H%M%S)"
+            mv "$dest_path" "$backup_path"
+            log_install "CONFIG" "$dest_path" "$backup_path" ""
+          fi
+          cp -r "$config_item" ~/.config/ 2>/dev/null || {
+            echo "    Permission issue detected, adjusting ownership..."
+            $USE_SUDO cp -r "$config_item" ~/.config/
+            $USE_SUDO chown -R $(whoami):$(id -gn) "$dest_path"
+          }
+          log_install "CONFIG" "$dest_path" "" ""
+        fi
+      done
+    fi
+    
+    # Handle other dotfiles in config/ root (like .tmux.conf, .bashrc, etc.)
+    echo "  → Copying dotfiles..."
+    for file in config/.*; do
+      # Skip . and .. and .config directory
+      if [[ "$file" == "config/." ]] || [[ "$file" == "config/.." ]] || [[ "$file" == "config/.config" ]]; then
+        continue
+      fi
+      # Only process actual files
+      if [[ -f "$file" ]]; then
+        filename=$(basename "$file")
+        dest_path="$HOME/$filename"
+        echo "    → $filename"
+        # Backup if exists
+        if [[ -f "$dest_path" ]]; then
+          backup_path="${dest_path}.backup-$(date +%Y%m%d-%H%M%S)"
+          cp "$dest_path" "$backup_path"
+          log_install "CONFIG" "$dest_path" "$backup_path" ""
+        fi
+        cp "$file" ~/ 2>/dev/null || $USE_SUDO cp "$file" ~/
+        log_install "CONFIG" "$dest_path" "" ""
+      fi
+    done
+  fi
+  
+  echo "✓ Configuration files installed"
 fi
 
 # Fonts
@@ -556,9 +780,13 @@ echo "   Fonts: ~/.local/share/fonts/ (Linux) or /Applications/Font Book (macOS)
 echo ""
 echo "📋 Next Steps:"
 echo ""
-if [[ "$BIN_DIR" == "$HOME/bin" ]]; then
+if [[ "$BIN_DIR" == "$HOME/.local/bin" ]] || [[ "$BIN_DIR" == "$HOME/bin" ]]; then
   echo "1. Add tools to your PATH (add to ~/.bashrc or ~/.zshrc):"
-  echo "   export PATH=\"\$HOME/bin:\$PATH\""
+  if [[ "$BIN_DIR" == "$HOME/.local/bin" ]]; then
+    echo "   export PATH=\"\$HOME/.local/bin:\$PATH\""
+  else
+    echo "   export PATH=\"\$HOME/bin:\$PATH\""
+  fi
   echo ""
   echo "2. Source your profile or restart shell:"
   echo "   source ~/.bashrc  # or ~/.zshrc"
@@ -665,6 +893,7 @@ add_to_shell_rc() {
       echo "" >> "$rc_file"
       echo "# Added by airgap-dev-kit installer" >> "$rc_file"
       echo "$config_line" >> "$rc_file"
+      log_install "SHELL_CONFIG" "$rc_file" "" "$description"
       echo "  ✓ Added $description"
       return 0
     else
@@ -683,6 +912,7 @@ add_to_shell_rc() {
       echo "" >> "$rc_file"
       echo "# Added by airgap-dev-kit installer" >> "$rc_file"
       echo "$config_line" >> "$rc_file"
+      log_install "SHELL_CONFIG" "$rc_file" "" "$description"
       echo "  ✓ Added $description"
       return 0
     else
@@ -740,12 +970,20 @@ else
       SHELL_TYPE="fish"
     fi
 
-    # PATH configuration (only if needed)
-    if [[ "$BIN_DIR" == "$HOME/bin" ]]; then
+    # PATH configuration (only if needed for user-local install)
+    if [[ "$BIN_DIR" == "$HOME/.local/bin" ]] || [[ "$BIN_DIR" == "$HOME/bin" ]]; then
       if [[ "$SHELL_TYPE" == "fish" ]]; then
-        add_to_shell_rc "$SHELL_RC" "set -gx PATH \$HOME/bin \$PATH" "PATH configuration"
+        if [[ "$BIN_DIR" == "$HOME/.local/bin" ]]; then
+          add_to_shell_rc "$SHELL_RC" "set -gx PATH \$HOME/.local/bin \$PATH" "PATH configuration"
+        else
+          add_to_shell_rc "$SHELL_RC" "set -gx PATH \$HOME/bin \$PATH" "PATH configuration"
+        fi
       else
-        add_to_shell_rc "$SHELL_RC" "export PATH=\"\$HOME/bin:\$PATH\"" "PATH configuration"
+        if [[ "$BIN_DIR" == "$HOME/.local/bin" ]]; then
+          add_to_shell_rc "$SHELL_RC" "export PATH=\"\$HOME/.local/bin:\$PATH\"" "PATH configuration"
+        else
+          add_to_shell_rc "$SHELL_RC" "export PATH=\"\$HOME/bin:\$PATH\"" "PATH configuration"
+        fi
       fi
     fi
 
@@ -846,3 +1084,20 @@ else
 fi
 
 echo ""
+echo "=========================================="
+echo "📝 Installation Tracking"
+echo "=========================================="
+echo ""
+echo "Installation log saved to: $INSTALL_LOG"
+echo ""
+echo "This log tracks everything that was installed and can be used for:"
+echo "  • Uninstalling with: ./uninstall.sh"
+echo "  • Reviewing what was installed"
+echo "  • Restoring from backups (if any were created)"
+echo ""
+echo "To view the log:"
+echo "  cat $INSTALL_LOG"
+echo ""
+
+# Finalize log
+echo "# Installation completed at $(date)" >> "$INSTALL_LOG"
