@@ -525,11 +525,12 @@ if [[ $OS == "linux" ]]; then
           log_install "DIRECTORY" "/opt/nvim-linux-x86_64" "" ""
           log_install "SYMLINK" "$BIN_DIR/nvim" "/opt/nvim-linux-x86_64/bin/nvim" ""
         else
-          rm -rf ~/nvim-linux-x86_64
-          mv /tmp/nvim-linux-x86_64 ~/
-          ln -sf ~/nvim-linux-x86_64/bin/nvim "$BIN_DIR/nvim"
-          log_install "DIRECTORY" "$HOME/nvim-linux-x86_64" "" ""
-          log_install "SYMLINK" "$BIN_DIR/nvim" "$HOME/nvim-linux-x86_64/bin/nvim" ""
+          mkdir -p ~/.local/share
+          rm -rf ~/.local/share/nvim
+          mv /tmp/nvim-linux-x86_64 ~/.local/share/nvim
+          ln -sf ~/.local/share/nvim/bin/nvim "$BIN_DIR/nvim"
+          log_install "DIRECTORY" "$HOME/.local/share/nvim" "" ""
+          log_install "SYMLINK" "$BIN_DIR/nvim" "$HOME/.local/share/nvim/bin/nvim" ""
         fi
         echo "✓ Neovim updated ($existing_ver → $new_ver)"
       else
@@ -545,10 +546,11 @@ if [[ $OS == "linux" ]]; then
         log_install "DIRECTORY" "/opt/nvim-linux-x86_64" "" ""
         log_install "SYMLINK" "$BIN_DIR/nvim" "/opt/nvim-linux-x86_64/bin/nvim" ""
       else
-        mv /tmp/nvim-linux-x86_64 ~/
-        ln -sf ~/nvim-linux-x86_64/bin/nvim "$BIN_DIR/nvim"
-        log_install "DIRECTORY" "$HOME/nvim-linux-x86_64" "" ""
-        log_install "SYMLINK" "$BIN_DIR/nvim" "$HOME/nvim-linux-x86_64/bin/nvim" ""
+        mkdir -p ~/.local/share
+        mv /tmp/nvim-linux-x86_64 ~/.local/share/nvim
+        ln -sf ~/.local/share/nvim/bin/nvim "$BIN_DIR/nvim"
+        log_install "DIRECTORY" "$HOME/.local/share/nvim" "" ""
+        log_install "SYMLINK" "$BIN_DIR/nvim" "$HOME/.local/share/nvim/bin/nvim" ""
       fi
       echo "✓ Neovim installed"
     fi
@@ -778,7 +780,7 @@ echo "   Binaries: $BIN_DIR"
 if [[ -n "$USE_SUDO" ]]; then
   echo "   Neovim: /opt/nvim-linux-x86_64/ (symlinked to $BIN_DIR/nvim)"
 else
-  echo "   Neovim: ~/nvim-linux-x86_64/bin/nvim (symlinked to $BIN_DIR/nvim)"
+  echo "   Neovim: ~/.local/share/nvim/ (symlinked to $BIN_DIR/nvim)"
 fi
 echo "   Config: ~/.config/nvim/"
 echo "   Fonts: ~/.local/share/fonts/ (Linux) or /Applications/Font Book (macOS)"
