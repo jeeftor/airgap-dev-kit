@@ -233,15 +233,14 @@ update-linux:
 		echo "  ✓ btop already present"; \
 	fi
 
-	# gopls - Go language server
-	@if [ ! -f offline-packages/linux/gopls ]; then \
-		echo "  → gopls (Go LSP)..."; \
-		curl -fL "https://github.com/golang/tools/releases/download/gopls%2Fv0.16.2/gopls-v0.16.2-linux-amd64.tar.gz" \
-			| tar -xz -C offline-packages/linux/ gopls; \
-		chmod +x offline-packages/linux/gopls; \
-	else \
-		echo "  ✓ gopls already present"; \
-	fi
+	# gopls - Go language server (requires Go to build)
+	# Note: gopls doesn't provide pre-built binaries, requires 'go install'
+	# Skipping for now - users can install with: go install golang.org/x/tools/gopls@latest
+	# @if [ ! -f offline-packages/linux/gopls ]; then \
+	# 	echo "  → gopls (Go LSP) - requires Go toolchain to build"; \
+	# else \
+	# 	echo "  ✓ gopls already present"; \
+	# fi
 
 	# lua-language-server - Lua LSP
 	@if [ ! -f offline-packages/linux/lua-language-server ]; then \
@@ -380,15 +379,14 @@ update-macos:
 		echo "  ✓ btop already present"; \
 	fi
 
-	# gopls - Go language server
-	@if [ ! -f offline-packages/macos/gopls ]; then \
-		echo "  → gopls (Go LSP)..."; \
-		curl -fL "https://github.com/golang/tools/releases/download/gopls%2Fv0.16.2/gopls-v0.16.2-darwin-arm64.tar.gz" \
-			| tar -xz -C offline-packages/macos/ gopls; \
-		chmod +x offline-packages/macos/gopls; \
-	else \
-		echo "  ✓ gopls already present"; \
-	fi
+	# gopls - Go language server (requires Go to build)
+	# Note: gopls doesn't provide pre-built binaries, requires 'go install'
+	# Skipping for now - users can install with: go install golang.org/x/tools/gopls@latest
+	# @if [ ! -f offline-packages/macos/gopls ]; then \
+	# 	echo "  → gopls (Go LSP) - requires Go toolchain to build"; \
+	# else \
+	# 	echo "  ✓ gopls already present"; \
+	# fi
 
 	# lua-language-server - Lua LSP
 	@if [ ! -f offline-packages/macos/lua-language-server ]; then \
