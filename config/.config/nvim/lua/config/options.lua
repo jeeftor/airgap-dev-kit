@@ -4,3 +4,9 @@
 
 -- Enable clipboard integration with system clipboard
 vim.opt.clipboard = "unnamedplus"
+
+-- Enable mouse support (for clicking, selecting, scrolling)
+vim.opt.mouse = "a"
+
+-- Use system clipboard for all operations (including mouse selection in visual mode)
+vim.opt.clipboard:append("unnamed")
