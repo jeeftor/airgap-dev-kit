@@ -877,6 +877,9 @@ config_exists() {
   [[ -f "$file" ]] && grep -qF "$pattern" "$file"
 }
 
+# Track what we're adding for summary
+declare -a SHELL_CONFIG_ITEMS=()
+
 # Helper function to add configuration to shell RC file
 add_to_shell_rc() {
   local rc_file="$1"
@@ -884,47 +887,21 @@ add_to_shell_rc() {
   local description="$3"
 
   if config_exists "$rc_file" "$config_line"; then
-    echo "  ✓ $description (already configured)"
+    SHELL_CONFIG_ITEMS+=("$description")
     return 0
   fi
 
-  if has_gum && [[ -f "$BIN_DIR/gum" ]]; then
-    if $BIN_DIR/gum confirm "Add $description to $(basename $rc_file)?"; then
-      # Try to write, handle permission issues
-      if ! echo "" >> "$rc_file" 2>/dev/null; then
-        echo "  Permission denied, fixing ownership..."
-        $USE_SUDO chown $(whoami):$(id -gn) "$rc_file"
-      fi
-      echo "" >> "$rc_file"
-      echo "# Added by airgap-dev-kit installer" >> "$rc_file"
-      echo "$config_line" >> "$rc_file"
-      log_install "SHELL_CONFIG" "$rc_file" "" "$description"
-      echo "  ✓ Added $description"
-      return 0
-    else
-      echo "  ⊘ Skipped $description"
-      return 1
-    fi
-  else
-    read -p "Add $description to $(basename $rc_file)? [Y/n]: " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
-      # Try to write, handle permission issues
-      if ! echo "" >> "$rc_file" 2>/dev/null; then
-        echo "  Permission denied, fixing ownership..."
-        $USE_SUDO chown $(whoami):$(id -gn) "$rc_file"
-      fi
-      echo "" >> "$rc_file"
-      echo "# Added by airgap-dev-kit installer" >> "$rc_file"
-      echo "$config_line" >> "$rc_file"
-      log_install "SHELL_CONFIG" "$rc_file" "" "$description"
-      echo "  ✓ Added $description"
-      return 0
-    else
-      echo "  ⊘ Skipped $description"
-      return 1
-    fi
+  # Try to write, handle permission issues
+  if ! echo "" >> "$rc_file" 2>/dev/null; then
+    echo "  Permission denied, fixing ownership..."
+    $USE_SUDO chown $(whoami):$(id -gn) "$rc_file"
   fi
+  echo "" >> "$rc_file"
+  echo "# Added by airgap-dev-kit installer" >> "$rc_file"
+  echo "$config_line" >> "$rc_file"
+  log_install "SHELL_CONFIG" "$rc_file" "" "$description"
+  SHELL_CONFIG_ITEMS+=("$description")
+  return 0
 }
 
 # Detect user's shell
@@ -1079,9 +1056,27 @@ else
     echo ""
   done
 
+  echo ""
   echo "=========================================="
-  echo "✓ Shell configuration complete!"
+  echo "✓ Shell Configuration Complete!"
   echo "=========================================="
+  echo ""
+  
+  # Show summary with gum format if available
+  if has_gum && [[ -f "$BIN_DIR/gum" ]]; then
+    echo "Configured the following:"
+    echo ""
+    for item in "${SHELL_CONFIG_ITEMS[@]}"; do
+      $BIN_DIR/gum format "  ✓ $item"
+    done
+  else
+    echo "Configured the following:"
+    echo ""
+    for item in "${SHELL_CONFIG_ITEMS[@]}"; do
+      echo "  ✓ $item"
+    done
+  fi
+  
   echo ""
   echo "To apply changes, either:"
   echo "  • Restart your terminal, or"
