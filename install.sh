@@ -1088,19 +1088,21 @@ else
   done
 
   echo ""
-  echo -e "${BOLD}${CYAN}╔════════════════════════════════════════════════════════════╗${RESET}"
-  echo -e "${BOLD}${CYAN}║${RESET}  ${GREEN}${BOLD}✓ Shell Configuration Complete!${RESET}                     ${BOLD}${CYAN}║${RESET}"
-  echo -e "${BOLD}${CYAN}╚════════════════════════════════════════════════════════════╝${RESET}"
-  echo ""
   
-  # Show summary with gum format if available
+  # Show summary with gum if available
   if has_gum && [[ -f "$BIN_DIR/gum" ]]; then
-    echo -e "${BOLD}${MAGENTA}Configured the following:${RESET}"
+    $BIN_DIR/gum style --border double --border-foreground 212 --padding "1 2" --bold "✓ Shell Configuration Complete!"
+    echo ""
+    $BIN_DIR/gum style --foreground 212 --bold "Configured the following:"
     echo ""
     for item in "${SHELL_CONFIG_ITEMS[@]}"; do
-      $BIN_DIR/gum format "  ${CHECK} $item"
+      $BIN_DIR/gum style --foreground 42 "  ✓ $item"
     done
   else
+    echo -e "${BOLD}${CYAN}╔════════════════════════════════════════════════════════════╗${RESET}"
+    echo -e "${BOLD}${CYAN}║${RESET}  ${GREEN}${BOLD}✓ Shell Configuration Complete!${RESET}                     ${BOLD}${CYAN}║${RESET}"
+    echo -e "${BOLD}${CYAN}╚════════════════════════════════════════════════════════════╝${RESET}"
+    echo ""
     echo -e "${BOLD}${MAGENTA}Configured the following:${RESET}"
     echo ""
     for item in "${SHELL_CONFIG_ITEMS[@]}"; do
@@ -1112,20 +1114,35 @@ else
 fi
 
 echo ""
-echo -e "${BOLD}${BLUE}╔════════════════════════════════════════════════════════════╗${RESET}"
-echo -e "${BOLD}${BLUE}║${RESET}  ${YELLOW}📝 Installation Tracking${RESET}                            ${BOLD}${BLUE}║${RESET}"
-echo -e "${BOLD}${BLUE}╚════════════════════════════════════════════════════════════╝${RESET}"
-echo ""
-echo -e "${DIM}Installation log saved to:${RESET} ${CYAN}$INSTALL_LOG${RESET}"
-echo ""
-echo -e "${BOLD}This log tracks everything installed and can be used for:${RESET}"
-echo -e "  ${ARROW} Uninstalling with: ${CYAN}./uninstall.sh${RESET}"
-echo -e "  ${ARROW} Reviewing what was installed"
-echo -e "  ${ARROW} Restoring from backups (if any were created)"
-echo ""
-echo -e "${DIM}To view the log:${RESET}"
-echo -e "  ${CYAN}cat $INSTALL_LOG${RESET}"
-echo ""
+
+if has_gum && [[ -f "$BIN_DIR/gum" ]]; then
+  $BIN_DIR/gum style --border double --border-foreground 33 --padding "1 2" --bold "📝 Installation Tracking"
+  echo ""
+  $BIN_DIR/gum style --foreground 240 "Installation log saved to: " --foreground 51 "$INSTALL_LOG"
+  echo ""
+  $BIN_DIR/gum style --bold "This log tracks everything installed and can be used for:"
+  $BIN_DIR/gum style --foreground 51 "  ➜ Uninstalling with: ./uninstall.sh"
+  $BIN_DIR/gum style --foreground 51 "  ➜ Reviewing what was installed"
+  $BIN_DIR/gum style --foreground 51 "  ➜ Restoring from backups (if any were created)"
+  echo ""
+  $BIN_DIR/gum style --foreground 240 "To view the log: " --foreground 51 "cat $INSTALL_LOG"
+  echo ""
+else
+  echo -e "${BOLD}${BLUE}╔════════════════════════════════════════════════════════════╗${RESET}"
+  echo -e "${BOLD}${BLUE}║${RESET}  ${YELLOW}📝 Installation Tracking${RESET}                            ${BOLD}${BLUE}║${RESET}"
+  echo -e "${BOLD}${BLUE}╚════════════════════════════════════════════════════════════╝${RESET}"
+  echo ""
+  echo -e "${DIM}Installation log saved to:${RESET} ${CYAN}$INSTALL_LOG${RESET}"
+  echo ""
+  echo -e "${BOLD}This log tracks everything installed and can be used for:${RESET}"
+  echo -e "  ${ARROW} Uninstalling with: ${CYAN}./uninstall.sh${RESET}"
+  echo -e "  ${ARROW} Reviewing what was installed"
+  echo -e "  ${ARROW} Restoring from backups (if any were created)"
+  echo ""
+  echo -e "${DIM}To view the log:${RESET}"
+  echo -e "  ${CYAN}cat $INSTALL_LOG${RESET}"
+  echo ""
+fi
 
 # Finalize log
 echo "# Installation completed at $(date)" >> "$INSTALL_LOG"
@@ -1133,24 +1150,44 @@ echo "# Installation completed at $(date)" >> "$INSTALL_LOG"
 # Final instructions - most prominent at the bottom
 if [[ ${#SHELL_CONFIG_ITEMS[@]} -gt 0 ]]; then
   echo ""
-  echo -e "${BOLD}${GREEN}╔════════════════════════════════════════════════════════════╗${RESET}"
-  echo -e "${BOLD}${GREEN}║${RESET}  ${STAR} ${BOLD}${YELLOW}NEXT STEPS - Apply Your Changes${RESET}                    ${BOLD}${GREEN}║${RESET}"
-  echo -e "${BOLD}${GREEN}╚════════════════════════════════════════════════════════════╝${RESET}"
-  echo ""
-  echo -e "${BOLD}To activate your new shell configuration, choose one:${RESET}"
-  echo ""
-  echo -e "  ${BOLD}${CYAN}1.${RESET} ${BOLD}Restart your terminal${RESET} ${DIM}(recommended)${RESET}"
-  echo -e "     ${DIM}Close and reopen your terminal window${RESET}"
-  echo ""
-  echo -e "  ${BOLD}${CYAN}2.${RESET} ${BOLD}Source your shell config:${RESET}"
-  if [[ "$SHELL_TYPE" == "zsh" ]]; then
-    echo -e "     ${GREEN}source ~/.zshrc${RESET}"
+  
+  if has_gum && [[ -f "$BIN_DIR/gum" ]]; then
+    $BIN_DIR/gum style --border double --border-foreground 42 --padding "1 2" --bold "★ NEXT STEPS - Apply Your Changes"
+    echo ""
+    $BIN_DIR/gum style --bold "To activate your new shell configuration, choose one:"
+    echo ""
+    $BIN_DIR/gum style --foreground 51 --bold "1. Restart your terminal" --foreground 240 " (recommended)"
+    $BIN_DIR/gum style --foreground 240 "   Close and reopen your terminal window"
+    echo ""
+    $BIN_DIR/gum style --foreground 51 --bold "2. Source your shell config:"
+    if [[ "$SHELL_TYPE" == "zsh" ]]; then
+      $BIN_DIR/gum style --foreground 42 "   source ~/.zshrc"
+    else
+      $BIN_DIR/gum style --foreground 42 "   source ~/.bashrc"
+    fi
+    echo ""
+    $BIN_DIR/gum style --border rounded --border-foreground 212 --padding "0 2" --bold "🚀 Enjoy your new development environment!"
+    echo ""
   else
-    echo -e "     ${GREEN}source ~/.bashrc${RESET}"
+    echo -e "${BOLD}${GREEN}╔════════════════════════════════════════════════════════════╗${RESET}"
+    echo -e "${BOLD}${GREEN}║${RESET}  ${STAR} ${BOLD}${YELLOW}NEXT STEPS - Apply Your Changes${RESET}                    ${BOLD}${GREEN}║${RESET}"
+    echo -e "${BOLD}${GREEN}╚════════════════════════════════════════════════════════════╝${RESET}"
+    echo ""
+    echo -e "${BOLD}To activate your new shell configuration, choose one:${RESET}"
+    echo ""
+    echo -e "  ${BOLD}${CYAN}1.${RESET} ${BOLD}Restart your terminal${RESET} ${DIM}(recommended)${RESET}"
+    echo -e "     ${DIM}Close and reopen your terminal window${RESET}"
+    echo ""
+    echo -e "  ${BOLD}${CYAN}2.${RESET} ${BOLD}Source your shell config:${RESET}"
+    if [[ "$SHELL_TYPE" == "zsh" ]]; then
+      echo -e "     ${GREEN}source ~/.zshrc${RESET}"
+    else
+      echo -e "     ${GREEN}source ~/.bashrc${RESET}"
+    fi
+    echo ""
+    echo -e "${BOLD}${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+    echo -e "${BOLD}${GREEN}🚀 Enjoy your new development environment!${RESET}"
+    echo -e "${BOLD}${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+    echo ""
   fi
-  echo ""
-  echo -e "${BOLD}${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
-  echo -e "${BOLD}${GREEN}🚀 Enjoy your new development environment!${RESET}"
-  echo -e "${BOLD}${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
-  echo ""
 fi
