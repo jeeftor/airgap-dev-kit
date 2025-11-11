@@ -255,15 +255,6 @@ update-linux:
 		echo "  ✓ lua-language-server already present"; \
 	fi
 
-	# marksman - Markdown LSP
-	@if [ ! -f offline-packages/linux/marksman ]; then \
-		echo "  → marksman (Markdown LSP)..."; \
-		curl -fL "https://github.com/artempyanykh/marksman/releases/download/2023-12-09/marksman-linux-x64" \
-			-o offline-packages/linux/marksman; \
-		chmod +x offline-packages/linux/marksman; \
-	else \
-		echo "  ✓ marksman already present"; \
-	fi
 
 	# shellcheck - Shell script linter/analyzer
 	@if [ ! -f offline-packages/linux/shellcheck ]; then \
@@ -401,15 +392,6 @@ update-macos:
 		echo "  ✓ lua-language-server already present"; \
 	fi
 
-	# marksman - Markdown LSP
-	@if [ ! -f offline-packages/macos/marksman ]; then \
-		echo "  → marksman (Markdown LSP)..."; \
-		curl -fL "https://github.com/artempyanykh/marksman/releases/download/2023-12-09/marksman-macos-arm64" \
-			-o offline-packages/macos/marksman; \
-		chmod +x offline-packages/macos/marksman; \
-	else \
-		echo "  ✓ marksman already present"; \
-	fi
 
 	# shellcheck - Shell script linter/analyzer
 	@if [ ! -f offline-packages/macos/shellcheck ]; then \

@@ -369,9 +369,8 @@ if [[ $OS == "linux" ]]; then
   [[ -f "offline-packages/$OS/jq" ]] && BINARIES_TO_CHECK+=("offline-packages/$OS/jq|jq|jq|--version")
   [[ -f "offline-packages/$OS/btop" ]] && BINARIES_TO_CHECK+=("offline-packages/$OS/btop|btop|btop|--version")
   
-  # LSP servers (gopls excluded - requires Go toolchain to build)
+  # LSP servers
   [[ -f "offline-packages/$OS/lua-language-server" ]] && BINARIES_TO_CHECK+=("offline-packages/$OS/lua-language-server|lua-language-server|lua-language-server (Lua LSP)|--version")
-  [[ -f "offline-packages/$OS/marksman" ]] && BINARIES_TO_CHECK+=("offline-packages/$OS/marksman|marksman|marksman (Markdown LSP)|--version")
   [[ -f "offline-packages/$OS/shellcheck" ]] && BINARIES_TO_CHECK+=("offline-packages/$OS/shellcheck|shellcheck|shellcheck (Shell linter)|--version")
 
   # Scan for updates needed
