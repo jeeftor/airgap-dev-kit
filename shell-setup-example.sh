@@ -32,10 +32,8 @@ if command -v fd &>/dev/null; then
   alias find='fd'
 fi
 
-# ripgrep - Fast grep alternative
-if command -v rg &>/dev/null; then
-  alias grep='rg'
-fi
+# ripgrep - Fast grep alternative (no alias - different syntax than grep)
+# Use 'rg' directly when you need it
 
 # ============================================
 # Starship Prompt

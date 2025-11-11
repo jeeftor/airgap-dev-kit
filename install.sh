@@ -1035,10 +1035,8 @@ else
         add_to_shell_rc "$SHELL_RC" "alias find='fd'" "fd alias (faster find)"
       fi
 
-      # ripgrep
-      if [[ -f "$BIN_DIR/rg" ]]; then
-        add_to_shell_rc "$SHELL_RC" "alias grep='rg'" "ripgrep alias (faster grep)"
-      fi
+      # ripgrep (no alias - different syntax than grep)
+      # Users should use 'rg' directly
 
       # neovim
       if [[ -f "$BIN_DIR/nvim" ]]; then
