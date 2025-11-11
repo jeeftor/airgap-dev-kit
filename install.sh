@@ -1,6 +1,37 @@
 #!/usr/bin/env bash
 set -e
 
+# Color definitions
+if [[ -t 1 ]]; then
+  RED='\033[0;31m'
+  GREEN='\033[0;32m'
+  YELLOW='\033[1;33m'
+  BLUE='\033[0;34m'
+  MAGENTA='\033[0;35m'
+  CYAN='\033[0;36m'
+  BOLD='\033[1m'
+  DIM='\033[2m'
+  RESET='\033[0m'
+  CHECK="${GREEN}✓${RESET}"
+  ARROW="${CYAN}➜${RESET}"
+  STAR="${YELLOW}★${RESET}"
+  INFO="${BLUE}ℹ${RESET}"
+else
+  RED=''
+  GREEN=''
+  YELLOW=''
+  BLUE=''
+  MAGENTA=''
+  CYAN=''
+  BOLD=''
+  DIM=''
+  RESET=''
+  CHECK='✓'
+  ARROW='➜'
+  STAR='★'
+  INFO='ℹ'
+fi
+
 # Parse command line arguments
 DRY_RUN=false
 for arg in "$@"; do
@@ -1057,47 +1088,69 @@ else
   done
 
   echo ""
-  echo "=========================================="
-  echo "✓ Shell Configuration Complete!"
-  echo "=========================================="
+  echo -e "${BOLD}${CYAN}╔════════════════════════════════════════════════════════════╗${RESET}"
+  echo -e "${BOLD}${CYAN}║${RESET}  ${GREEN}${BOLD}✓ Shell Configuration Complete!${RESET}                     ${BOLD}${CYAN}║${RESET}"
+  echo -e "${BOLD}${CYAN}╚════════════════════════════════════════════════════════════╝${RESET}"
   echo ""
   
   # Show summary with gum format if available
   if has_gum && [[ -f "$BIN_DIR/gum" ]]; then
-    echo "Configured the following:"
+    echo -e "${BOLD}${MAGENTA}Configured the following:${RESET}"
     echo ""
     for item in "${SHELL_CONFIG_ITEMS[@]}"; do
-      $BIN_DIR/gum format "  ✓ $item"
+      $BIN_DIR/gum format "  ${CHECK} $item"
     done
   else
-    echo "Configured the following:"
+    echo -e "${BOLD}${MAGENTA}Configured the following:${RESET}"
     echo ""
     for item in "${SHELL_CONFIG_ITEMS[@]}"; do
-      echo "  ✓ $item"
+      echo -e "  ${CHECK} ${item}"
     done
   fi
   
   echo ""
-  echo "To apply changes, either:"
-  echo "  • Restart your terminal, or"
-  echo "  • Run: source ~/.bashrc  (or ~/.zshrc)"
 fi
 
 echo ""
-echo "=========================================="
-echo "📝 Installation Tracking"
-echo "=========================================="
+echo -e "${BOLD}${BLUE}╔════════════════════════════════════════════════════════════╗${RESET}"
+echo -e "${BOLD}${BLUE}║${RESET}  ${YELLOW}📝 Installation Tracking${RESET}                            ${BOLD}${BLUE}║${RESET}"
+echo -e "${BOLD}${BLUE}╚════════════════════════════════════════════════════════════╝${RESET}"
 echo ""
-echo "Installation log saved to: $INSTALL_LOG"
+echo -e "${DIM}Installation log saved to:${RESET} ${CYAN}$INSTALL_LOG${RESET}"
 echo ""
-echo "This log tracks everything that was installed and can be used for:"
-echo "  • Uninstalling with: ./uninstall.sh"
-echo "  • Reviewing what was installed"
-echo "  • Restoring from backups (if any were created)"
+echo -e "${BOLD}This log tracks everything installed and can be used for:${RESET}"
+echo -e "  ${ARROW} Uninstalling with: ${CYAN}./uninstall.sh${RESET}"
+echo -e "  ${ARROW} Reviewing what was installed"
+echo -e "  ${ARROW} Restoring from backups (if any were created)"
 echo ""
-echo "To view the log:"
-echo "  cat $INSTALL_LOG"
+echo -e "${DIM}To view the log:${RESET}"
+echo -e "  ${CYAN}cat $INSTALL_LOG${RESET}"
 echo ""
 
 # Finalize log
 echo "# Installation completed at $(date)" >> "$INSTALL_LOG"
+
+# Final instructions - most prominent at the bottom
+if [[ ${#SHELL_CONFIG_ITEMS[@]} -gt 0 ]]; then
+  echo ""
+  echo -e "${BOLD}${GREEN}╔════════════════════════════════════════════════════════════╗${RESET}"
+  echo -e "${BOLD}${GREEN}║${RESET}  ${STAR} ${BOLD}${YELLOW}NEXT STEPS - Apply Your Changes${RESET}                    ${BOLD}${GREEN}║${RESET}"
+  echo -e "${BOLD}${GREEN}╚════════════════════════════════════════════════════════════╝${RESET}"
+  echo ""
+  echo -e "${BOLD}To activate your new shell configuration, choose one:${RESET}"
+  echo ""
+  echo -e "  ${BOLD}${CYAN}1.${RESET} ${BOLD}Restart your terminal${RESET} ${DIM}(recommended)${RESET}"
+  echo -e "     ${DIM}Close and reopen your terminal window${RESET}"
+  echo ""
+  echo -e "  ${BOLD}${CYAN}2.${RESET} ${BOLD}Source your shell config:${RESET}"
+  if [[ "$SHELL_TYPE" == "zsh" ]]; then
+    echo -e "     ${GREEN}source ~/.zshrc${RESET}"
+  else
+    echo -e "     ${GREEN}source ~/.bashrc${RESET}"
+  fi
+  echo ""
+  echo -e "${BOLD}${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+  echo -e "${BOLD}${GREEN}🚀 Enjoy your new development environment!${RESET}"
+  echo -e "${BOLD}${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+  echo ""
+fi
