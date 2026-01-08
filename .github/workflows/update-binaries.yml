@@ -29,6 +29,9 @@ jobs:
       - name: Download fonts
         run: make update-fonts
 
+      - name: Generate version metadata
+        run: make version-file
+
       - name: Bundle Neovim plugins
         run: |
           echo "Setting up Neovim for plugin installation..."
@@ -120,6 +123,12 @@ jobs:
           # Copy common files
           cp install.sh shell-setup-example.sh staging-linux/airgap-dev-kit/
           cp install.sh shell-setup-example.sh staging-macos/airgap-dev-kit/
+          if [[ -f VERSION ]]; then
+            cp VERSION staging-linux/airgap-dev-kit/
+            cp VERSION staging-macos/airgap-dev-kit/
+          else
+            echo "Warning: VERSION file not found; installer will show 'unknown'."
+          fi
           cp -r fonts config staging-linux/airgap-dev-kit/
           cp -r fonts config staging-macos/airgap-dev-kit/
 
