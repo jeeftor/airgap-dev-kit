@@ -306,12 +306,20 @@ jobs:
 
           # Get all releases sorted by creation date (newest first)
           RELEASES=$(gh release list --limit 100 --json tagName,createdAt --jq 'sort_by(.createdAt) | reverse | .[].tagName')
+          RELEASE_COUNT=$(echo "$RELEASES" | grep -c . || true)
+
+          if [[ "$RELEASE_COUNT" -le 3 ]]; then
+            echo "Only $RELEASE_COUNT releases found. Nothing to clean up."
+            exit 0
+          fi
 
           # Skip first 3, delete the rest
           echo "$RELEASES" | tail -n +4 | while read -r tag; do
             if [[ -n "$tag" ]]; then
               echo "Deleting old release: $tag"
-              gh release delete "$tag" --yes --cleanup-tag
+              if ! gh release delete "$tag" --yes --cleanup-tag; then
+                echo "⚠️ Warning: failed to delete release $tag (continuing)" >&2
+              fi
             fi
           done
 
