@@ -543,37 +543,45 @@ update-fonts:
 
 verify:
 	@echo "Verifying binaries..."
-	@echo ""
-	@echo "Core Linux binaries:"
-	@file offline-packages/linux/wezterm.AppImage 2>/dev/null | grep -q "executable" && echo "  ✓ wezterm.AppImage" || echo "  ✗ wezterm.AppImage - missing or invalid"
-	@file offline-packages/linux/tmux-3.4-static-x86_64 2>/dev/null | grep -q "executable" && echo "  ✓ tmux-3.4-static-x86_64" || echo "  ✗ tmux-3.4-static-x86_64 - missing or invalid"
-	@file offline-packages/linux/nvim-linux64.tar.gz 2>/dev/null | grep -q "gzip" && echo "  ✓ nvim-linux64.tar.gz" || echo "  ✗ nvim-linux64.tar.gz - missing or invalid"
-	@echo ""
-	@echo "CLI tools:"
-	@file offline-packages/linux/fzf 2>/dev/null | grep -q "executable" && echo "  ✓ fzf" || echo "  ✗ fzf - missing or invalid"
-	@file offline-packages/linux/fd 2>/dev/null | grep -q "executable" && echo "  ✓ fd" || echo "  ✗ fd - missing or invalid"
-	@file offline-packages/linux/rg 2>/dev/null | grep -q "executable" && echo "  ✓ rg" || echo "  ✗ rg - missing or invalid"
-	@file offline-packages/linux/bat 2>/dev/null | grep -q "executable" && echo "  ✓ bat" || echo "  ✗ bat - missing or invalid"
-	@file offline-packages/linux/starship 2>/dev/null | grep -q "executable" && echo "  ✓ starship" || echo "  ✗ starship - missing or invalid"
-	@file offline-packages/linux/btop 2>/dev/null | grep -q "executable" && echo "  ✓ btop" || echo "  ✗ btop - missing or invalid"
-	@file offline-packages/linux/lsd 2>/dev/null | grep -q "executable" && echo "  ✓ lsd" || echo "  ✗ lsd - missing or invalid"
-	@file offline-packages/linux/zoxide 2>/dev/null | grep -q "executable" && echo "  ✓ zoxide" || echo "  ✗ zoxide - missing or invalid"
-	@file offline-packages/linux/delta 2>/dev/null | grep -q "executable" && echo "  ✓ delta" || echo "  ✗ delta - missing or invalid"
-	@file offline-packages/linux/difft 2>/dev/null | grep -q "executable" && echo "  ✓ difft" || echo "  ✗ difft - missing or invalid"
-	@file offline-packages/linux/jq 2>/dev/null | grep -q "executable" && echo "  ✓ jq" || echo "  ✗ jq - missing or invalid"
-	@file offline-packages/linux/direnv 2>/dev/null | grep -q "executable" && echo "  ✓ direnv" || echo "  ✗ direnv - missing or invalid"
-	@file offline-packages/linux/dust 2>/dev/null | grep -q "executable" && echo "  ✓ dust" || echo "  ✗ dust - missing or invalid"
-	@file offline-packages/linux/svu 2>/dev/null | grep -q "executable" && echo "  ✓ svu" || echo "  ✗ svu - missing or invalid"
-	@echo ""
-	@echo "macOS binaries:"
-	@file offline-packages/macos/WezTerm-macos.zip 2>/dev/null | grep -q "Zip\|archive" && echo "  ✓ WezTerm-macos.zip" || echo "  ✗ WezTerm-macos.zip - missing or invalid"
-	@file offline-packages/macos/nvim-macos-arm64.tar.gz 2>/dev/null | grep -q "gzip" && echo "  ✓ nvim-macos-arm64.tar.gz" || echo "  ✗ nvim-macos-arm64.tar.gz - missing or invalid"
-	@echo ""
-	@echo "Fonts:"
-	@file fonts/JetBrainsMono.zip 2>/dev/null | grep -q "Zip\|archive" && echo "  ✓ JetBrainsMono.zip" || echo "  ✗ JetBrainsMono.zip - missing or invalid"
-	@echo ""
-	@echo "Install script:"
-	@test -x install.sh && echo "  ✓ install.sh executable" || echo "  ✗ install.sh not executable (run: chmod +x install.sh)"
+	@FAIL=0; \
+	echo ""; \
+	echo "Core Linux binaries:"; \
+	if file offline-packages/linux/wezterm.AppImage 2>/dev/null | grep -q "executable"; then echo "  ✓ wezterm.AppImage"; else echo "  ✗ wezterm.AppImage - missing or invalid"; FAIL=1; fi; \
+	if file offline-packages/linux/tmux-3.4-static-x86_64 2>/dev/null | grep -q "executable"; then echo "  ✓ tmux-3.4-static-x86_64"; else echo "  ✗ tmux-3.4-static-x86_64 - missing or invalid"; FAIL=1; fi; \
+	if file offline-packages/linux/nvim-linux64.tar.gz 2>/dev/null | grep -q "gzip"; then echo "  ✓ nvim-linux64.tar.gz"; else echo "  ✗ nvim-linux64.tar.gz - missing or invalid"; FAIL=1; fi; \
+	echo ""; \
+	echo "CLI tools:"; \
+	if file offline-packages/linux/fzf 2>/dev/null | grep -q "executable"; then echo "  ✓ fzf"; else echo "  ✗ fzf - missing or invalid"; FAIL=1; fi; \
+	if file offline-packages/linux/fd 2>/dev/null | grep -q "executable"; then echo "  ✓ fd"; else echo "  ✗ fd - missing or invalid"; FAIL=1; fi; \
+	if file offline-packages/linux/rg 2>/dev/null | grep -q "executable"; then echo "  ✓ rg"; else echo "  ✗ rg - missing or invalid"; FAIL=1; fi; \
+	if file offline-packages/linux/bat 2>/dev/null | grep -q "executable"; then echo "  ✓ bat"; else echo "  ✗ bat - missing or invalid"; FAIL=1; fi; \
+	if file offline-packages/linux/starship 2>/dev/null | grep -q "executable"; then echo "  ✓ starship"; else echo "  ✗ starship - missing or invalid"; FAIL=1; fi; \
+	if file offline-packages/linux/btop 2>/dev/null | grep -q "executable"; then echo "  ✓ btop"; else echo "  ✗ btop - missing or invalid"; FAIL=1; fi; \
+	if file offline-packages/linux/lsd 2>/dev/null | grep -q "executable"; then echo "  ✓ lsd"; else echo "  ✗ lsd - missing or invalid"; FAIL=1; fi; \
+	if file offline-packages/linux/zoxide 2>/dev/null | grep -q "executable"; then echo "  ✓ zoxide"; else echo "  ✗ zoxide - missing or invalid"; FAIL=1; fi; \
+	if file offline-packages/linux/delta 2>/dev/null | grep -q "executable"; then echo "  ✓ delta"; else echo "  ✗ delta - missing or invalid"; FAIL=1; fi; \
+	if file offline-packages/linux/difft 2>/dev/null | grep -q "executable"; then echo "  ✓ difft"; else echo "  ✗ difft - missing or invalid"; FAIL=1; fi; \
+	if file offline-packages/linux/jq 2>/dev/null | grep -q "executable"; then echo "  ✓ jq"; else echo "  ✗ jq - missing or invalid"; FAIL=1; fi; \
+	if file offline-packages/linux/direnv 2>/dev/null | grep -q "executable"; then echo "  ✓ direnv"; else echo "  ✗ direnv - missing or invalid"; FAIL=1; fi; \
+	if file offline-packages/linux/dust 2>/dev/null | grep -q "executable"; then echo "  ✓ dust"; else echo "  ✗ dust - missing or invalid"; FAIL=1; fi; \
+	if file offline-packages/linux/svu 2>/dev/null | grep -q "executable"; then echo "  ✓ svu"; else echo "  ✗ svu - missing or invalid"; FAIL=1; fi; \
+	echo ""; \
+	echo "macOS binaries:"; \
+	if file offline-packages/macos/WezTerm-macos.zip 2>/dev/null | grep -q "Zip\|archive"; then echo "  ✓ WezTerm-macos.zip"; else echo "  ✗ WezTerm-macos.zip - missing or invalid"; FAIL=1; fi; \
+	if file offline-packages/macos/nvim-macos-arm64.tar.gz 2>/dev/null | grep -q "gzip"; then echo "  ✓ nvim-macos-arm64.tar.gz"; else echo "  ✗ nvim-macos-arm64.tar.gz - missing or invalid"; FAIL=1; fi; \
+	echo ""; \
+	echo "Fonts:"; \
+	if file fonts/JetBrainsMono.zip 2>/dev/null | grep -q "Zip\|archive"; then echo "  ✓ JetBrainsMono.zip"; else echo "  ✗ JetBrainsMono.zip - missing or invalid"; FAIL=1; fi; \
+	echo ""; \
+	echo "Install script:"; \
+	if test -x install.sh; then echo "  ✓ install.sh executable"; else echo "  ✗ install.sh not executable (run: chmod +x install.sh)"; FAIL=1; fi; \
+	echo ""; \
+	if [ $$FAIL -ne 0 ]; then \
+		echo "✗ Verification failed. Please address the missing binaries above."; \
+		exit 1; \
+	else \
+		echo "✓ Verification passed. All required binaries present."; \
+	fi
 
 version-file:
 	@echo "Embedding kit version information..."
