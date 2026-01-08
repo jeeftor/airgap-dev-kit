@@ -162,7 +162,7 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ github.run_number }}-${{ github.run_id }}
+          tag_name: build-${{ github.run_number }}-${{ github.run_id }}
           name: Air-Gap Dev Kit - Build ${{ github.run_number }}
           body: |
             # Air-Gap Development Kit - Automated Build
@@ -185,8 +185,8 @@ jobs:
 
             **Using wget:**
             ```bash
-            wget https://github.com/jeeftor/airgap-dev-kit/releases/download/v${{ github.run_number }}-${{ github.run_id }}/airgap-dev-kit-linux-x86_64.tar.gz
-            wget https://github.com/jeeftor/airgap-dev-kit/releases/download/v${{ github.run_number }}-${{ github.run_id }}/checksums.txt
+            wget https://github.com/jeeftor/airgap-dev-kit/releases/download/build-${{ github.run_number }}-${{ github.run_id }}/airgap-dev-kit-linux-x86_64.tar.gz
+            wget https://github.com/jeeftor/airgap-dev-kit/releases/download/build-${{ github.run_number }}-${{ github.run_id }}/checksums.txt
             sha256sum -c checksums.txt
             tar -xzf airgap-dev-kit-linux-x86_64.tar.gz
             cd airgap-dev-kit
@@ -195,8 +195,8 @@ jobs:
 
             **Using curl:**
             ```bash
-            curl -LO https://github.com/jeeftor/airgap-dev-kit/releases/download/v${{ github.run_number }}-${{ github.run_id }}/airgap-dev-kit-linux-x86_64.tar.gz
-            curl -LO https://github.com/jeeftor/airgap-dev-kit/releases/download/v${{ github.run_number }}-${{ github.run_id }}/checksums.txt
+            curl -LO https://github.com/jeeftor/airgap-dev-kit/releases/download/build-${{ github.run_number }}-${{ github.run_id }}/airgap-dev-kit-linux-x86_64.tar.gz
+            curl -LO https://github.com/jeeftor/airgap-dev-kit/releases/download/build-${{ github.run_number }}-${{ github.run_id }}/checksums.txt
             sha256sum -c checksums.txt
             tar -xzf airgap-dev-kit-linux-x86_64.tar.gz
             cd airgap-dev-kit
@@ -205,15 +205,15 @@ jobs:
 
             **One-liner (curl + extract + install):**
             ```bash
-            curl -L https://github.com/jeeftor/airgap-dev-kit/releases/download/v${{ github.run_number }}-${{ github.run_id }}/airgap-dev-kit-linux-x86_64.tar.gz | tar -xz && cd airgap-dev-kit && ./install.sh
+            curl -L https://github.com/jeeftor/airgap-dev-kit/releases/download/build-${{ github.run_number }}-${{ github.run_id }}/airgap-dev-kit-linux-x86_64.tar.gz | tar -xz && cd airgap-dev-kit && ./install.sh
             ```
 
             ## 🍎 Quick Start - macOS (ARM64 / Apple Silicon)
 
             **Using wget:**
             ```bash
-            wget https://github.com/jeeftor/airgap-dev-kit/releases/download/v${{ github.run_number }}-${{ github.run_id }}/airgap-dev-kit-macos-arm64.tar.gz
-            wget https://github.com/jeeftor/airgap-dev-kit/releases/download/v${{ github.run_number }}-${{ github.run_id }}/checksums.txt
+            wget https://github.com/jeeftor/airgap-dev-kit/releases/download/build-${{ github.run_number }}-${{ github.run_id }}/airgap-dev-kit-macos-arm64.tar.gz
+            wget https://github.com/jeeftor/airgap-dev-kit/releases/download/build-${{ github.run_number }}-${{ github.run_id }}/checksums.txt
             shasum -a 256 -c checksums.txt
             tar -xzf airgap-dev-kit-macos-arm64.tar.gz
             cd airgap-dev-kit
@@ -222,8 +222,8 @@ jobs:
 
             **Using curl:**
             ```bash
-            curl -LO https://github.com/jeeftor/airgap-dev-kit/releases/download/v${{ github.run_number }}-${{ github.run_id }}/airgap-dev-kit-macos-arm64.tar.gz
-            curl -LO https://github.com/jeeftor/airgap-dev-kit/releases/download/v${{ github.run_number }}-${{ github.run_id }}/checksums.txt
+            curl -LO https://github.com/jeeftor/airgap-dev-kit/releases/download/build-${{ github.run_number }}-${{ github.run_id }}/airgap-dev-kit-macos-arm64.tar.gz
+            curl -LO https://github.com/jeeftor/airgap-dev-kit/releases/download/build-${{ github.run_number }}-${{ github.run_id }}/checksums.txt
             shasum -a 256 -c checksums.txt
             tar -xzf airgap-dev-kit-macos-arm64.tar.gz
             cd airgap-dev-kit
@@ -232,7 +232,7 @@ jobs:
 
             **One-liner (curl + extract + install):**
             ```bash
-            curl -L https://github.com/jeeftor/airgap-dev-kit/releases/download/v${{ github.run_number }}-${{ github.run_id }}/airgap-dev-kit-macos-arm64.tar.gz | tar -xz && cd airgap-dev-kit && ./install.sh
+            curl -L https://github.com/jeeftor/airgap-dev-kit/releases/download/build-${{ github.run_number }}-${{ github.run_id }}/airgap-dev-kit-macos-arm64.tar.gz | tar -xz && cd airgap-dev-kit && ./install.sh
             ```
 
             ## 🔒 Air-Gap Installation
