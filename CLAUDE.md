@@ -19,10 +19,11 @@ This is an **air-gap development kit** designed for offline installation of a co
 - starship - Cross-shell prompt
 
 **Optional Utilities:**
+- lsd - Modern ls replacement with icons
 - btop - Beautiful resource monitor (replaces htop/top)
-- eza - Modern ls replacement with git integration
 - zoxide - Smarter cd that learns your habits
 - delta - Beautiful git diff viewer with syntax highlighting
+- difftastic - Structural diff tool that understands syntax
 - gum - Charm Bracelet TUI toolkit for beautiful interactive prompts
 
 ## Quick Start
@@ -350,10 +351,11 @@ file offline-packages/macos/{WezTerm-macos.zip,nvim-macos-arm64.tar.gz}
 - ❌ `WezTerm-macos.zip` - Download macOS version
 
 **Optional Tools (not yet downloaded):**
+- ⭕ `lsd` - Modern ls with icons
 - ⭕ `btop` - Beautiful system monitor (highly recommended!)
-- ⭕ `eza` - Modern ls with colors and git status
 - ⭕ `zoxide` - Smart directory jumper
-- ⭕ `delta` - Better git diffs
+- ⭕ `delta` - Better git diffs (line-oriented)
+- ⭕ `difftastic` - Structural diff tool (syntax-aware)
 
 Run `make update` to download all missing binaries including optional tools.
 
@@ -415,26 +417,26 @@ tmux -V
 5. Test installation on clean machine to verify no missing dependencies
 
 **Optional Tools Currently Supported** (auto-detected by install.sh):
-- `lsd` - Modern ls with icons (recommended over eza for air-gap)
+- `lsd` - Modern ls with icons
 - `btop` - Beautiful resource monitor
-- `eza` - Another modern ls (alternative to lsd)
 - `zoxide` - Smarter cd command
-- `delta` - Better git diff viewer
+- `delta` - Better git diff viewer (line-oriented)
+- `difft` - Difftastic structural diff tool (syntax-aware)
 
 To add any of these, download the binary to `offline-packages/linux/` and the install script will automatically detect and install them.
 
-**Example: Adding a new tool (e.g., `eza` as `ls` replacement)**
+**Example: Adding a new optional tool**
 ```makefile
 # In Makefile, add to update-linux:
-@echo "  → eza (modern ls)..."
-@curl -fL "https://github.com/eza-community/eza/releases/latest/download/eza_x86_64-unknown-linux-musl.tar.gz" | \
-	tar -xz -C offline-packages/linux/ eza
-@chmod +x offline-packages/linux/eza
+@echo "  → newtool..."
+@curl -fL "https://github.com/user/newtool/releases/latest/download/newtool-x86_64-unknown-linux-musl.tar.gz" | \
+	tar -xz -C offline-packages/linux/ newtool
+@chmod +x offline-packages/linux/newtool
 ```
 
-Then in `install.sh`:
+Then add to `install.sh` BINARIES_TO_CHECK array:
 ```bash
-cp offline-packages/linux/{nvim,fzf,fd,rg,bat,starship,eza} ~/bin/
+"offline-packages/$OS/newtool|newtool|newtool|--version"
 ```
 
 ### Updating Configurations
@@ -937,13 +939,13 @@ btop
 # ESC - back to main menu
 ```
 
-### eza - Modern ls
+### lsd - Modern ls
 ```bash
 # Add to .bashrc/.zshrc:
-alias ls='eza --icons'
-alias ll='eza -l --icons --git'
-alias la='eza -la --icons --git'
-alias tree='eza --tree --icons'
+alias ls='lsd'
+alias ll='lsd -lah'
+alias lt='lsd --tree'
+alias la='lsd -a'
 ```
 
 ### zoxide - Smart cd
@@ -957,7 +959,7 @@ zi project    # Interactive selection with fzf
 z -          # Go back to previous directory
 ```
 
-### delta - Better git diff
+### delta - Better git diff (Line-oriented)
 ```bash
 # Configure in ~/.gitconfig:
 [core]
@@ -970,6 +972,25 @@ z -          # Go back to previous directory
     navigate = true
     side-by-side = true
     line-numbers = true
+    syntax-theme = Dracula
+```
+
+### difftastic - Structural diff (Syntax-aware)
+```bash
+# Configure in ~/.gitconfig as an alias (use alongside delta):
+[diff]
+    tool = difftastic
+
+[difftool]
+    prompt = false
+
+[difftool "difftastic"]
+    cmd = difft "$LOCAL" "$REMOTE"
+
+# Use with: git difftool
+# Or set as default diff:
+# [pager]
+#     diff = difft
 ```
 
 ### fzf Integration
@@ -1182,7 +1203,7 @@ All shell configuration changes made by the installer are automatically removed,
 **Useful Aliases** (add to shell RC):
 ```bash
 # Use modern CLI tools
-alias ls='lsd'                      # Or 'eza' if you prefer
+alias ls='lsd'                      # Modern ls with icons
 alias ll='lsd -lah'                 # Long listing with icons
 alias lt='lsd --tree'               # Tree view
 alias cat='bat --paging=never'      # Syntax-highlighted cat
@@ -1193,12 +1214,6 @@ alias grep='rg'                     # Faster grep
 # alias ls='ls --color=auto'
 # alias ll='ls -lah'
 ```
-
-**lsd vs eza**: Both are modern `ls` replacements written in Rust with icons and colors.
-- **lsd** (LSDeluxe): Simpler, faster, static binary available
-- **eza**: More features, active development, but requires libc
-
-For air-gap environments, **lsd is recommended** due to easier static compilation.
 
 **Starship Configuration**:
 Place `starship.toml` in `~/.config/` or `config/.config/` for Stow:

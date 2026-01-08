@@ -6,9 +6,10 @@ FZF_VERSION := 0.66.1
 TMUX_VERSION := 3.5a
 NERD_FONT_VERSION := v3.2.1
 BTOP_VERSION := v1.3.2
-EZA_VERSION := v0.18.2
+LSD_VERSION := v1.1.5
 ZOX_VERSION := v0.9.8
 DELTA_VERSION := 0.17.0
+DIFFTASTIC_VERSION := 0.62.0
 GUM_VERSION := v0.15.1
 
 # Detect OS for local testing
@@ -40,7 +41,7 @@ status:
 	@ls -lh offline-packages/linux/{wezterm.AppImage,tmux-3.4-static-x86_64,nvim-linux64.tar.gz} 2>/dev/null | awk '{print $$5 "\t" $$9}' || echo "  Some core binaries missing"
 	@echo ""
 	@echo "CLI tools:"
-	@ls -lh offline-packages/linux/{fzf,fd,rg,bat,starship,btop,eza,zoxide,delta,gum} 2>/dev/null | awk '{print $$5 "\t" $$9}' || echo "  Some tools missing"
+	@ls -lh offline-packages/linux/{fzf,fd,rg,bat,starship,btop,lsd,zoxide,delta,difft,gum} 2>/dev/null | awk '{print $$5 "\t" $$9}' || echo "  Some tools missing"
 	@echo ""
 	@echo "macOS binaries:"
 	@ls -lh offline-packages/macos/{WezTerm-macos.zip,nvim-macos-arm64.tar.gz} 2>/dev/null | awk '{print $$5 "\t" $$9}' || echo "  Some binaries missing"
@@ -124,14 +125,14 @@ update-linux:
 		echo "  ✓ btop already present"; \
 	fi
 
-	# eza - modern ls replacement
-	@if [ ! -f offline-packages/linux/eza ] || [ $$(stat -f%z offline-packages/linux/eza 2>/dev/null || stat -c%s offline-packages/linux/eza 2>/dev/null) -lt 1000 ]; then \
-		echo "  → eza (modern ls)..."; \
-		curl -fL "https://github.com/eza-community/eza/releases/download/$(EZA_VERSION)/eza_x86_64-unknown-linux-musl.tar.gz" | \
-			tar -xz -C offline-packages/linux/ ./eza; \
-		chmod +x offline-packages/linux/eza; \
+	# lsd - modern ls replacement
+	@if [ ! -f offline-packages/linux/lsd ] || [ $$(stat -f%z offline-packages/linux/lsd 2>/dev/null || stat -c%s offline-packages/linux/lsd 2>/dev/null) -lt 1000 ]; then \
+		echo "  → lsd (modern ls)..."; \
+		curl -fL "https://github.com/lsd-rs/lsd/releases/download/$(LSD_VERSION)/lsd-$(LSD_VERSION)-x86_64-unknown-linux-musl.tar.gz" | \
+			tar -xz -C offline-packages/linux/ --strip-components=1; \
+		chmod +x offline-packages/linux/lsd; \
 	else \
-		echo "  ✓ eza already present"; \
+		echo "  ✓ lsd already present"; \
 	fi
 
 	# zoxide - smarter cd
@@ -152,6 +153,16 @@ update-linux:
 		chmod +x offline-packages/linux/delta; \
 	else \
 		echo "  ✓ delta already present"; \
+	fi
+
+	# difftastic - structural diff tool
+	@if [ ! -f offline-packages/linux/difft ] || [ $$(stat -f%z offline-packages/linux/difft 2>/dev/null || stat -c%s offline-packages/linux/difft 2>/dev/null) -lt 1000 ]; then \
+		echo "  → difftastic (structural diff)..."; \
+		curl -fL "https://github.com/Wilfred/difftastic/releases/download/$(DIFFTASTIC_VERSION)/difft-x86_64-unknown-linux-musl.tar.gz" | \
+			tar -xz -C offline-packages/linux/; \
+		chmod +x offline-packages/linux/difft; \
+	else \
+		echo "  ✓ difftastic already present"; \
 	fi
 
 	# gum - charm bracelet TUI library
@@ -347,6 +358,16 @@ update-macos:
 		echo "  ✓ delta already present"; \
 	fi
 
+	# difftastic - structural diff tool
+	@if [ ! -f offline-packages/macos/difft ]; then \
+		echo "  → difftastic (structural diff)..."; \
+		curl -fL "https://github.com/Wilfred/difftastic/releases/download/$(DIFFTASTIC_VERSION)/difft-aarch64-apple-darwin.tar.gz" \
+			| tar -xz -C offline-packages/macos/; \
+		chmod +x offline-packages/macos/difft; \
+	else \
+		echo "  ✓ difftastic already present"; \
+	fi
+
 	# jq - JSON processor
 	@if [ ! -f offline-packages/macos/jq ]; then \
 		echo "  → jq (JSON processor)..."; \
@@ -355,6 +376,16 @@ update-macos:
 		chmod +x offline-packages/macos/jq; \
 	else \
 		echo "  ✓ jq already present"; \
+	fi
+
+	# lsd - Modern ls replacement
+	@if [ ! -f offline-packages/macos/lsd ]; then \
+		echo "  → lsd (modern ls)..."; \
+		curl -fL "https://github.com/lsd-rs/lsd/releases/download/$(LSD_VERSION)/lsd-$(LSD_VERSION)-aarch64-apple-darwin.tar.gz" \
+			| tar -xz -C offline-packages/macos/ --strip-components=1; \
+		chmod +x offline-packages/macos/lsd; \
+	else \
+		echo "  ✓ lsd already present"; \
 	fi
 
 	# btop - System monitor
@@ -450,9 +481,10 @@ verify:
 	@file offline-packages/linux/bat 2>/dev/null | grep -q "executable" && echo "  ✓ bat" || echo "  ✗ bat - missing or invalid"
 	@file offline-packages/linux/starship 2>/dev/null | grep -q "executable" && echo "  ✓ starship" || echo "  ✗ starship - missing or invalid"
 	@file offline-packages/linux/btop 2>/dev/null | grep -q "executable" && echo "  ✓ btop" || echo "  ✗ btop - missing or invalid"
-	@file offline-packages/linux/eza 2>/dev/null | grep -q "executable" && echo "  ✓ eza" || echo "  ✗ eza - missing or invalid"
+	@file offline-packages/linux/lsd 2>/dev/null | grep -q "executable" && echo "  ✓ lsd" || echo "  ✗ lsd - missing or invalid"
 	@file offline-packages/linux/zoxide 2>/dev/null | grep -q "executable" && echo "  ✓ zoxide" || echo "  ✗ zoxide - missing or invalid"
 	@file offline-packages/linux/delta 2>/dev/null | grep -q "executable" && echo "  ✓ delta" || echo "  ✗ delta - missing or invalid"
+	@file offline-packages/linux/difft 2>/dev/null | grep -q "executable" && echo "  ✓ difft" || echo "  ✗ difft - missing or invalid"
 	@echo ""
 	@echo "macOS binaries:"
 	@file offline-packages/macos/WezTerm-macos.zip 2>/dev/null | grep -q "Zip\|archive" && echo "  ✓ WezTerm-macos.zip" || echo "  ✗ WezTerm-macos.zip - missing or invalid"

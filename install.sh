@@ -399,10 +399,11 @@ if [[ $OS == "linux" ]]; then
     "offline-packages/$OS/rg|rg|ripgrep|--version"
     "offline-packages/$OS/bat|bat|bat|--version"
     "offline-packages/$OS/starship|starship|starship|--version"
-    "offline-packages/$OS/eza|eza|eza (modern ls)|--version"
+    "offline-packages/$OS/lsd|lsd|lsd (modern ls)|--version"
     "offline-packages/$OS/lazygit|lazygit|lazygit|--version"
     "offline-packages/$OS/zoxide|zoxide|zoxide|--version"
     "offline-packages/$OS/delta|delta|delta|--version"
+    "offline-packages/$OS/difft|difft|difftastic|--version"
     "offline-packages/$OS/jq|jq|jq|--version"
     "offline-packages/$OS/btop|btop|btop|--version"
   )
@@ -868,9 +869,9 @@ echo "   Editor: nvim (with plugins)"
 echo "   CLI Tools: fzf, fd, rg, bat, starship"
 if [[ -f ~/bin/lsd ]]; then echo "   Optional: lsd"; fi
 if [[ -f ~/bin/btop ]]; then echo "   Optional: btop"; fi
-if [[ -f ~/bin/eza ]]; then echo "   Optional: eza"; fi
 if [[ -f ~/bin/zoxide ]]; then echo "   Optional: zoxide"; fi
 if [[ -f ~/bin/delta ]]; then echo "   Optional: delta"; fi
+if [[ -f ~/bin/difft ]]; then echo "   Optional: difftastic"; fi
 echo ""
 echo "💡 Tips:"
 echo "   - Use 'fzf' for fuzzy file finding (Ctrl+R for history)"
@@ -1045,15 +1046,11 @@ else
 
     # Aliases
     if [[ "$SHELL_TYPE" != "fish" ]]; then
-      # lsd or eza
+      # lsd
       if [[ -f "$BIN_DIR/lsd" ]]; then
         add_to_shell_rc "$SHELL_RC" "alias ls='lsd'" "lsd alias (modern ls)"
         add_to_shell_rc "$SHELL_RC" "alias ll='lsd -la'" "ll alias"
         add_to_shell_rc "$SHELL_RC" "alias tree='lsd --tree'" "tree alias"
-      elif [[ -f "$BIN_DIR/eza" ]]; then
-        add_to_shell_rc "$SHELL_RC" "alias ls='eza --icons'" "eza alias (modern ls)"
-        add_to_shell_rc "$SHELL_RC" "alias ll='eza -la --icons'" "ll alias"
-        add_to_shell_rc "$SHELL_RC" "alias tree='eza --tree --icons'" "tree alias"
       fi
 
       # bat
@@ -1118,14 +1115,14 @@ echo ""
 if has_gum && [[ -f "$BIN_DIR/gum" ]]; then
   $BIN_DIR/gum style --border double --border-foreground 33 --padding "1 2" --bold "📝 Installation Tracking"
   echo ""
-  $BIN_DIR/gum style --foreground 240 "Installation log saved to: " --foreground 51 "$INSTALL_LOG"
+  echo "$($BIN_DIR/gum style --foreground 240 "Installation log saved to: ")$($BIN_DIR/gum style --foreground 51 "$INSTALL_LOG")"
   echo ""
   $BIN_DIR/gum style --bold "This log tracks everything installed and can be used for:"
   $BIN_DIR/gum style --foreground 51 "  ➜ Uninstalling with: ./uninstall.sh"
   $BIN_DIR/gum style --foreground 51 "  ➜ Reviewing what was installed"
   $BIN_DIR/gum style --foreground 51 "  ➜ Restoring from backups (if any were created)"
   echo ""
-  $BIN_DIR/gum style --foreground 240 "To view the log: " --foreground 51 "cat $INSTALL_LOG"
+  echo "$($BIN_DIR/gum style --foreground 240 "To view the log: ")$($BIN_DIR/gum style --foreground 51 "cat $INSTALL_LOG")"
   echo ""
 else
   echo -e "${BOLD}${BLUE}╔════════════════════════════════════════════════════════════╗${RESET}"
