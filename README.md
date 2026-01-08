@@ -114,7 +114,6 @@ wezterm start -- tmux new-session nvim
 ### Optional Tools
 - **btop** - Beautiful resource monitor (replaces htop/top)
 - **lsd** - Modern ls with icons and colors
-- **eza** - Another modern ls with git integration
 - **zoxide** - Smarter cd that learns your habits
 - **delta** - Stunning git diff viewer with syntax highlighting
 - **stow** - GNU Stow for dotfile symlink management (bundled)
@@ -210,14 +209,14 @@ cp offline-packages/linux/your-tool ~/bin/
 ```
 /usr/local/bin/        # Binaries (requires sudo)
 ├── wezterm, tmux, nvim, fzf, fd, rg, bat, starship
-└── (optional: btop, lsd, eza, zoxide, delta, gum)
+└── (optional: btop, lsd, zoxide, delta, gum)
 ```
 
 **User-local install:**
 ```
 ~/.local/bin/          # Binaries (no sudo needed)
 ├── wezterm, tmux, nvim, fzf, fd, rg, bat, starship
-└── (optional: btop, lsd, eza, zoxide, delta, gum)
+└── (optional: btop, lsd, zoxide, delta, gum)
 ```
 
 **Configuration files (both install types):**
