@@ -406,6 +406,9 @@ if [[ $OS == "linux" ]]; then
     "offline-packages/$OS/difft|difft|difftastic|--version"
     "offline-packages/$OS/jq|jq|jq|--version"
     "offline-packages/$OS/btop|btop|btop|--version"
+    "offline-packages/$OS/direnv|direnv|direnv|--version"
+    "offline-packages/$OS/dust|dust|dust|--version"
+    "offline-packages/$OS/svu|svu|svu|--version"
   )
   
   # LSP servers

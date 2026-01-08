@@ -115,7 +115,10 @@ wezterm start -- tmux new-session nvim
 - **btop** - Beautiful resource monitor (replaces htop/top)
 - **lsd** - Modern ls with icons and colors
 - **zoxide** - Smarter cd that learns your habits
+- **direnv** - Automatic per-directory environment loader
+- **dust** - Fast, intuitive disk usage visualizer
 - **delta** - Stunning git diff viewer with syntax highlighting
+- **svu** - Semantic version utility for release management
 - **stow** - GNU Stow for dotfile symlink management (bundled)
 - **gum** - Charm Bracelet TUI toolkit for pretty prompts (bundled)
 
@@ -209,14 +212,14 @@ cp offline-packages/linux/your-tool ~/bin/
 ```
 /usr/local/bin/        # Binaries (requires sudo)
 ├── wezterm, tmux, nvim, fzf, fd, rg, bat, starship
-└── (optional: btop, lsd, zoxide, delta, gum)
+└── (optional: btop, lsd, zoxide, direnv, dust, delta, svu, gum)
 ```
 
 **User-local install:**
 ```
 ~/.local/bin/          # Binaries (no sudo needed)
 ├── wezterm, tmux, nvim, fzf, fd, rg, bat, starship
-└── (optional: btop, lsd, zoxide, delta, gum)
+└── (optional: btop, lsd, zoxide, direnv, dust, delta, svu, gum)
 ```
 
 **Configuration files (both install types):**

@@ -11,6 +11,9 @@ ZOX_VERSION := v0.9.8
 DELTA_VERSION := 0.17.0
 DIFFTASTIC_VERSION := 0.67.0
 GUM_VERSION := v0.15.1
+DUST_VERSION := v1.2.3
+DIRENV_VERSION := v2.37.1
+SVU_VERSION := 3.3.0
 
 # Detect OS for local testing
 OS := $(shell uname -s)
@@ -145,6 +148,29 @@ update-linux:
 		echo "  ✓ zoxide already present"; \
 	fi
 
+	# direnv - per-directory environment manager
+	@if [ ! -f offline-packages/linux/direnv ] || [ $$(stat -f%z offline-packages/linux/direnv 2>/dev/null || stat -c%s offline-packages/linux/direnv 2>/dev/null) -lt 1000 ]; then \
+		echo "  → direnv (environment loader)..."; \
+		curl -fL "https://github.com/direnv/direnv/releases/download/$(DIRENV_VERSION)/direnv.linux-amd64" \
+			-o offline-packages/linux/direnv; \
+		chmod +x offline-packages/linux/direnv; \
+	else \
+		echo "  ✓ direnv already present"; \
+	fi
+
+	# dust - disk usage viewer
+	@if [ ! -f offline-packages/linux/dust ] || [ $$(stat -f%z offline-packages/linux/dust 2>/dev/null || stat -c%s offline-packages/linux/dust 2>/dev/null) -lt 1000 ]; then \
+		echo "  → dust (disk usage)..."; \
+		mkdir -p /tmp/dust-download; \
+		curl -fL "https://github.com/bootandy/dust/releases/download/$(DUST_VERSION)/dust-$(DUST_VERSION)-x86_64-unknown-linux-gnu.tar.gz" | \
+			tar -xz -C /tmp/dust-download --strip-components=1; \
+		mv /tmp/dust-download/dust offline-packages/linux/dust; \
+		chmod +x offline-packages/linux/dust; \
+		rm -rf /tmp/dust-download; \
+	else \
+		echo "  ✓ dust already present"; \
+	fi
+
 	# delta - better git diff
 	@if [ ! -f offline-packages/linux/delta ] || [ $$(stat -f%z offline-packages/linux/delta 2>/dev/null || stat -c%s offline-packages/linux/delta 2>/dev/null) -lt 1000 ]; then \
 		echo "  → delta (better git diff)..."; \
@@ -229,6 +255,19 @@ update-linux:
 		chmod +x offline-packages/linux/jq; \
 	else \
 		echo "  ✓ jq already present"; \
+	fi
+
+	# svu - semantic version utility
+	@if [ ! -f offline-packages/linux/svu ]; then \
+		echo "  → svu (semantic version utility)..."; \
+		mkdir -p /tmp/svu-download; \
+		curl -fL "https://github.com/caarlos0/svu/releases/download/v$(SVU_VERSION)/svu_$(SVU_VERSION)_linux_amd64.tar.gz" | \
+			tar -xz -C /tmp/svu-download --strip-components=1; \
+		mv /tmp/svu-download/svu offline-packages/linux/svu; \
+		chmod +x offline-packages/linux/svu; \
+		rm -rf /tmp/svu-download; \
+	else \
+		echo "  ✓ svu already present"; \
 	fi
 
 	# btop - System monitor
@@ -361,8 +400,8 @@ update-macos:
 	# difftastic - structural diff tool
 	@if [ ! -f offline-packages/macos/difft ]; then \
 		echo "  → difftastic (structural diff)..."; \
-		curl -fL "https://github.com/Wilfred/difftastic/releases/download/$(DIFFTASTIC_VERSION)/difft-aarch64-apple-darwin.tar.gz" | \
-			tar -xz -C offline-packages/macos/; \
+		curl -fL "https://github.com/Wilfred/difftastic/releases/download/$(DIFFTASTIC_VERSION)/difft-aarch64-apple-darwin.tar.gz" \
+			| tar -xz -C offline-packages/macos/; \
 		chmod +x offline-packages/macos/difft; \
 	else \
 		echo "  ✓ difftastic already present"; \
@@ -376,6 +415,42 @@ update-macos:
 		chmod +x offline-packages/macos/jq; \
 	else \
 		echo "  ✓ jq already present"; \
+	fi
+
+	# direnv - per-directory environment manager
+	@if [ ! -f offline-packages/macos/direnv ]; then \
+		echo "  → direnv (environment loader)..."; \
+		curl -fL "https://github.com/direnv/direnv/releases/download/$(DIRENV_VERSION)/direnv.darwin-arm64" \
+			-o offline-packages/macos/direnv; \
+		chmod +x offline-packages/macos/direnv; \
+	else \
+		echo "  ✓ direnv already present"; \
+	fi
+
+	# dust - disk usage viewer
+	@if [ ! -f offline-packages/macos/dust ]; then \
+		echo "  → dust (disk usage)..."; \
+		mkdir -p /tmp/dust-macos-download; \
+		curl -fL "https://github.com/bootandy/dust/releases/download/$(DUST_VERSION)/dust-$(DUST_VERSION)-x86_64-apple-darwin.tar.gz" | \
+			tar -xz -C /tmp/dust-macos-download --strip-components=1; \
+		mv /tmp/dust-macos-download/dust offline-packages/macos/dust; \
+		chmod +x offline-packages/macos/dust; \
+		rm -rf /tmp/dust-macos-download; \
+	else \
+		echo "  ✓ dust already present"; \
+	fi
+
+	# svu - semantic version utility
+	@if [ ! -f offline-packages/macos/svu ]; then \
+		echo "  → svu (semantic version utility)..."; \
+		mkdir -p /tmp/svu-macos-download; \
+		curl -fL "https://github.com/caarlos0/svu/releases/download/v$(SVU_VERSION)/svu_$(SVU_VERSION)_darwin_all.tar.gz" | \
+			tar -xz -C /tmp/svu-macos-download --strip-components=1; \
+		mv /tmp/svu-macos-download/svu offline-packages/macos/svu; \
+		chmod +x offline-packages/macos/svu; \
+		rm -rf /tmp/svu-macos-download; \
+	else \
+		echo "  ✓ svu already present"; \
 	fi
 
 	# lsd - Modern ls replacement
