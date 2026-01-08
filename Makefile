@@ -1,4 +1,4 @@
-.PHONY: help update verify package clean install sync-nvim-config
+.PHONY: help update verify package package-with-config clean clean-all install sync-nvim-config version-file
 
 # Version variables - update these when new releases are available
 WEZTERM_VERSION := 20230712-072601-f4abf8fd
@@ -571,7 +571,15 @@ verify:
 	@echo "Install script:"
 	@test -x install.sh && echo "  ✓ install.sh executable" || echo "  ✗ install.sh not executable (run: chmod +x install.sh)"
 
-package:
+version-file:
+	@echo "Embedding kit version information..."
+	@(if git rev-parse --git-dir >/dev/null 2>&1; then \
+		git describe --tags --always --dirty; \
+	else \
+		echo "unknown"; \
+	fi) > VERSION
+
+package: version-file
 	@echo "Creating deployment package..."
 	@$(MAKE) --no-print-directory verify
 	@echo ""
@@ -590,8 +598,9 @@ package:
 	@echo "  Transfer airgap-dev-kit.tar.gz to target machine"
 	@echo "  Extract: tar -xzf airgap-dev-kit.tar.gz"
 	@echo "  Install: cd airgap-dev-kit && ./install.sh"
+	@rm -f VERSION
 
-package-with-config: verify
+package-with-config: verify version-file
 	@echo "Creating full deployment package (with config/)..."
 	@if [ ! -d config ]; then \
 		echo "Warning: config/ directory not found. Creating placeholder..."; \
@@ -607,6 +616,7 @@ package-with-config: verify
 	@ls -lh airgap-dev-kit-full.tar.gz
 	@echo ""
 	@echo "✓ Full package ready (includes config/)!"
+	@rm -f VERSION
 
 install:
 	@echo "Installing on current machine ($(OS_TYPE))..."

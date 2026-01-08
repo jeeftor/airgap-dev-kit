@@ -1,0 +1,60 @@
+name: Auto Tag with SVU
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  auto-tag:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine SVU version
+        id: svu_version
+        run: |
+          SVU_VERSION=$(grep '^SVU_VERSION' Makefile | awk '{print $3}')
+          if [[ -z "$SVU_VERSION" ]]; then
+            echo "Could not determine SVU_VERSION from Makefile" >&2
+            exit 1
+          fi
+          echo "version=$SVU_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Download svu binary
+        run: |
+          VERSION="${{ steps.svu_version.outputs.version }}"
+          curl -fsSL "https://github.com/caarlos0/svu/releases/download/v${VERSION}/svu_${VERSION}_linux_amd64.tar.gz" \
+            | tar -xz
+          chmod +x svu
+          sudo mv svu /usr/local/bin/svu
+
+      - name: Compute next patch version
+        id: next_tag
+        run: |
+          git fetch --tags --force
+          NEXT_TAG=$(svu next patch)
+          if [[ -z "$NEXT_TAG" ]]; then
+            echo "SVU did not return a tag" >&2
+            exit 1
+          fi
+          echo "value=$NEXT_TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Create tag if missing
+        run: |
+          TAG="${{ steps.next_tag.outputs.value }}"
+          if git rev-parse -q --verify "refs/tags/$TAG"; then
+            echo "Tag $TAG already exists; nothing to do."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "$TAG"
+          git push origin "$TAG"

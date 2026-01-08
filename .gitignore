@@ -14,8 +14,9 @@ offline-packages/linux/eza
 offline-packages/linux/zoxide
 offline-packages/linux/delta
 offline-packages/linux/lsd
+offline-packages/linux/nvim-linux-x86_64
 offline-packages/macos/WezTerm-macos.zip
-offline-packages/macos/nvim-macos-arm64.tar.gz
+offline-packages/macos/nvim-macos-arm64
 
 # Bundled Neovim plugins
 offline-packages/lazy-plugins.tar.gz
@@ -27,6 +28,7 @@ sha256sums.txt
 # Extracted font directories
 fonts/JetBrainsMonoNerdFont-*/
 fonts/JetBrainsMono/
+VERSION
 
 # macOS
 .DS_Store

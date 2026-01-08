@@ -32,6 +32,8 @@ else
   INFO='ℹ'
 fi
 
+echo "Air-Gap Dev Kit version installed: ${KIT_VERSION}"
+
 # Parse command line arguments
 DRY_RUN=false
 for arg in "$@"; do
@@ -50,6 +52,14 @@ for arg in "$@"; do
       ;;
   esac
 done
+
+# Determine kit version (from VERSION file if bundled, otherwise git)
+KIT_VERSION="unknown"
+if [[ -f VERSION ]]; then
+  KIT_VERSION=$(head -n 1 VERSION | tr -d ' \t\r\n')
+elif command -v git >/dev/null 2>&1 && git rev-parse --git-dir >/dev/null 2>&1; then
+  KIT_VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "unknown")
+fi
 
 # Installation tracking file
 INSTALL_LOG="$HOME/.airgap-dev-kit-install.log"
@@ -154,6 +164,7 @@ fi
 echo ""
 echo "=========================================="
 echo "Air-Gap Dev Kit Installer"
+echo "Version: ${KIT_VERSION}"
 if [[ "$DRY_RUN" == true ]]; then
   echo "(DRY RUN MODE - No changes will be made)"
 fi
@@ -250,6 +261,7 @@ echo "Installing $OS binaries..."
 log_install "METADATA" "OS=$OS" "" ""
 log_install "METADATA" "BIN_DIR=$BIN_DIR" "" ""
 log_install "METADATA" "USE_SUDO=$USE_SUDO" "" ""
+log_install "METADATA" "KIT_VERSION=$KIT_VERSION" "" ""
 log_install "DIRECTORY" "$BIN_DIR" "" ""
 
 echo ""

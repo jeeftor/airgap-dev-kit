@@ -35,6 +35,9 @@ jobs:
           test -f offline-packages/linux/delta || { echo "✗ delta missing"; exit 1; }
           test -f offline-packages/linux/jq || { echo "✗ jq missing"; exit 1; }
           test -f offline-packages/linux/btop || { echo "✗ btop missing"; exit 1; }
+          test -f offline-packages/linux/direnv || { echo "✗ direnv missing"; exit 1; }
+          test -f offline-packages/linux/dust || { echo "✗ dust missing"; exit 1; }
+          test -f offline-packages/linux/svu || { echo "✗ svu missing"; exit 1; }
           echo "✓ All required binaries present"
       
       - name: Create package
@@ -77,6 +80,9 @@ jobs:
           test -f ~/.local/bin/rg || { echo "✗ rg not installed"; exit 1; }
           test -f ~/.local/bin/bat || { echo "✗ bat not installed"; exit 1; }
           test -f ~/.local/bin/starship || { echo "✗ starship not installed"; exit 1; }
+          test -f ~/.local/bin/direnv || { echo "✗ direnv not installed"; exit 1; }
+          test -f ~/.local/bin/dust || { echo "✗ dust not installed"; exit 1; }
+          test -f ~/.local/bin/svu || { echo "✗ svu not installed"; exit 1; }
           echo "✓ All binaries installed"
       
       - name: Verify installation log created
@@ -152,6 +158,9 @@ jobs:
           test -f offline-packages/macos/nvim-macos-arm64.tar.gz || { echo "✗ Neovim missing"; exit 1; }
           test -f offline-packages/macos/fzf || { echo "✗ fzf missing"; exit 1; }
           test -f offline-packages/macos/stow || { echo "✗ stow missing"; exit 1; }
+          test -f offline-packages/macos/direnv || { echo "✗ direnv missing"; exit 1; }
+          test -f offline-packages/macos/dust || { echo "✗ dust missing"; exit 1; }
+          test -f offline-packages/macos/svu || { echo "✗ svu missing"; exit 1; }
           echo "✓ All required binaries present"
 
   test-install-macos:
@@ -172,6 +181,9 @@ jobs:
         run: |
           test -f ~/.local/bin/nvim || { echo "✗ nvim not installed"; exit 1; }
           test -f ~/.local/bin/tmux || { echo "✗ tmux not installed"; exit 1; }
+          test -f ~/.local/bin/direnv || { echo "✗ direnv not installed"; exit 1; }
+          test -f ~/.local/bin/dust || { echo "✗ dust not installed"; exit 1; }
+          test -f ~/.local/bin/svu || { echo "✗ svu not installed"; exit 1; }
           echo "✓ Binaries installed"
       
       - name: Test binaries work
