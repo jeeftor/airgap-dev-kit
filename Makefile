@@ -260,12 +260,12 @@ update-linux:
 	# svu - semantic version utility
 	@if [ ! -f offline-packages/linux/svu ]; then \
 		echo "  → svu (semantic version utility)..."; \
-		mkdir -p /tmp/svu-download; \
+		tmp_dir=$$(mktemp -d); \
 		curl -fL "https://github.com/caarlos0/svu/releases/download/v$(SVU_VERSION)/svu_$(SVU_VERSION)_linux_amd64.tar.gz" | \
-			tar -xz -C /tmp/svu-download --strip-components=1; \
-		mv /tmp/svu-download/svu offline-packages/linux/svu; \
+			tar -xz -C $$tmp_dir --strip-components=1; \
+		mv $$tmp_dir/svu offline-packages/linux/svu; \
 		chmod +x offline-packages/linux/svu; \
-		rm -rf /tmp/svu-download; \
+		rm -rf $$tmp_dir; \
 	else \
 		echo "  ✓ svu already present"; \
 	fi
@@ -443,12 +443,12 @@ update-macos:
 	# svu - semantic version utility
 	@if [ ! -f offline-packages/macos/svu ]; then \
 		echo "  → svu (semantic version utility)..."; \
-		mkdir -p /tmp/svu-macos-download; \
+		tmp_dir=$$(mktemp -d); \
 		curl -fL "https://github.com/caarlos0/svu/releases/download/v$(SVU_VERSION)/svu_$(SVU_VERSION)_darwin_all.tar.gz" | \
-			tar -xz -C /tmp/svu-macos-download --strip-components=1; \
-		mv /tmp/svu-macos-download/svu offline-packages/macos/svu; \
+			tar -xz -C $$tmp_dir --strip-components=1; \
+		mv $$tmp_dir/svu offline-packages/macos/svu; \
 		chmod +x offline-packages/macos/svu; \
-		rm -rf /tmp/svu-macos-download; \
+		rm -rf $$tmp_dir; \
 	else \
 		echo "  ✓ svu already present"; \
 	fi
