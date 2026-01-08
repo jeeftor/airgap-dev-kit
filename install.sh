@@ -1153,7 +1153,7 @@ if [[ ${#SHELL_CONFIG_ITEMS[@]} -gt 0 ]]; then
     echo ""
     $BIN_DIR/gum style --bold "To activate your new shell configuration, choose one:"
     echo ""
-    $BIN_DIR/gum style --foreground 51 --bold "1. Restart your terminal" --foreground 240 " (recommended)"
+    $BIN_DIR/gum style --foreground 51 --bold "1. Restart your terminal (recommended)"
     $BIN_DIR/gum style --foreground 240 "   Close and reopen your terminal window"
     echo ""
     $BIN_DIR/gum style --foreground 51 --bold "2. Source your shell config:"
