@@ -9,7 +9,7 @@ BTOP_VERSION := v1.3.2
 LSD_VERSION := v1.1.5
 ZOX_VERSION := v0.9.8
 DELTA_VERSION := 0.17.0
-DIFFTASTIC_VERSION := 0.62.0
+DIFFTASTIC_VERSION := 0.67.0
 GUM_VERSION := v0.15.1
 
 # Detect OS for local testing
@@ -158,7 +158,7 @@ update-linux:
 	# difftastic - structural diff tool
 	@if [ ! -f offline-packages/linux/difft ] || [ $$(stat -f%z offline-packages/linux/difft 2>/dev/null || stat -c%s offline-packages/linux/difft 2>/dev/null) -lt 1000 ]; then \
 		echo "  → difftastic (structural diff)..."; \
-		curl -fL "https://github.com/Wilfred/difftastic/releases/download/$(DIFFTASTIC_VERSION)/difft-x86_64-unknown-linux-musl.tar.gz" | \
+		curl -fL "https://github.com/Wilfred/difftastic/releases/download/$(DIFFTASTIC_VERSION)/difft-x86_64-unknown-linux-gnu.tar.gz" | \
 			tar -xz -C offline-packages/linux/; \
 		chmod +x offline-packages/linux/difft; \
 	else \
@@ -361,8 +361,8 @@ update-macos:
 	# difftastic - structural diff tool
 	@if [ ! -f offline-packages/macos/difft ]; then \
 		echo "  → difftastic (structural diff)..."; \
-		curl -fL "https://github.com/Wilfred/difftastic/releases/download/$(DIFFTASTIC_VERSION)/difft-aarch64-apple-darwin.tar.gz" \
-			| tar -xz -C offline-packages/macos/; \
+		curl -fL "https://github.com/Wilfred/difftastic/releases/download/$(DIFFTASTIC_VERSION)/difft-aarch64-apple-darwin.tar.gz" | \
+			tar -xz -C offline-packages/macos/; \
 		chmod +x offline-packages/macos/difft; \
 	else \
 		echo "  ✓ difftastic already present"; \
