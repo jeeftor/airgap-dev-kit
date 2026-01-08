@@ -560,6 +560,10 @@ verify:
 	@file offline-packages/linux/zoxide 2>/dev/null | grep -q "executable" && echo "  ✓ zoxide" || echo "  ✗ zoxide - missing or invalid"
 	@file offline-packages/linux/delta 2>/dev/null | grep -q "executable" && echo "  ✓ delta" || echo "  ✗ delta - missing or invalid"
 	@file offline-packages/linux/difft 2>/dev/null | grep -q "executable" && echo "  ✓ difft" || echo "  ✗ difft - missing or invalid"
+	@file offline-packages/linux/jq 2>/dev/null | grep -q "executable" && echo "  ✓ jq" || echo "  ✗ jq - missing or invalid"
+	@file offline-packages/linux/direnv 2>/dev/null | grep -q "executable" && echo "  ✓ direnv" || echo "  ✗ direnv - missing or invalid"
+	@file offline-packages/linux/dust 2>/dev/null | grep -q "executable" && echo "  ✓ dust" || echo "  ✗ dust - missing or invalid"
+	@file offline-packages/linux/svu 2>/dev/null | grep -q "executable" && echo "  ✓ svu" || echo "  ✗ svu - missing or invalid"
 	@echo ""
 	@echo "macOS binaries:"
 	@file offline-packages/macos/WezTerm-macos.zip 2>/dev/null | grep -q "Zip\|archive" && echo "  ✓ WezTerm-macos.zip" || echo "  ✗ WezTerm-macos.zip - missing or invalid"
@@ -585,7 +589,7 @@ package: version-file
 	@echo ""
 	@echo "Building tarball: airgap-dev-kit.tar.gz"
 	@# Build file list dynamically to handle optional directories
-	@FILES="install.sh offline-packages/"; \
+	@FILES="install.sh VERSION offline-packages/"; \
 	if [ -d fonts ]; then FILES="$$FILES fonts/"; fi; \
 	if [ -d config ]; then FILES="$$FILES config/"; fi; \
 	tar --exclude='*.tar.gz' --exclude='.git' --exclude='.claude' --exclude='Makefile' \
@@ -610,6 +614,7 @@ package-with-config: verify version-file
 	@tar --exclude='*.tar.gz' --exclude='.git' --exclude='.claude' --exclude='Makefile' \
 		-czf airgap-dev-kit-full.tar.gz \
 		install.sh \
+		VERSION \
 		offline-packages/ \
 		fonts/ \
 		config/

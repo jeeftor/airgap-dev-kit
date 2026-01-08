@@ -1203,3 +1203,7 @@ if [[ ${#SHELL_CONFIG_ITEMS[@]} -gt 0 ]]; then
     echo ""
   fi
 fi
+
+echo ""
+echo "Air-Gap Dev Kit version installed: ${KIT_VERSION}"
+echo "To check for newer kit releases later, run 'make check-updates' (or ./scripts/check-updates.sh) on an online machine."
