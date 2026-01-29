@@ -812,9 +812,26 @@ fi
 if [[ $OS == "macos" ]]; then
   open fonts/JetBrainsMono.zip
 else
+  echo ""
+  echo "Installing fonts..."
   mkdir -p ~/.local/share/fonts
-  unzip -o fonts/JetBrainsMono.zip -d ~/.local/share/fonts
-  fc-cache -fv
+  if unzip -o fonts/JetBrainsMono.zip -d ~/.local/share/fonts 2>/dev/null; then
+    echo "✓ Fonts extracted to ~/.local/share/fonts"
+    log_install "DIRECTORY" "$HOME/.local/share/fonts/JetBrainsMono" "" ""
+
+    # Update font cache if fc-cache is available
+    if command -v fc-cache &>/dev/null; then
+      echo "  Updating font cache..."
+      fc-cache -fv >/dev/null 2>&1
+      echo "✓ Font cache updated"
+    else
+      echo "⚠ fc-cache not found (fonts installed but not cached)"
+      echo "  Fonts will still work, but may require manual cache refresh or terminal restart"
+      echo "  To install fc-cache: sudo apt-get install fontconfig  (Debian/Ubuntu)"
+    fi
+  else
+    echo "⚠ Font installation skipped (JetBrainsMono.zip not found)"
+  fi
 fi
 
 echo ""
