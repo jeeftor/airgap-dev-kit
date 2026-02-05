@@ -810,27 +810,81 @@ fi
 
 # Fonts
 if [[ $OS == "macos" ]]; then
-  open fonts/JetBrainsMono.zip
+  if [[ -f fonts/JetBrainsMono.zip ]]; then
+    echo ""
+    echo "Opening fonts for installation..."
+    open fonts/JetBrainsMono.zip
+    echo "✓ Font package opened (install manually via Font Book)"
+  fi
 else
+  # Linux: Ask if this is a desktop environment
   echo ""
-  echo "Installing fonts..."
-  mkdir -p ~/.local/share/fonts
-  if unzip -o fonts/JetBrainsMono.zip -d ~/.local/share/fonts 2>/dev/null; then
-    echo "✓ Fonts extracted to ~/.local/share/fonts"
-    log_install "DIRECTORY" "$HOME/.local/share/fonts/JetBrainsMono" "" ""
 
-    # Update font cache if fc-cache is available
-    if command -v fc-cache &>/dev/null; then
-      echo "  Updating font cache..."
-      fc-cache -fv >/dev/null 2>&1
-      echo "✓ Font cache updated"
+  # Detect if we're in a GUI environment
+  if [[ -z "$DISPLAY" ]] && [[ -z "$WAYLAND_DISPLAY" ]]; then
+    # No display detected - likely headless/SSH
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "ℹ Font Installation Info"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    echo "No GUI display detected (headless/SSH environment)."
+    echo ""
+    echo "📌 Important: Fonts are rendered CLIENT-SIDE, not on the server!"
+    echo ""
+    echo "For LazyVim icons to display correctly when connecting via SSH:"
+    echo "  1. Install JetBrainsMono Nerd Font on YOUR LOCAL MACHINE"
+    echo "  2. Configure your local terminal emulator to use it"
+    echo "  3. Font installation on this server is NOT needed"
+    echo ""
+    echo "Font location: fonts/JetBrainsMono.zip (copy to your local machine)"
+    echo ""
+
+    if has_gum && [[ -f "$BIN_DIR/gum" ]]; then
+      if ! $BIN_DIR/gum confirm "Install fonts on this server anyway? (only needed if using local GUI terminal)"; then
+        echo "⊘ Skipped font installation"
+        INSTALL_FONTS=false
+      else
+        INSTALL_FONTS=true
+      fi
     else
-      echo "⚠ fc-cache not found (fonts installed but not cached)"
-      echo "  Fonts will still work, but may require manual cache refresh or terminal restart"
-      echo "  To install fc-cache: sudo apt-get install fontconfig  (Debian/Ubuntu)"
+      read -p "Install fonts on this server anyway? (only needed if using local GUI terminal) [y/N]: " -n 1 -r
+      echo
+      if [[ $REPLY =~ ^[Yy]$ ]]; then
+        INSTALL_FONTS=true
+      else
+        echo "⊘ Skipped font installation"
+        INSTALL_FONTS=false
+      fi
     fi
   else
-    echo "⚠ Font installation skipped (JetBrainsMono.zip not found)"
+    # GUI environment detected
+    echo "GUI display detected, installing fonts..."
+    INSTALL_FONTS=true
+  fi
+
+  if [[ "$INSTALL_FONTS" == true ]]; then
+    mkdir -p ~/.local/share/fonts
+    if [[ -f fonts/JetBrainsMono.zip ]]; then
+      if unzip -o fonts/JetBrainsMono.zip -d ~/.local/share/fonts 2>/dev/null; then
+        echo "✓ Fonts extracted to ~/.local/share/fonts"
+        log_install "DIRECTORY" "$HOME/.local/share/fonts/JetBrainsMono" "" ""
+
+        # Update font cache if fc-cache is available
+        if command -v fc-cache &>/dev/null; then
+          echo "  Updating font cache..."
+          fc-cache -fv >/dev/null 2>&1
+          echo "✓ Font cache updated"
+        else
+          echo "⚠ fc-cache not found - fonts installed but not cached"
+          echo "  Fonts will work after terminal restart"
+          echo "  To enable font caching: install fontconfig package"
+        fi
+      else
+        echo "⚠ Failed to extract fonts"
+      fi
+    else
+      echo "⚠ Font file not found: fonts/JetBrainsMono.zip"
+    fi
   fi
 fi
 
