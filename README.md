@@ -117,6 +117,7 @@ wezterm start -- tmux new-session nvim
 - **zoxide** - Smarter cd that learns your habits
 - **direnv** - Automatic per-directory environment loader
 - **dust** - Fast, intuitive disk usage visualizer
+- **gdu** - Interactive disk usage analyzer with TUI
 - **delta** - Stunning git diff viewer with syntax highlighting
 - **svu** - Semantic version utility for release management
 - **stow** - GNU Stow for dotfile symlink management (bundled)

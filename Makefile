@@ -12,6 +12,7 @@ DELTA_VERSION := 0.17.0
 DIFFTASTIC_VERSION := 0.67.0
 GUM_VERSION := v0.15.1
 DUST_VERSION := v1.2.3
+GDU_VERSION := v5.33.0
 DIRENV_VERSION := v2.37.1
 SVU_VERSION := 3.3.0
 
@@ -44,7 +45,7 @@ status:
 	@ls -lh offline-packages/linux/{wezterm.AppImage,tmux-3.4-static-x86_64,nvim-linux64.tar.gz} 2>/dev/null | awk '{print $$5 "\t" $$9}' || echo "  Some core binaries missing"
 	@echo ""
 	@echo "CLI tools:"
-	@ls -lh offline-packages/linux/{fzf,fd,rg,bat,starship,btop,lsd,zoxide,delta,difft,gum} 2>/dev/null | awk '{print $$5 "\t" $$9}' || echo "  Some tools missing"
+	@ls -lh offline-packages/linux/{fzf,fd,rg,bat,starship,btop,lsd,zoxide,delta,difft,gum,dust,gdu} 2>/dev/null | awk '{print $$5 "\t" $$9}' || echo "  Some tools missing"
 	@echo ""
 	@echo "macOS binaries:"
 	@ls -lh offline-packages/macos/{WezTerm-macos.zip,nvim-macos-arm64.tar.gz} 2>/dev/null | awk '{print $$5 "\t" $$9}' || echo "  Some binaries missing"
@@ -169,6 +170,16 @@ update-linux:
 		rm -rf /tmp/dust-download; \
 	else \
 		echo "  ✓ dust already present"; \
+	fi
+
+	# gdu - interactive disk usage analyzer
+	@if [ ! -f offline-packages/linux/gdu ] || [ $$(stat -f%z offline-packages/linux/gdu 2>/dev/null || stat -c%s offline-packages/linux/gdu 2>/dev/null) -lt 1000 ]; then \
+		echo "  → gdu (interactive disk usage)..."; \
+		curl -fL "https://github.com/dundee/gdu/releases/download/$(GDU_VERSION)/gdu_linux_amd64.tgz" | \
+			tar -xz -C /tmp/ && mv /tmp/gdu_linux_amd64 offline-packages/linux/gdu; \
+		chmod +x offline-packages/linux/gdu; \
+	else \
+		echo "  ✓ gdu already present"; \
 	fi
 
 	# delta - better git diff
@@ -440,6 +451,16 @@ update-macos:
 		echo "  ✓ dust already present"; \
 	fi
 
+	# gdu - interactive disk usage analyzer
+	@if [ ! -f offline-packages/macos/gdu ]; then \
+		echo "  → gdu (interactive disk usage)..."; \
+		curl -fL "https://github.com/dundee/gdu/releases/download/$(GDU_VERSION)/gdu_darwin_amd64.tgz" | \
+			tar -xz -C /tmp/ && mv /tmp/gdu_darwin_amd64 offline-packages/macos/gdu; \
+		chmod +x offline-packages/macos/gdu; \
+	else \
+		echo "  ✓ gdu already present"; \
+	fi
+
 	# svu - semantic version utility
 	@if [ ! -f offline-packages/macos/svu ]; then \
 		echo "  → svu (semantic version utility)..."; \
@@ -564,6 +585,7 @@ verify:
 	if file offline-packages/linux/jq 2>/dev/null | grep -q "executable"; then echo "  ✓ jq"; else echo "  ✗ jq - missing or invalid"; FAIL=1; fi; \
 	if file offline-packages/linux/direnv 2>/dev/null | grep -q "executable"; then echo "  ✓ direnv"; else echo "  ✗ direnv - missing or invalid"; FAIL=1; fi; \
 	if file offline-packages/linux/dust 2>/dev/null | grep -q "executable"; then echo "  ✓ dust"; else echo "  ✗ dust - missing or invalid"; FAIL=1; fi; \
+	if file offline-packages/linux/gdu 2>/dev/null | grep -q "executable"; then echo "  ✓ gdu"; else echo "  ✗ gdu - missing or invalid"; FAIL=1; fi; \
 	if file offline-packages/linux/svu 2>/dev/null | grep -q "executable"; then echo "  ✓ svu"; else echo "  ✗ svu - missing or invalid"; FAIL=1; fi; \
 	echo ""; \
 	echo "macOS binaries:"; \

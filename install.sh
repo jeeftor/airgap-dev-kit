@@ -420,6 +420,7 @@ if [[ $OS == "linux" ]]; then
     "offline-packages/$OS/btop|btop|btop|--version"
     "offline-packages/$OS/direnv|direnv|direnv|--version"
     "offline-packages/$OS/dust|dust|dust|--version"
+    "offline-packages/$OS/gdu|gdu|gdu|--version"
     "offline-packages/$OS/svu|svu|svu|--version"
   )
   
