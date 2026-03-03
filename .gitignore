@@ -20,6 +20,7 @@ offline-packages/macos/nvim-macos-arm64
 
 # Bundled Neovim plugins
 offline-packages/lazy-plugins.tar.gz
+offline-packages/macos/
 
 # Checksums
 checksums.txt

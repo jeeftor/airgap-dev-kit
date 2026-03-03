@@ -680,13 +680,18 @@ else
   fi
 fi
 
-# Install Neovim plugins (if bundled)
+# Install Neovim plugins and LSP servers (if bundled)
 if [[ -f offline-packages/lazy-plugins.tar.gz ]]; then
-  echo "Installing Neovim plugins..."
+  echo "Installing Neovim plugins and LSP servers..."
   mkdir -p ~/.local/share/nvim
   tar -xzf offline-packages/lazy-plugins.tar.gz -C ~/.local/share/nvim/
   log_install "DIRECTORY" "$HOME/.local/share/nvim/lazy" "" ""
-  echo "✓ Neovim plugins installed"
+  if [[ -d ~/.local/share/nvim/mason ]]; then
+    log_install "DIRECTORY" "$HOME/.local/share/nvim/mason" "" ""
+    echo "✓ Neovim plugins and LSP servers installed"
+  else
+    echo "✓ Neovim plugins installed (LSP servers not included in this build)"
+  fi
 fi
 
 # Install configs

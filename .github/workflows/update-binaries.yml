@@ -9,6 +9,7 @@ on:
     branches:
       - main
       - master  # Support both main and master branch names
+      - 'feature/**'  # Test on feature branches but skip release      
 
 jobs:
   build:
@@ -136,13 +137,88 @@ jobs:
           echo "Running second sync to ensure all dependencies are installed..."
           $NVIM --headless "+Lazy! sync" +qa
 
-          # Install and compile Treesitter parsers explicitly
-          echo "Ensuring Treesitter parsers are compiled..."
-          $NVIM --headless "+TSUpdateSync" +qa || echo "Treesitter update completed (may show errors, that's ok)"
+          # Install Mason LSP servers and tools using Lua script
+          echo "Installing Mason LSP servers and tools..."
+          cat > /tmp/mason-install.lua <<'MASON_EOF'
+          -- Wait for Mason to be ready
+          local mason_registry = require("mason-registry")
 
-          # Give a final wait for any background compilation
-          echo "Waiting for background tasks to complete..."
-          sleep 5
+          -- List of packages to install
+          local packages = {
+            "lua-language-server",
+            "pyright",
+            "typescript-language-server",
+            "bash-language-server",
+            "json-lsp",
+            "yaml-language-server",
+            "gopls",
+            "rust-analyzer",
+            "clangd",
+            "stylua",
+            "black",
+            "prettier",
+            "shfmt",
+            "shellcheck",
+            "eslint_d",
+            "pylint"
+          }
+
+          -- Refresh registry
+          mason_registry.refresh()
+
+          -- Install each package
+          for _, pkg_name in ipairs(packages) do
+            local ok, pkg = pcall(mason_registry.get_package, pkg_name)
+            if ok then
+              if not pkg:is_installed() then
+                print("Installing " .. pkg_name .. "...")
+                pkg:install()
+              else
+                print("✓ " .. pkg_name .. " already installed")
+              end
+            else
+              print("✗ Package not found: " .. pkg_name)
+            end
+          end
+
+          -- Wait for installations to complete
+          local max_wait = 120  -- 2 minutes max
+          local waited = 0
+          while waited < max_wait do
+            local all_done = true
+            for _, pkg_name in ipairs(packages) do
+              local ok, pkg = pcall(mason_registry.get_package, pkg_name)
+              if ok and not pkg:is_installed() then
+                all_done = false
+                break
+              end
+            end
+            if all_done then
+              print("All packages installed successfully!")
+              break
+            end
+            vim.wait(1000)
+            waited = waited + 1
+          end
+
+          -- Print final status
+          print("\nFinal installation status:")
+          for _, pkg_name in ipairs(packages) do
+            local ok, pkg = pcall(mason_registry.get_package, pkg_name)
+            if ok then
+              if pkg:is_installed() then
+                print("✓ " .. pkg_name)
+              else
+                print("✗ " .. pkg_name .. " (failed to install)")
+              end
+            end
+          end
+          MASON_EOF
+
+          # Run the Lua script with Neovim
+          $NVIM --headless -c "luafile /tmp/mason-install.lua" -c "qa"
+
+          echo "Mason installation complete"
 
           # Restore air-gap setting (though we don't commit this)
           sed -i 's/missing = true/missing = false/' ~/.config/nvim/lua/config/lazy.lua
@@ -156,17 +232,33 @@ jobs:
             exit 0
           fi
 
-          # Bundle plugins into tarball
-          echo "Bundling plugins..."
+          # Verify Mason packages were installed
+          if [[ -d ~/.local/share/nvim/mason ]]; then
+            echo "Mason packages installed successfully:"
+            ls -la ~/.local/share/nvim/mason/packages/
+          else
+            echo "Warning: No Mason packages directory found"
+          fi
+
+          # Bundle plugins and Mason packages into tarball
+          echo "Bundling plugins and Mason LSP servers..."
           cd ~/.local/share/nvim
 
-          # Include lazy-lock.json if it exists, otherwise just bundle lazy/
+          # Include lazy-lock.json if it exists
           if [[ -f ~/.config/nvim/lazy-lock.json ]]; then
             echo "Including lazy-lock.json from config directory"
             cp ~/.config/nvim/lazy-lock.json .
+          fi
+
+          # Create tarball with plugins and Mason packages
+          if [[ -d mason ]] && [[ -f lazy-lock.json ]]; then
+            tar -czf lazy-plugins.tar.gz lazy/ mason/ lazy-lock.json
+          elif [[ -d mason ]]; then
+            tar -czf lazy-plugins.tar.gz lazy/ mason/
+          elif [[ -f lazy-lock.json ]]; then
             tar -czf lazy-plugins.tar.gz lazy/ lazy-lock.json
           else
-            echo "No lazy-lock.json found, bundling plugins only"
+            echo "No lazy-lock.json or Mason found, bundling plugins only"
             tar -czf lazy-plugins.tar.gz lazy/
           fi
 
@@ -233,7 +325,18 @@ jobs:
           echo "Checksums:"
           cat checksums.txt
 
+      - name: Feature Branch Test Summary
+        if: github.ref != 'refs/heads/main' && github.ref != 'refs/heads/master'
+        run: |
+          echo "✓ Build completed successfully on feature branch!"
+          echo "📦 Packages built (but not released):"
+          ls -lh airgap-dev-kit*.tar.gz
+          echo ""
+          echo "Note: Release creation skipped for feature branches."
+          echo "Merge to main/master to create a release."
+
       - name: Create Release
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}-${{ github.run_id }}
@@ -377,6 +480,7 @@ jobs:
           retention-days: 30
 
       - name: Cleanup old releases
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         run: |
           echo "Keeping only the last 3 releases..."
 
@@ -404,21 +508,25 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate SLSA attestations
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         uses: actions/attest@v4
         with:
           subject-path: airgap-dev-kit-linux-x86_64.tar.gz
 
       - name: Generate SLSA attestations for macOS
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         uses: actions/attest@v4
         with:
           subject-path: airgap-dev-kit-macos-arm64.tar.gz
 
       - name: Generate SLSA attestations for combined package
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         uses: actions/attest@v4
         with:
           subject-path: airgap-dev-kit.tar.gz
 
       - name: Generate SLSA attestations for checksums
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         uses: actions/attest@v4
         with:
           subject-path: checksums.txt
