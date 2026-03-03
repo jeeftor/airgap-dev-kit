@@ -40,12 +40,11 @@ jobs:
         run: |
           echo "Setting up Neovim for plugin installation..."
 
-          # Extract the downloaded Neovim binary
-          cd $GITHUB_WORKSPACE/offline-packages/linux
-          tar -xzf nvim-linux64.tar.gz
+          # Use the static Neovim binary directly (no extraction needed)
+          NVIM="$GITHUB_WORKSPACE/offline-packages/linux/nvim-static-x86_64"
 
-          # Set NVIM to the extracted binary path (tarball extracts to nvim-linux-x86_64/)
-          NVIM="$GITHUB_WORKSPACE/offline-packages/linux/nvim-linux-x86_64/bin/nvim"
+          # Ensure it's executable
+          chmod +x "$NVIM"
 
           # Verify Neovim is working
           $NVIM --version
@@ -116,8 +115,9 @@ jobs:
           echo "Using vanilla Neovim + Mason (not LazyVim)"
           echo "=========================================="
 
-          # Use the already-extracted Neovim binary
-          NVIM="$GITHUB_WORKSPACE/offline-packages/linux/nvim-linux-x86_64/bin/nvim"
+          # Use the static Neovim binary
+          NVIM="$GITHUB_WORKSPACE/offline-packages/linux/nvim-static-x86_64"
+          chmod +x "$NVIM"
 
           # Create minimal Mason config in a separate directory
           MASON_CONFIG="$HOME/.config/nvim-mason-test"

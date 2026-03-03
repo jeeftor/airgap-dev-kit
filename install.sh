@@ -555,57 +555,28 @@ if [[ $OS == "linux" ]]; then
   # Extract Neovim to /opt (or ~/ if no sudo)
   echo ""
   echo "Installing Neovim..."
-  if [[ -f offline-packages/linux/nvim-linux64.tar.gz ]]; then
+  if [[ -f offline-packages/linux/nvim-static-x86_64 ]]; then
     # Check if nvim already exists
     if [[ -f "$BIN_DIR/nvim" ]]; then
       existing_ver=$(get_version "$BIN_DIR/nvim" "--version")
-      # Extract to temp to check new version
-      tar -xzf offline-packages/linux/nvim-linux64.tar.gz -C /tmp/
-      new_ver=$(get_version "/tmp/nvim-linux-x86_64/bin/nvim" "--version")
+      new_ver=$(get_version "offline-packages/linux/nvim-static-x86_64" "--version")
 
       # Skip if same version
       if [[ "$existing_ver" == "$new_ver" ]]; then
         echo "✓ Neovim (already up-to-date: $existing_ver)"
-        rm -rf /tmp/nvim-linux-x86_64
       elif prompt_overwrite "Neovim" "$existing_ver" "$new_ver" "$BIN_DIR/nvim"; then
-        if [[ -n "$USE_SUDO" ]]; then
-          $USE_SUDO rm -rf /opt/nvim-linux-x86_64
-          $USE_SUDO mv /tmp/nvim-linux-x86_64 /opt/
-          $USE_SUDO ln -sf /opt/nvim-linux-x86_64/bin/nvim "$BIN_DIR/nvim"
-          log_install "DIRECTORY" "/opt/nvim-linux-x86_64" "" ""
-          log_install "SYMLINK" "$BIN_DIR/nvim" "/opt/nvim-linux-x86_64/bin/nvim" ""
-        else
-          mkdir -p ~/.local/share
-          rm -rf ~/.local/share/nvim
-          mv /tmp/nvim-linux-x86_64 ~/.local/share/nvim
-          ln -sf ~/.local/share/nvim/bin/nvim "$BIN_DIR/nvim"
-          log_install "DIRECTORY" "$HOME/.local/share/nvim" "" ""
-          log_install "SYMLINK" "$BIN_DIR/nvim" "$HOME/.local/share/nvim/bin/nvim" ""
-        fi
+        install_binary "offline-packages/linux/nvim-static-x86_64" "nvim"
         echo "✓ Neovim updated ($existing_ver → $new_ver)"
       else
-        rm -rf /tmp/nvim-linux-x86_64
         echo "⊘ Skipped Neovim"
       fi
     else
       # Fresh install
-      tar -xzf offline-packages/linux/nvim-linux64.tar.gz -C /tmp/
-      if [[ -n "$USE_SUDO" ]]; then
-        $USE_SUDO mv /tmp/nvim-linux-x86_64 /opt/
-        $USE_SUDO ln -sf /opt/nvim-linux-x86_64/bin/nvim "$BIN_DIR/nvim"
-        log_install "DIRECTORY" "/opt/nvim-linux-x86_64" "" ""
-        log_install "SYMLINK" "$BIN_DIR/nvim" "/opt/nvim-linux-x86_64/bin/nvim" ""
-      else
-        mkdir -p ~/.local/share
-        mv /tmp/nvim-linux-x86_64 ~/.local/share/nvim
-        ln -sf ~/.local/share/nvim/bin/nvim "$BIN_DIR/nvim"
-        log_install "DIRECTORY" "$HOME/.local/share/nvim" "" ""
-        log_install "SYMLINK" "$BIN_DIR/nvim" "$HOME/.local/share/nvim/bin/nvim" ""
-      fi
+      install_binary "offline-packages/linux/nvim-static-x86_64" "nvim"
       echo "✓ Neovim installed"
     fi
   else
-    echo "Warning: Neovim tarball not found in offline-packages/linux/"
+    echo "Warning: Neovim static binary not found in offline-packages/linux/"
   fi
 
   # Install fzf shell integration scripts

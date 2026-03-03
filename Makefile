@@ -43,7 +43,7 @@ status:
 	@echo "Checking binary status..."
 	@echo ""
 	@echo "Core binaries:"
-	@ls -lh offline-packages/linux/{wezterm.AppImage,tmux-3.4-static-x86_64,nvim-linux64.tar.gz} 2>/dev/null | awk '{print $$5 "\t" $$9}' || echo "  Some core binaries missing"
+	@ls -lh offline-packages/linux/{wezterm.AppImage,tmux-3.4-static-x86_64,nvim-static-x86_64} 2>/dev/null | awk '{print $$5 "\t" $$9}' || echo "  Some core binaries missing"
 	@echo ""
 	@echo "CLI tools:"
 	@ls -lh offline-packages/linux/{fzf,fd,rg,bat,starship,btop,lsd,zoxide,delta,difft,gum,dust,gdu,mkcert,airgap-dev-kit} 2>/dev/null | awk '{print $$5 "\t" $$9}' || echo "  Some tools missing"
@@ -83,13 +83,14 @@ update-linux:
 		echo "  ✓ tmux already present"; \
 	fi
 
-	# Neovim Linux
-	@if [ ! -f offline-packages/linux/nvim-linux64.tar.gz ] || [ $$(stat -f%z offline-packages/linux/nvim-linux64.tar.gz 2>/dev/null || stat -c%s offline-packages/linux/nvim-linux64.tar.gz 2>/dev/null) -lt 1000 ]; then \
-		echo "  → Neovim Linux static build..."; \
-		curl -fL "https://github.com/neovim/neovim/releases/download/v0.11.5/nvim-linux-x86_64.tar.gz" \
-			-o offline-packages/linux/nvim-linux64.tar.gz; \
+	# Neovim Linux (static build from jeeftor/static-neovim)
+	@if [ ! -f offline-packages/linux/nvim-static-x86_64 ] || [ $$(stat -f%z offline-packages/linux/nvim-static-x86_64 2>/dev/null || stat -c%s offline-packages/linux/nvim-static-x86_64 2>/dev/null) -lt 1000 ]; then \
+		echo "  → Neovim Linux static build (from jeeftor/static-neovim)..."; \
+		curl -fL "https://github.com/jeeftor/static-neovim/releases/latest/download/nvim-static-x86_64" \
+			-o offline-packages/linux/nvim-static-x86_64; \
+		chmod +x offline-packages/linux/nvim-static-x86_64; \
 	else \
-		echo "  ✓ Neovim Linux already present"; \
+		echo "  ✓ Neovim Linux static binary already present"; \
 	fi
 
 	# fzf (binary and shell integration scripts)
@@ -614,7 +615,7 @@ verify:
 	echo "Core Linux binaries:"; \
 	if file offline-packages/linux/wezterm.AppImage 2>/dev/null | grep -q "executable"; then echo "  ✓ wezterm.AppImage"; else echo "  ✗ wezterm.AppImage - missing or invalid"; FAIL=1; fi; \
 	if file offline-packages/linux/tmux-3.4-static-x86_64 2>/dev/null | grep -q "executable"; then echo "  ✓ tmux-3.4-static-x86_64"; else echo "  ✗ tmux-3.4-static-x86_64 - missing or invalid"; FAIL=1; fi; \
-	if file offline-packages/linux/nvim-linux64.tar.gz 2>/dev/null | grep -q "gzip"; then echo "  ✓ nvim-linux64.tar.gz"; else echo "  ✗ nvim-linux64.tar.gz - missing or invalid"; FAIL=1; fi; \
+	if file offline-packages/linux/nvim-static-x86_64 2>/dev/null | grep -q "executable"; then echo "  ✓ nvim-static-x86_64"; else echo "  ✗ nvim-static-x86_64 - missing or invalid (run GitHub Actions build)"; FAIL=1; fi; \
 	echo ""; \
 	echo "CLI tools:"; \
 	if file offline-packages/linux/fzf 2>/dev/null | grep -q "executable"; then echo "  ✓ fzf"; else echo "  ✗ fzf - missing or invalid"; FAIL=1; fi; \
