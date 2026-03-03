@@ -55,6 +55,11 @@ jobs:
             make update-macos
           fi
 
+      - name: Install Go for gopls
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.1'
+
       - name: Install Neovim for Mason
         uses: rhysd/action-setup-vim@v1
         with:

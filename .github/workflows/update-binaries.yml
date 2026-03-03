@@ -29,6 +29,11 @@ jobs:
       - name: Download macOS binaries
         run: make update-macos
 
+      - name: Install Go for gopls
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.1'
+
       - name: Install Neovim for Mason
         uses: rhysd/action-setup-vim@v1
         with:
@@ -48,9 +53,12 @@ jobs:
           nvim --headless "+Lazy sync" +qa
           
           # Install essential LSP servers (Mason handles versions automatically)
+          # Start with lua_ls (no Go dependency) to test Mason
+          nvim --headless "+MasonInstall lua_ls" +qa
+          
+          # Then install others
           nvim --headless \
             "+MasonInstall gopls" \
-            "+MasonInstall lua_ls" \
             "+MasonInstall bashls" \
             "+MasonInstall jsonls" \
             "+MasonInstall yamlls" \
