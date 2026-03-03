@@ -74,20 +74,19 @@ jobs:
       - name: Install LSP servers via Mason
         run: |
           echo "Installing LSP servers using Mason..."
-          
+
           # Install plugins first
           nvim --headless "+Lazy sync" +qa
-          
-          # Install essential LSP servers (Mason handles versions automatically)
+
+          # Install essential LSP servers using correct Mason package names
           nvim --headless \
-            "+MasonInstall gopls" \
-            "+MasonInstall lua_ls" \
-            "+MasonInstall bashls" \
-            "+MasonInstall jsonls" \
-            "+MasonInstall yamlls" \
+            "+MasonInstall lua-language-server" \
+            "+MasonInstall bash-language-server" \
+            "+MasonInstall vscode-langservers-extracted" \
+            "+MasonInstall yaml-language-server" \
             "+MasonInstall marksman" \
             +qa
-          
+
           echo "✓ LSP servers installed via Mason"
 
       - name: Package Mason for air-gap deployment
