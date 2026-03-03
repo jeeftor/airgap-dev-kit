@@ -1,32 +1,41 @@
 -- Air-gap LSP configuration
 -- Pre-install commonly used LSP servers for offline use
 return {
+  -- Configure mason-lspconfig to ensure LSP servers are installed
+  {
+    "williamboman/mason-lspconfig.nvim",
+    opts = {
+      -- Use lspconfig server names (not Mason package names)
+      ensure_installed = {
+        "lua_ls",       -- Lua
+        "pyright",      -- Python
+        "ts_ls",        -- TypeScript/JavaScript (renamed from tsserver)
+        "bashls",       -- Bash
+        "jsonls",       -- JSON
+        "yamlls",       -- YAML
+        "gopls",        -- Go
+        "rust_analyzer",-- Rust
+        "clangd",       -- C/C++
+      },
+    },
+  },
+
+  -- Configure mason.nvim to ensure formatters/linters are installed
   {
     "williamboman/mason.nvim",
     opts = {
-      -- Essential LSP servers to pre-install for air-gap environments
+      -- Use Mason package names for non-LSP tools
       ensure_installed = {
-        -- Language servers
-        "lua-language-server",      -- Lua
-        "pyright",                   -- Python
-        "typescript-language-server", -- TypeScript/JavaScript
-        "bash-language-server",      -- Bash
-        "json-lsp",                  -- JSON
-        "yaml-language-server",      -- YAML
-        "gopls",                     -- Go
-        "rust-analyzer",             -- Rust
-        "clangd",                    -- C/C++
-
         -- Formatters
-        "stylua",                    -- Lua formatter
-        "black",                     -- Python formatter
-        "prettier",                  -- JS/TS/JSON/YAML formatter
-        "shfmt",                     -- Shell formatter
+        "stylua",     -- Lua formatter
+        "black",      -- Python formatter
+        "prettier",   -- JS/TS/JSON/YAML formatter
+        "shfmt",      -- Shell formatter
 
         -- Linters
-        "shellcheck",                -- Shell linter
-        "eslint_d",                  -- JS/TS linter
-        "pylint",                    -- Python linter
+        "shellcheck", -- Shell linter
+        "eslint_d",   -- JS/TS linter
+        "pylint",     -- Python linter
       },
     },
   },

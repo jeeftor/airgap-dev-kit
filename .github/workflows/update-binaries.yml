@@ -30,68 +30,6 @@ jobs:
       - name: Download macOS binaries
         run: make update-macos
 
-      - name: Install Go for gopls
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.23.1'
-
-      - name: Install Neovim for Mason
-        uses: rhysd/action-setup-vim@v1
-        with:
-          neovim: true
-          version: stable
-
-      - name: Set up Mason config
-        run: |
-          mkdir -p ~/.config/nvim
-          cp .github/workflows/mason-config.lua ~/.config/nvim/init.lua
-
-      - name: Install LSP servers via Mason
-        run: |
-          echo "Installing LSP servers using Mason..."
-          
-          # Install plugins first
-          nvim --headless "+Lazy sync" +qa
-          
-          # Install essential LSP servers (Mason handles versions automatically)
-          # Start with lua_ls (no Go dependency) to test Mason
-          nvim --headless "+MasonInstall lua_ls" +qa
-          
-          # Then install others
-          nvim --headless \
-            "+MasonInstall gopls" \
-            "+MasonInstall bashls" \
-            "+MasonInstall jsonls" \
-            "+MasonInstall yamlls" \
-            "+MasonInstall marksman" \
-            +qa
-          
-          echo "✓ LSP servers installed via Mason"
-
-      - name: Package Mason for air-gap deployment
-        run: |
-          echo "Packaging Mason for air-gap deployment..."
-          mkdir -p mason-airgap-package
-          tar -czf mason-airgap-package/mason-lsp-kit.tar.gz -C ~/.local/share/nvim mason
-          echo '#!/bin/bash' > mason-airgap-package/install-mason-airgap.sh
-          echo 'set -e' >> mason-airgap-package/install-mason-airgap.sh
-          echo 'MASON_DIR="$HOME/.local/share/nvim/mason"' >> mason-airgap-package/install-mason-airgap.sh
-          echo 'PACKAGE_DIR="$(dirname "$0")"' >> mason-airgap-package/install-mason-airgap.sh
-          echo 'echo "Installing Mason for air-gap Neovim..."' >> mason-airgap-package/install-mason-airgap.sh
-          echo 'mkdir -p "$MASON_DIR"' >> mason-airgap-package/install-mason-airgap.sh
-          echo 'if [[ -f "$PACKAGE_DIR/mason-lsp-kit.tar.gz" ]]; then' >> mason-airgap-package/install-mason-airgap.sh
-          echo '    tar -xzf "$PACKAGE_DIR/mason-lsp-kit.tar.gz" -C "$(dirname "$MASON_DIR")"' >> mason-airgap-package/install-mason-airgap.sh
-          echo '    echo "✓ Mason installation extracted"' >> mason-airgap-package/install-mason-airgap.sh
-          echo 'else' >> mason-airgap-package/install-mason-airgap.sh
-          echo '    echo "✗ Mason package not found"' >> mason-airgap-package/install-mason-airgap.sh
-          echo '    exit 1' >> mason-airgap-package/install-mason-airgap.sh
-          echo 'fi' >> mason-airgap-package/install-mason-airgap.sh
-          echo 'find "$MASON_DIR" -name "*" -type f -executable -exec chmod +x {} \; 2>/dev/null || true' >> mason-airgap-package/install-mason-airgap.sh
-          echo 'echo "✓ Mason air-gap installation complete!"' >> mason-airgap-package/install-mason-airgap.sh
-          chmod +x mason-airgap-package/install-mason-airgap.sh
-          echo '{"generated_at":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","method":"headless-neovim-mason","servers_installed":["gopls@v0.21.1","lua_ls@3.7.4","bashls@3.0.4","jsonls@0.19.0","yamlls@0.10.0","marksman@0.2.1"],"total_package_size":"'$(du -sh mason-airgap-package/mason-lsp-kit.tar.gz | cut -f1)'"}' > mason-airgap-package/mason-manifest.json
-          echo "✓ Mason air-gap package created"
-
       - name: Download fonts
         run: make update-fonts
 
@@ -137,90 +75,17 @@ jobs:
           echo "Running second sync to ensure all dependencies are installed..."
           $NVIM --headless "+Lazy! sync" +qa
 
-          # Install Mason LSP servers and tools using Lua script
-          echo "Installing Mason LSP servers and tools..."
-          cat > /tmp/mason-install.lua <<'MASON_EOF'
-          -- Wait for Mason to be ready
-          local mason_registry = require("mason-registry")
+          # Third run to allow mason-lspconfig and mason to install LSPs/tools
+          # LazyVim automatically reads our airgap-lsp.lua config and installs everything
+          echo "Running third sync to trigger Mason LSP/tool installation..."
+          echo "This will install LSP servers, formatters, and linters from airgap-lsp.lua config..."
+          $NVIM --headless "+Lazy! sync" +qa
 
-          -- List of packages to install
-          local packages = {
-            "lua-language-server",
-            "pyright",
-            "typescript-language-server",
-            "bash-language-server",
-            "json-lsp",
-            "yaml-language-server",
-            "gopls",
-            "rust-analyzer",
-            "clangd",
-            "stylua",
-            "black",
-            "prettier",
-            "shfmt",
-            "shellcheck",
-            "eslint_d",
-            "pylint"
-          }
+          # Give Mason a moment to complete any background installations
+          echo "Waiting for Mason to complete installations..."
+          sleep 10
 
-          -- Refresh registry
-          mason_registry.refresh()
-
-          -- Install each package
-          for _, pkg_name in ipairs(packages) do
-            local ok, pkg = pcall(mason_registry.get_package, pkg_name)
-            if ok then
-              if not pkg:is_installed() then
-                print("Installing " .. pkg_name .. "...")
-                pkg:install()
-              else
-                print("✓ " .. pkg_name .. " already installed")
-              end
-            else
-              print("✗ Package not found: " .. pkg_name)
-            end
-          end
-
-          -- Wait for installations to complete
-          local max_wait = 120  -- 2 minutes max
-          local waited = 0
-          while waited < max_wait do
-            local all_done = true
-            for _, pkg_name in ipairs(packages) do
-              local ok, pkg = pcall(mason_registry.get_package, pkg_name)
-              if ok and not pkg:is_installed() then
-                all_done = false
-                break
-              end
-            end
-            if all_done then
-              print("All packages installed successfully!")
-              break
-            end
-            vim.wait(1000)
-            waited = waited + 1
-          end
-
-          -- Print final status
-          print("\nFinal installation status:")
-          for _, pkg_name in ipairs(packages) do
-            local ok, pkg = pcall(mason_registry.get_package, pkg_name)
-            if ok then
-              if pkg:is_installed() then
-                print("✓ " .. pkg_name)
-              else
-                print("✗ " .. pkg_name .. " (failed to install)")
-              end
-            end
-          end
-          MASON_EOF
-
-          # Run the Lua script with Neovim
-          $NVIM --headless -c "luafile /tmp/mason-install.lua" -c "qa"
-
-          echo "Mason installation complete"
-
-          # Restore air-gap setting (though we don't commit this)
+          # Restore air-gap setting
           sed -i 's/missing = true/missing = false/' ~/.config/nvim/lua/config/lazy.lua
 
           # Verify plugins were installed
@@ -475,8 +340,6 @@ jobs:
             airgap-dev-kit.tar.gz
             offline-packages/lazy-plugins.tar.gz
             checksums.txt
-            lsp-manifest.json
-            mason-airgap-package/
           retention-days: 30
 
       - name: Cleanup old releases
