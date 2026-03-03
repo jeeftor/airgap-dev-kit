@@ -193,12 +193,8 @@ update-linux:
 		echo "  ✓ mkcert already present"; \
 	fi
 
-	# gopls - Go language server (managed by Mason)
-	@if [ ! -f offline-packages/linux/gopls ]; then \
-		echo "  ⚠ gopls not found - run GitHub Actions build to install LSP servers via Mason"; \
-	else \
-		echo "  ✓ gopls already present (Mason-managed)"; \
-	fi
+	# gopls - Go language server (installed via Mason in GitHub Actions)
+	# NOTE: Mason-installed LSPs are bundled in lazy-plugins.tar.gz, not as standalone binaries
 
 	# delta - better git diff
 	@if [ ! -f offline-packages/linux/delta ] || [ $$(stat -f%z offline-packages/linux/delta 2>/dev/null || stat -c%s offline-packages/linux/delta 2>/dev/null) -lt 1000 ]; then \
@@ -507,12 +503,8 @@ update-macos:
 		echo "  ✓ mkcert already present"; \
 	fi
 
-	# gopls - Go language server (managed by Mason)
-	@if [ ! -f offline-packages/macos/gopls ]; then \
-		echo "  ⚠ gopls not found - run GitHub Actions build to install LSP servers via Mason"; \
-	else \
-		echo "  ✓ gopls already present (Mason-managed)"; \
-	fi
+	# gopls - Go language server (installed via Mason in GitHub Actions)
+	# NOTE: Mason-installed LSPs are bundled in lazy-plugins.tar.gz, not as standalone binaries
 
 	# svu - semantic version utility
 	@if [ ! -f offline-packages/macos/svu ]; then \
@@ -640,7 +632,7 @@ verify:
 	if file offline-packages/linux/dust 2>/dev/null | grep -q "executable"; then echo "  ✓ dust"; else echo "  ✗ dust - missing or invalid"; FAIL=1; fi; \
 	if file offline-packages/linux/gdu 2>/dev/null | grep -q "executable"; then echo "  ✓ gdu"; else echo "  ✗ gdu - missing or invalid"; FAIL=1; fi; \
 	if file offline-packages/linux/mkcert 2>/dev/null | grep -q "executable"; then echo "  ✓ mkcert"; else echo "  ✗ mkcert - missing or invalid"; FAIL=1; fi; \
-	if file offline-packages/linux/gopls 2>/dev/null | grep -q "executable"; then echo "  ✓ gopls (Mason-managed)"; else echo "  ✗ gopls - missing or invalid (run GitHub Actions build)"; FAIL=1; fi; \
+	echo "  ⚠ gopls and other LSPs installed via Mason (not verified here)"; \
 	if file offline-packages/linux/airgap-dev-kit 2>/dev/null | grep -q "executable"; then echo "  ✓ airgap-dev-kit"; else echo "  ✗ airgap-dev-kit - missing or invalid"; FAIL=1; fi; \
 	if file offline-packages/linux/svu 2>/dev/null | grep -q "executable"; then echo "  ✓ svu"; else echo "  ✗ svu - missing or invalid"; FAIL=1; fi; \
 	echo ""; \

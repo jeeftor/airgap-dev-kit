@@ -422,7 +422,6 @@ if [[ $OS == "linux" ]]; then
     "offline-packages/$OS/dust|dust|dust|--version"
     "offline-packages/$OS/gdu|gdu|gdu|--version"
     "offline-packages/$OS/mkcert|mkcert|mkcert|--version"
-    "offline-packages/$OS/gopls|gopls|gopls|--version"
     "offline-packages/$OS/airgap-dev-kit|airgap-dev-kit|airgap-dev-kit|--version"
     "offline-packages/$OS/svu|svu|svu|--version"
   )
