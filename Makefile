@@ -13,6 +13,7 @@ DIFFTASTIC_VERSION := 0.67.0
 GUM_VERSION := v0.15.1
 DUST_VERSION := v1.2.3
 GDU_VERSION := v5.33.0
+MKCERT_VERSION := v1.4.4
 DIRENV_VERSION := v2.37.1
 SVU_VERSION := 3.3.0
 
@@ -45,7 +46,7 @@ status:
 	@ls -lh offline-packages/linux/{wezterm.AppImage,tmux-3.4-static-x86_64,nvim-linux64.tar.gz} 2>/dev/null | awk '{print $$5 "\t" $$9}' || echo "  Some core binaries missing"
 	@echo ""
 	@echo "CLI tools:"
-	@ls -lh offline-packages/linux/{fzf,fd,rg,bat,starship,btop,lsd,zoxide,delta,difft,gum,dust,gdu} 2>/dev/null | awk '{print $$5 "\t" $$9}' || echo "  Some tools missing"
+	@ls -lh offline-packages/linux/{fzf,fd,rg,bat,starship,btop,lsd,zoxide,delta,difft,gum,dust,gdu,mkcert,airgap-dev-kit} 2>/dev/null | awk '{print $$5 "\t" $$9}' || echo "  Some tools missing"
 	@echo ""
 	@echo "macOS binaries:"
 	@ls -lh offline-packages/macos/{WezTerm-macos.zip,nvim-macos-arm64.tar.gz} 2>/dev/null | awk '{print $$5 "\t" $$9}' || echo "  Some binaries missing"
@@ -182,6 +183,16 @@ update-linux:
 		echo "  ✓ gdu already present"; \
 	fi
 
+	# mkcert - local HTTPS certificate generator
+	@if [ ! -f offline-packages/linux/mkcert ] || [ $$(stat -f%z offline-packages/linux/mkcert 2>/dev/null || stat -c%s offline-packages/linux/mkcert 2>/dev/null) -lt 1000 ]; then \
+		echo "  → mkcert (local HTTPS certificates)..."; \
+		curl -fL "https://github.com/FiloSottile/mkcert/releases/download/$(MKCERT_VERSION)/mkcert-$(MKCERT_VERSION)-linux-amd64" \
+			-o offline-packages/linux/mkcert; \
+		chmod +x offline-packages/linux/mkcert; \
+	else \
+		echo "  ✓ mkcert already present"; \
+	fi
+
 	# delta - better git diff
 	@if [ ! -f offline-packages/linux/delta ] || [ $$(stat -f%z offline-packages/linux/delta 2>/dev/null || stat -c%s offline-packages/linux/delta 2>/dev/null) -lt 1000 ]; then \
 		echo "  → delta (better git diff)..."; \
@@ -210,6 +221,15 @@ update-linux:
 		chmod +x offline-packages/linux/gum; \
 	else \
 		echo "  ✓ gum already present"; \
+	fi
+
+	# airgap-dev-kit - CLI wrapper command
+	@if [ ! -f offline-packages/linux/airgap-dev-kit ]; then \
+		echo "  → airgap-dev-kit (CLI wrapper)..."; \
+		cp scripts/airgap-dev-kit offline-packages/linux/airgap-dev-kit; \
+		chmod +x offline-packages/linux/airgap-dev-kit; \
+	else \
+		echo "  ✓ airgap-dev-kit already present"; \
 	fi
 
 	# stow - GNU Stow for dotfile management (Perl script, works everywhere)
@@ -362,6 +382,15 @@ update-macos:
 		echo "  ✓ gum already present"; \
 	fi
 
+	# airgap-dev-kit - CLI wrapper command
+	@if [ ! -f offline-packages/macos/airgap-dev-kit ]; then \
+		echo "  → airgap-dev-kit (CLI wrapper)..."; \
+		cp scripts/airgap-dev-kit offline-packages/macos/airgap-dev-kit; \
+		chmod +x offline-packages/macos/airgap-dev-kit; \
+	else \
+		echo "  ✓ airgap-dev-kit already present"; \
+	fi
+
 	# stow - GNU Stow for dotfile management (Perl script, same for all platforms)
 	@if [ ! -f offline-packages/macos/stow ] || [ $$(stat -f%z offline-packages/macos/stow 2>/dev/null || stat -c%s offline-packages/macos/stow 2>/dev/null) -lt 1000 ]; then \
 		echo "  → GNU Stow (dotfile manager)..."; \
@@ -459,6 +488,16 @@ update-macos:
 		chmod +x offline-packages/macos/gdu; \
 	else \
 		echo "  ✓ gdu already present"; \
+	fi
+
+	# mkcert - local HTTPS certificate generator
+	@if [ ! -f offline-packages/macos/mkcert ]; then \
+		echo "  → mkcert (local HTTPS certificates)..."; \
+		curl -fL "https://github.com/FiloSottile/mkcert/releases/download/$(MKCERT_VERSION)/mkcert-$(MKCERT_VERSION)-darwin-amd64" \
+			-o offline-packages/macos/mkcert; \
+		chmod +x offline-packages/macos/mkcert; \
+	else \
+		echo "  ✓ mkcert already present"; \
 	fi
 
 	# svu - semantic version utility
@@ -586,6 +625,8 @@ verify:
 	if file offline-packages/linux/direnv 2>/dev/null | grep -q "executable"; then echo "  ✓ direnv"; else echo "  ✗ direnv - missing or invalid"; FAIL=1; fi; \
 	if file offline-packages/linux/dust 2>/dev/null | grep -q "executable"; then echo "  ✓ dust"; else echo "  ✗ dust - missing or invalid"; FAIL=1; fi; \
 	if file offline-packages/linux/gdu 2>/dev/null | grep -q "executable"; then echo "  ✓ gdu"; else echo "  ✗ gdu - missing or invalid"; FAIL=1; fi; \
+	if file offline-packages/linux/mkcert 2>/dev/null | grep -q "executable"; then echo "  ✓ mkcert"; else echo "  ✗ mkcert - missing or invalid"; FAIL=1; fi; \
+	if file offline-packages/linux/airgap-dev-kit 2>/dev/null | grep -q "executable"; then echo "  ✓ airgap-dev-kit"; else echo "  ✗ airgap-dev-kit - missing or invalid"; FAIL=1; fi; \
 	if file offline-packages/linux/svu 2>/dev/null | grep -q "executable"; then echo "  ✓ svu"; else echo "  ✗ svu - missing or invalid"; FAIL=1; fi; \
 	echo ""; \
 	echo "macOS binaries:"; \

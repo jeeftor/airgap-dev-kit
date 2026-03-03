@@ -15,6 +15,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write  # Required to create releases
+      id-token: write  # Required for SLSA attestations
+      attestations: write  # Required to store attestations
+      artifact-metadata: write  # Required for artifact storage
 
     steps:
       - name: Checkout repository
@@ -335,3 +338,23 @@ jobs:
           echo "✓ Cleanup complete. Kept last 3 releases."
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate SLSA attestations
+        uses: actions/attest@v4
+        with:
+          subject-path: airgap-dev-kit-linux-x86_64.tar.gz
+
+      - name: Generate SLSA attestations for macOS
+        uses: actions/attest@v4
+        with:
+          subject-path: airgap-dev-kit-macos-arm64.tar.gz
+
+      - name: Generate SLSA attestations for combined package
+        uses: actions/attest@v4
+        with:
+          subject-path: airgap-dev-kit.tar.gz
+
+      - name: Generate SLSA attestations for checksums
+        uses: actions/attest@v4
+        with:
+          subject-path: checksums.txt

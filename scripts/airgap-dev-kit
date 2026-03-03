@@ -1,0 +1,320 @@
+#!/bin/bash
+
+# Air-Gap Development Kit CLI Wrapper
+# Provides unified interface for managing the airgap-dev-kit
+
+set -e
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Kit information
+KIT_NAME="Air-Gap Development Kit"
+KIT_VERSION="unknown"
+COMMAND_NAME="airgap-dev-kit"
+
+# Detect installation directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+KIT_DIR="$(dirname "$SCRIPT_DIR")"
+
+# Load version if available
+if [[ -f "$KIT_DIR/VERSION" ]]; then
+    KIT_VERSION=$(cat "$KIT_DIR/VERSION")
+fi
+
+# Installation paths (check both possible locations)
+INSTALL_PATHS=("$HOME/.local/bin" "$HOME/bin" "/usr/local/bin")
+BIN_DIR=""
+
+for path in "${INSTALL_PATHS[@]}"; do
+    if [[ -f "$path/airgap" ]] || [[ -f "$path/$COMMAND_NAME" ]]; then
+        BIN_DIR="$path"
+        break
+    fi
+done
+
+# Detect OS for platform-specific behavior
+OS_TYPE=$(uname -s)
+if [[ "$OS_TYPE" == "Darwin" ]]; then
+    PLATFORM="macos"
+else
+    PLATFORM="linux"
+fi
+
+# Check if gum is available
+GUM_AVAILABLE=false
+if command -v gum >/dev/null 2>&1; then
+    GUM_AVAILABLE=true
+fi
+
+# Function to print colored output
+print_status() {
+    if [[ "$GUM_AVAILABLE" == true ]]; then
+        gum style --foreground=green "✓ $1"
+    else
+        echo -e "${GREEN}[INFO]${NC} $1"
+    fi
+}
+
+print_warning() {
+    if [[ "$GUM_AVAILABLE" == true ]]; then
+        gum style --foreground=yellow "⚠ $1"
+    else
+        echo -e "${YELLOW}[WARN]${NC} $1"
+    fi
+}
+
+print_error() {
+    if [[ "$GUM_AVAILABLE" == true ]]; then
+        gum style --foreground=red "✗ $1"
+    else
+        echo -e "${RED}[ERROR]${NC} $1"
+    fi
+}
+
+print_header() {
+    if [[ "$GUM_AVAILABLE" == true ]]; then
+        gum style --foreground=blue --border=double --padding="1 2" --margin="1 0" "$1"
+    else
+        echo -e "${BLUE}$1${NC}"
+    fi
+}
+
+# Function to show progress with gum
+show_progress() {
+    local title="$1"
+    local duration="${2:-3}"
+    
+    if [[ "$GUM_AVAILABLE" == true ]]; then
+        gum spin --spinner dot --title "$title" --sleep "$duration"
+    else
+        echo "$title..."
+        sleep "$duration"
+    fi
+}
+
+# Function to confirm with gum
+confirm_action() {
+    local message="$1"
+    
+    if [[ "$GUM_AVAILABLE" == true ]]; then
+        gum confirm "$message"
+    else
+        echo -n "$message (y/N): "
+        read -r response
+        [[ "$response" =~ ^[Yy]$ ]]
+    fi
+}
+
+# Function to show help
+show_help() {
+    cat << EOF
+$KIT_NAME CLI Wrapper v$KIT_VERSION
+
+Usage: $COMMAND_NAME <command> [options]
+
+Commands:
+    version     Show kit version and installation info
+    update      Download/update all binaries (requires internet)
+    install     Install missing tools from offline packages
+    remove      Completely uninstall the airgap-dev-kit
+    status      Show installation status of all tools
+    help        Show this help message
+
+Examples:
+    $COMMAND_NAME version     # Show version info
+    $COMMAND_NAME update      # Download latest binaries (internet required)
+    $COMMAND_NAME install      # Install from offline packages
+    $COMMAND_NAME status      # Check what's installed
+    $COMMAND_NAME remove       # Uninstall everything
+
+For more information, see the documentation at:
+https://github.com/jeeftor/airgap-dev-kit
+EOF
+}
+
+# Function to show version
+show_version() {
+    print_header "$KIT_NAME"
+    
+    if [[ "$GUM_AVAILABLE" == true ]]; then
+        echo ""
+        gum style --foreground=212 "Version:" "$KIT_VERSION"
+        gum style --foreground=212 "Installation Directory:" "$KIT_DIR"
+        
+        if [[ -n "$BIN_DIR" ]]; then
+            gum style --foreground=212 "Binary Directory:" "$BIN_DIR"
+        else
+            print_warning "Binary directory not found in standard paths"
+        fi
+        
+        echo ""
+        gum style --foreground=99 --bold "System Information:"
+        gum style --foreground=212 "  OS:" "$(uname -s)"
+        gum style --foreground=212 "  Arch:" "$(uname -m)"
+        gum style --foreground=212 "  Shell:" "$SHELL"
+        
+        if [[ -f "$KIT_DIR/offline-packages" ]]; then
+            gum style --foreground=212 "  Offline packages:" "Available"
+        else
+            gum style --foreground=212 "  Offline packages:" "Not found"
+        fi
+        
+        if [[ "$GUM_AVAILABLE" == true ]]; then
+            gum style --foreground=46 "✓ Gum UI enhancements available"
+        else
+            gum style --foreground=245 "  Gum UI: Not available (basic output only)"
+        fi
+    else
+        echo "Version: $KIT_VERSION"
+        echo "Installation Directory: $KIT_DIR"
+        
+        if [[ -n "$BIN_DIR" ]]; then
+            echo "Binary Directory: $BIN_DIR"
+        else
+            print_warning "Binary directory not found in standard paths"
+        fi
+        
+        echo ""
+        echo "System Information:"
+        echo "  OS: $(uname -s)"
+        echo "  Arch: $(uname -m)"
+        echo "  Shell: $SHELL"
+        
+        if [[ -f "$KIT_DIR/offline-packages" ]]; then
+            echo "  Offline packages: Available"
+        else
+            echo "  Offline packages: Not found"
+        fi
+    fi
+}
+
+# Function to update binaries
+update_binaries() {
+    print_header "Updating Air-Gap Dev Kit Binaries"
+    
+    if [[ ! -f "$KIT_DIR/Makefile" ]]; then
+        print_error "Makefile not found. Are you in the correct directory?"
+        exit 1
+    fi
+    
+    if [[ "$GUM_AVAILABLE" == true ]]; then
+        if ! confirm_action "Download latest binaries? This requires internet connection."; then
+            print_warning "Update cancelled."
+            exit 0
+        fi
+    fi
+    
+    show_progress "Downloading latest binaries" 2
+    
+    cd "$KIT_DIR"
+    
+    if command -v make >/dev/null 2>&1; then
+        if [[ "$GUM_AVAILABLE" == true ]]; then
+            make update | gum format --type markdown
+        else
+            make update
+        fi
+        print_status "Update completed!"
+        print_status "Run '$COMMAND_NAME install' to install the updated binaries."
+    else
+        print_error "make command not found. Please install make."
+        exit 1
+    fi
+}
+
+# Function to install from offline packages
+install_tools() {
+    print_header "Installing Air-Gap Dev Kit Tools"
+    
+    if [[ -f "$KIT_DIR/install.sh" ]]; then
+        print_status "Running installation script..."
+        cd "$KIT_DIR"
+        bash install.sh
+    else
+        print_error "install.sh not found. Are you in the correct directory?"
+        exit 1
+    fi
+}
+
+# Function to remove installation
+remove_installation() {
+    print_header "Removing Air-Gap Dev Kit"
+    
+    if [[ "$GUM_AVAILABLE" == true ]]; then
+        gum style --foreground=red "⚠ This will completely remove the Air-Gap Dev Kit!"
+        if ! confirm_action "Are you sure you want to continue?"; then
+            print_warning "Removal cancelled."
+            exit 0
+        fi
+    fi
+    
+    if [[ -f "$KIT_DIR/uninstall.sh" ]]; then
+        show_progress "Running uninstallation script" 3
+        cd "$KIT_DIR"
+        bash uninstall.sh
+        print_status "Air-Gap Dev Kit removed successfully!"
+    else
+        print_warning "uninstall.sh not found. Manual removal may be required."
+        print_status "To manually remove, delete the installation directory and binaries from $BIN_DIR"
+    fi
+}
+
+# Function to show status
+show_status() {
+    print_header "Air-Gap Dev Kit Status"
+    
+    if [[ -f "$KIT_DIR/Makefile" ]] && command -v make >/dev/null 2>&1; then
+        cd "$KIT_DIR"
+        make status 2>/dev/null || print_warning "Could not run make status"
+    else
+        print_warning "Makefile or make command not available"
+        
+        # Basic status check
+        echo ""
+        echo "Basic Installation Check:"
+        
+        local tools=("wezterm" "tmux" "nvim" "fzf" "fd" "rg" "bat" "starship" "gdu" "mkcert")
+        
+        for tool in "${tools[@]}"; do
+            if command -v "$tool" >/dev/null 2>&1; then
+                version=$("$tool" --version 2>/dev/null | head -1 || echo "unknown")
+                echo "  ✓ $tool: $version"
+            else
+                echo "  ✗ $tool: not found"
+            fi
+        done
+    fi
+}
+
+# Main command handling
+case "${1:-help}" in
+    version|--version|-v)
+        show_version
+        ;;
+    update)
+        update_binaries
+        ;;
+    install)
+        install_tools
+        ;;
+    remove|uninstall)
+        remove_installation
+        ;;
+    status)
+        show_status
+        ;;
+    help|--help|-h)
+        show_help
+        ;;
+    *)
+        print_error "Unknown command: $1"
+        echo ""
+        show_help
+        exit 1
+        ;;
+esac

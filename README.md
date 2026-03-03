@@ -110,6 +110,7 @@ wezterm start -- tmux new-session nvim
 - **ripgrep (rg)** - Lightning-fast text search
 - **bat** - Cat with syntax highlighting and git integration
 - **starship** - Beautiful, fast shell prompt
+- **airgap-dev-kit** - Unified CLI wrapper for managing the kit
 
 ### Optional Tools
 - **btop** - Beautiful resource monitor (replaces htop/top)
@@ -118,6 +119,7 @@ wezterm start -- tmux new-session nvim
 - **direnv** - Automatic per-directory environment loader
 - **dust** - Fast, intuitive disk usage visualizer
 - **gdu** - Interactive disk usage analyzer with TUI
+- **mkcert** - Local HTTPS certificate generator (requires NSS tools on Linux)
 - **delta** - Stunning git diff viewer with syntax highlighting
 - **svu** - Semantic version utility for release management
 - **stow** - GNU Stow for dotfile symlink management (bundled)
@@ -153,6 +155,11 @@ This repository automatically builds fresh releases every Sunday with:
 - Manually: Go to Actions → "Update Air-Gap Kit" → "Run workflow"
 - On Push: When pushing config changes to master/main
 
+**Security & Provenance:**
+- ✅ **SLSA Attestations** - All releases include cryptographic provenance
+- ✅ **GitHub Artifact Attestations** - Built-in supply chain security
+- ✅ **Verified Builds** - Cryptographically signed build metadata
+
 ## 🛠️ Makefile Commands
 
 ```bash
@@ -164,6 +171,21 @@ make install           # Install on current machine
 make sync-nvim-config  # Sync ~/.config/nvim to repo
 make clean             # Remove binaries (keep placeholders)
 ```
+
+## 🚀 airgap-dev-kit CLI
+
+After installation, you can use the unified `airgap-dev-kit` command:
+
+```bash
+airgap-dev-kit version     # Show kit version and installation info
+airgap-dev-kit update      # Download/update all binaries (requires internet)
+airgap-dev-kit install     # Install missing tools from offline packages
+airgap-dev-kit status      # Show installation status of all tools
+airgap-dev-kit remove      # Completely uninstall the airgap-dev-kit
+airgap-dev-kit help        # Show help and available commands
+```
+
+This provides a simple interface for managing your air-gap development environment without needing to remember individual make commands or script locations.
 
 ## 🎨 Customization
 
