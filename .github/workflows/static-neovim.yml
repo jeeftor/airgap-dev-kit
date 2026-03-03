@@ -1,0 +1,59 @@
+name: Build Static Neovim
+
+on:
+  workflow_dispatch  # Trigger manually, or adjust to your needs (e.g., on: push)
+
+jobs:
+  build-static-neovim:
+    runs-on: ubuntu-latest
+    container:
+      image: alpine:latest
+    steps:
+      - name: Install dependencies
+        run: |
+          apk update
+          apk add --no-cache build-base cmake coreutils curl gettext-tiny-dev git ninja-build
+
+      - name: Create artifacts directory
+        run: mkdir -p artifacts
+
+      - name: Cache static Neovim binary
+        id: cache-neovim
+        uses: actions/cache@v4
+        with:
+          path: artifacts
+          key: static-neovim-x86_64-stable  # Change the key to invalidate cache when needed (e.g., for new Neovim versions)
+
+      - name: Clone and build Neovim if not cached
+        if: steps.cache-neovim.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --branch stable https://github.com/neovim/neovim
+          cd neovim
+          make CMAKE_EXTRA_FLAGS="-DSTATIC_BUILD=1"
+          cp build/bin/nvim ../artifacts/nvim-static-x86_64
+
+      - name: Upload static Neovim artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: static-neovim
+          path: artifacts/nvim-static-x86_64
+          retention-days: 30  # Adjust as needed
+
+  use-static-neovim:
+    runs-on: ubuntu-latest  # Or whatever runner your pipeline uses
+    needs: build-static-neovim  # This job depends on the build job
+    steps:
+      - name: Download static Neovim artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: static-neovim
+          path: ./nvim-binary
+
+      - name: Make binary executable
+        run: chmod +x ./nvim-binary/nvim-static-x86_64
+
+      # Example: Use the binary in your pipeline
+      - name: Test Neovim binary
+        run: ./nvim-binary/nvim-static-x86_64 --version
+
+      # Add more steps for your build pipeline, e.g., copy to Docker image, etc.

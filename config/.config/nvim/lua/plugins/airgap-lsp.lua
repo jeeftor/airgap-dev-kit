@@ -3,7 +3,7 @@
 return {
   -- Configure mason-lspconfig to ensure LSP servers are installed
   {
-    "williamboman/mason-lspconfig.nvim",
+    "mason-org/mason-lspconfig.nvim",
     opts = {
       -- Use lspconfig server names (not Mason package names)
       ensure_installed = {
@@ -22,7 +22,7 @@ return {
 
   -- Configure mason.nvim to ensure formatters/linters are installed
   {
-    "williamboman/mason.nvim",
+    "mason-org/mason.nvim",
     opts = {
       -- Use Mason package names for non-LSP tools
       ensure_installed = {
@@ -35,7 +35,7 @@ return {
         -- Linters
         "shellcheck", -- Shell linter
         "eslint_d",   -- JS/TS linter
-        "pylint",     -- Python linter
+        "flake8",     -- Python linter (simpler than pylint)
       },
     },
   },

@@ -68,22 +68,15 @@ jobs:
 
           # Install plugins using lazy.nvim (headless mode)
           echo "Installing Neovim plugins with lazy.nvim..."
-          echo "This may take 2-3 minutes for all plugins and Treesitter parsers..."
+          echo "This includes Mason LSP servers, formatters, and linters..."
+          echo "This may take 3-5 minutes for all plugins, Treesitter parsers, and LSP tools..."
+
+          # Single sync - LazyVim will install everything including Mason packages
           $NVIM --headless "+Lazy! sync" +qa
 
-          # Run a second time to catch any dependencies that needed other plugins first
-          echo "Running second sync to ensure all dependencies are installed..."
-          $NVIM --headless "+Lazy! sync" +qa
-
-          # Third run to allow mason-lspconfig and mason to install LSPs/tools
-          # LazyVim automatically reads our airgap-lsp.lua config and installs everything
-          echo "Running third sync to trigger Mason LSP/tool installation..."
-          echo "This will install LSP servers, formatters, and linters from airgap-lsp.lua config..."
-          $NVIM --headless "+Lazy! sync" +qa
-
-          # Give Mason a moment to complete any background installations
-          echo "Waiting for Mason to complete installations..."
-          sleep 10
+          # Give Mason time to complete all background installations
+          echo "Waiting 60 seconds for Mason to complete all LSP installations..."
+          sleep 60
 
           # Restore air-gap setting
           sed -i 's/missing = true/missing = false/' ~/.config/nvim/lua/config/lazy.lua
