@@ -68,46 +68,10 @@ jobs:
 
           # Install plugins using lazy.nvim (headless mode)
           echo "Installing Neovim plugins with lazy.nvim..."
-          echo "This includes Mason LSP servers, formatters, and linters..."
-          echo "This may take 3-5 minutes for all plugins, Treesitter parsers, and LSP tools..."
+          echo "This may take 2-3 minutes for all plugins and Treesitter parsers..."
 
-          # Single sync - Install plugins (Mason packages via LazyVim don't work reliably in headless)
+          # Single sync - Install LazyVim plugins only (no Mason yet)
           $NVIM --headless "+Lazy! sync" +qa
-
-          # Manual Mason installation using robust Lua script
-          echo "Installing LSP servers via Mason registry API..."
-          cat > /tmp/mason-install.lua <<'MASON_EOF'
-          local registry = require("mason-registry")
-          local packages = {
-            "lua-language-server", "pyright", "typescript-language-server",
-            "bash-language-server", "vscode-langservers-extracted",
-            "yaml-language-server", "gopls", "stylua", "black",
-            "prettier", "shfmt", "shellcheck", "eslint_d", "flake8"
-          }
-
-          registry.refresh()
-          for _, pkg_name in ipairs(packages) do
-            local ok, pkg = pcall(registry.get_package, pkg_name)
-            if ok and not pkg:is_installed() then
-              print("Installing " .. pkg_name)
-              pkg:install()
-            end
-          end
-
-          -- Wait for installations
-          local max_wait = 180
-          for i = 1, max_wait do
-            if #registry.get_installed_package_names() >= #packages then break end
-            vim.wait(1000)
-          end
-
-          print("\nInstalled packages:")
-          for _, name in ipairs(registry.get_installed_package_names()) do
-            print("  ✓ " .. name)
-          end
-          MASON_EOF
-
-          $NVIM --headless -c "luafile /tmp/mason-install.lua" -c "qa"
 
           # Restore air-gap setting
           sed -i 's/missing = true/missing = false/' ~/.config/nvim/lua/config/lazy.lua
@@ -121,16 +85,8 @@ jobs:
             exit 0
           fi
 
-          # Verify Mason packages were installed
-          if [[ -d ~/.local/share/nvim/mason ]]; then
-            echo "Mason packages installed successfully:"
-            ls -la ~/.local/share/nvim/mason/packages/
-          else
-            echo "Warning: No Mason packages directory found"
-          fi
-
-          # Bundle plugins and Mason packages into tarball
-          echo "Bundling plugins and Mason LSP servers..."
+          # Bundle LazyVim plugins into tarball (Mason packages handled separately)
+          echo "Bundling LazyVim plugins..."
           cd ~/.local/share/nvim
 
           # Include lazy-lock.json if it exists
@@ -139,23 +95,179 @@ jobs:
             cp ~/.config/nvim/lazy-lock.json .
           fi
 
-          # Create tarball with plugins and Mason packages
-          if [[ -d mason ]] && [[ -f lazy-lock.json ]]; then
-            tar -czf lazy-plugins.tar.gz lazy/ mason/ lazy-lock.json
-          elif [[ -d mason ]]; then
-            tar -czf lazy-plugins.tar.gz lazy/ mason/
-          elif [[ -f lazy-lock.json ]]; then
+          # Create tarball with plugins and lazy-lock.json
+          if [[ -f lazy-lock.json ]]; then
             tar -czf lazy-plugins.tar.gz lazy/ lazy-lock.json
           else
-            echo "No lazy-lock.json or Mason found, bundling plugins only"
+            echo "No lazy-lock.json found, bundling plugins only"
             tar -czf lazy-plugins.tar.gz lazy/
           fi
 
           # Move to offline-packages
           mv lazy-plugins.tar.gz $GITHUB_WORKSPACE/offline-packages/
 
-          echo "✓ Neovim plugins bundled to offline-packages/lazy-plugins.tar.gz"
+          echo "✓ LazyVim plugins bundled to offline-packages/lazy-plugins.tar.gz"
           ls -lh $GITHUB_WORKSPACE/offline-packages/lazy-plugins.tar.gz
+
+      - name: Install LSP servers with vanilla Neovim + Mason (experimental)
+        run: |
+          echo "=========================================="
+          echo "EXPERIMENTAL: Installing LSP servers"
+          echo "Using vanilla Neovim + Mason (not LazyVim)"
+          echo "=========================================="
+
+          # Use the already-extracted Neovim binary
+          NVIM="$GITHUB_WORKSPACE/offline-packages/linux/nvim-linux-x86_64/bin/nvim"
+
+          # Create minimal Mason config in a separate directory
+          MASON_CONFIG="$HOME/.config/nvim-mason-test"
+          mkdir -p "$MASON_CONFIG/lua"
+
+          # Create minimal init.lua that only loads Mason
+          cat > "$MASON_CONFIG/init.lua" <<'INIT_EOF'
+          -- Minimal config for Mason LSP installation
+          local lazypath = vim.fn.stdpath("data") .. "/lazy-mason/lazy.nvim"
+          if not vim.loop.fs_stat(lazypath) then
+            vim.fn.system({
+              "git", "clone", "--filter=blob:none",
+              "https://github.com/folke/lazy.nvim.git",
+              "--branch=stable",
+              lazypath,
+            })
+          end
+          vim.opt.rtp:prepend(lazypath)
+
+          require("lazy").setup({
+            {
+              "williamboman/mason.nvim",
+              build = ":MasonUpdate",
+            },
+          })
+          INIT_EOF
+
+          echo "Installing Mason plugin..."
+          NVIM_APPNAME=nvim-mason-test $NVIM --headless "+Lazy! sync" +qa
+
+          echo "Installing LSP servers, formatters, and linters..."
+          cat > /tmp/mason-lsp-install.lua <<'LSP_EOF'
+          vim.env.NVIM_APPNAME = "nvim-mason-test"
+
+          -- Initialize Mason
+          require("mason").setup()
+          local registry = require("mason-registry")
+
+          local packages = {
+            "lua-language-server", "pyright", "typescript-language-server",
+            "bash-language-server", "vscode-langservers-extracted",
+            "yaml-language-server", "gopls", "rust-analyzer", "clangd",
+            "stylua", "black", "prettier", "shfmt",
+            "shellcheck", "eslint_d", "flake8"
+          }
+
+          print("\n=== Starting Mason LSP installations ===")
+          registry:refresh()
+
+          local installed_count = 0
+          for _, pkg_name in ipairs(packages) do
+            local ok, pkg = pcall(registry.get_package, pkg_name)
+            if ok then
+              if not pkg:is_installed() then
+                print(string.format("[%d/%d] Installing %s...", installed_count + 1, #packages, pkg_name))
+                pkg:install():once("closed", function()
+                  installed_count = installed_count + 1
+                  print(string.format("  ✓ %s installed", pkg_name))
+                end)
+              else
+                print(string.format("  ✓ %s already installed", pkg_name))
+                installed_count = installed_count + 1
+              end
+            else
+              print(string.format("  ✗ Failed to get package: %s", pkg_name))
+            end
+          end
+
+          -- Wait for all installations to complete (max 5 minutes)
+          print("\nWaiting for installations to complete...")
+          local max_wait = 300
+          for i = 1, max_wait do
+            local current_installed = #registry:get_installed_packages()
+            if current_installed >= #packages then
+              print(string.format("\n✓ All %d packages installed!", current_installed))
+              break
+            end
+            if i % 10 == 0 then
+              print(string.format("  Progress: %d/%d packages installed...", current_installed, #packages))
+            end
+            vim.wait(1000)
+          end
+
+          print("\n=== Installation Summary ===")
+          local installed_packages = registry:get_installed_packages()
+          print(string.format("Total installed: %d/%d", #installed_packages, #packages))
+          for _, pkg in ipairs(installed_packages) do
+            print("  ✓ " .. pkg.name)
+          end
+
+          local missing = {}
+          for _, pkg_name in ipairs(packages) do
+            local ok, pkg = pcall(registry.get_package, pkg_name)
+            if ok and not pkg:is_installed() then
+              table.insert(missing, pkg_name)
+            end
+          end
+
+          if #missing > 0 then
+            print("\n⚠ Missing packages:")
+            for _, name in ipairs(missing) do
+              print("  ✗ " .. name)
+            end
+          end
+          LSP_EOF
+
+          NVIM_APPNAME=nvim-mason-test $NVIM --headless -c "luafile /tmp/mason-lsp-install.lua" -c "qa"
+
+          # Verify installations
+          echo ""
+          echo "=========================================="
+          echo "Verifying Mason LSP installations..."
+          echo "=========================================="
+
+          MASON_PACKAGES_DIR="$HOME/.local/share/nvim-mason-test/mason/packages"
+          if [[ -d "$MASON_PACKAGES_DIR" ]]; then
+            INSTALLED_COUNT=$(ls -1 "$MASON_PACKAGES_DIR" | wc -l)
+            echo "✓ Found $INSTALLED_COUNT packages in $MASON_PACKAGES_DIR"
+            echo ""
+            echo "Installed packages:"
+            ls -1 "$MASON_PACKAGES_DIR" | while read pkg; do
+              echo "  ✓ $pkg"
+            done
+
+            # Only package if we have at least 10 packages (out of 17 expected)
+            if [[ $INSTALLED_COUNT -ge 10 ]]; then
+              echo ""
+              echo "=========================================="
+              echo "✓ SUCCESS: $INSTALLED_COUNT packages installed"
+              echo "Packaging Mason LSP servers..."
+              echo "=========================================="
+
+              cd "$HOME/.local/share/nvim-mason-test"
+              tar -czf mason-lsp.tar.gz mason/
+              mv mason-lsp.tar.gz $GITHUB_WORKSPACE/offline-packages/
+
+              echo "✓ Mason LSP servers packaged to offline-packages/mason-lsp.tar.gz"
+              ls -lh $GITHUB_WORKSPACE/offline-packages/mason-lsp.tar.gz
+            else
+              echo ""
+              echo "=========================================="
+              echo "⚠ WARNING: Only $INSTALLED_COUNT packages installed (expected 17)"
+              echo "Not packaging Mason LSP servers yet"
+              echo "This is experimental - existing LazyVim plugins are unaffected"
+              echo "=========================================="
+            fi
+          else
+            echo "⚠ WARNING: Mason packages directory not found"
+            echo "This is experimental - existing LazyVim plugins are unaffected"
+          fi
 
       - name: Verify binaries
         run: make verify
