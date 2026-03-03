@@ -9,6 +9,7 @@ on:
     branches:
       - main
       - master  # Support both main and master branch names
+      - 'feature/**'  # Test on feature branches but skip release      
 
 jobs:
   build:
@@ -195,7 +196,18 @@ jobs:
           echo "Checksums:"
           cat checksums.txt
 
+      - name: Feature Branch Test Summary
+        if: github.ref != 'refs/heads/main' && github.ref != 'refs/heads/master'
+        run: |
+          echo "✓ Build completed successfully on feature branch!"
+          echo "📦 Packages built (but not released):"
+          ls -lh airgap-dev-kit*.tar.gz
+          echo ""
+          echo "Note: Release creation skipped for feature branches."
+          echo "Merge to main/master to create a release."
+
       - name: Create Release
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}-${{ github.run_id }}
@@ -337,6 +349,7 @@ jobs:
           retention-days: 30
 
       - name: Cleanup old releases
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         run: |
           echo "Keeping only the last 3 releases..."
 
@@ -364,21 +377,25 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate SLSA attestations
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         uses: actions/attest@v4
         with:
           subject-path: airgap-dev-kit-linux-x86_64.tar.gz
 
       - name: Generate SLSA attestations for macOS
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         uses: actions/attest@v4
         with:
           subject-path: airgap-dev-kit-macos-arm64.tar.gz
 
       - name: Generate SLSA attestations for combined package
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         uses: actions/attest@v4
         with:
           subject-path: airgap-dev-kit.tar.gz
 
       - name: Generate SLSA attestations for checksums
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         uses: actions/attest@v4
         with:
           subject-path: checksums.txt
