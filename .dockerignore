@@ -1,0 +1,9 @@
+# Ignore large/unnecessary files for Docker builds
+offline-packages/
+.git/
+*.tar.gz
+*.zip
+*.dmg
+*.AppImage
+node_modules/
+.DS_Store
