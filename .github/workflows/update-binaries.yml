@@ -29,6 +29,60 @@ jobs:
       - name: Download macOS binaries
         run: make update-macos
 
+      - name: Install Neovim for Mason
+        uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: stable
+
+      - name: Set up Mason config
+        run: |
+          mkdir -p ~/.config/nvim
+          cp .github/workflows/mason-config.lua ~/.config/nvim/init.lua
+
+      - name: Install LSP servers via Mason
+        run: |
+          echo "Installing LSP servers using Mason..."
+          
+          # Install plugins first
+          nvim --headless "+Lazy sync" +qa
+          
+          # Install essential LSP servers with version pinning for reproducibility
+          nvim --headless \
+            "+MasonInstall gopls@v0.21.1" \
+            "+MasonInstall lua_ls@3.7.4" \
+            "+MasonInstall bashls@3.0.4" \
+            "+MasonInstall jsonls@0.19.0" \
+            "+MasonInstall yamlls@0.10.0" \
+            "+MasonInstall marksman@0.2.1" \
+            +qa
+          
+          echo "✓ LSP servers installed via Mason"
+
+      - name: Package Mason for air-gap deployment
+        run: |
+          echo "Packaging Mason for air-gap deployment..."
+          mkdir -p mason-airgap-package
+          tar -czf mason-airgap-package/mason-lsp-kit.tar.gz -C ~/.local/share/nvim mason
+          echo '#!/bin/bash' > mason-airgap-package/install-mason-airgap.sh
+          echo 'set -e' >> mason-airgap-package/install-mason-airgap.sh
+          echo 'MASON_DIR="$HOME/.local/share/nvim/mason"' >> mason-airgap-package/install-mason-airgap.sh
+          echo 'PACKAGE_DIR="$(dirname "$0")"' >> mason-airgap-package/install-mason-airgap.sh
+          echo 'echo "Installing Mason for air-gap Neovim..."' >> mason-airgap-package/install-mason-airgap.sh
+          echo 'mkdir -p "$MASON_DIR"' >> mason-airgap-package/install-mason-airgap.sh
+          echo 'if [[ -f "$PACKAGE_DIR/mason-lsp-kit.tar.gz" ]]; then' >> mason-airgap-package/install-mason-airgap.sh
+          echo '    tar -xzf "$PACKAGE_DIR/mason-lsp-kit.tar.gz" -C "$(dirname "$MASON_DIR")"' >> mason-airgap-package/install-mason-airgap.sh
+          echo '    echo "✓ Mason installation extracted"' >> mason-airgap-package/install-mason-airgap.sh
+          echo 'else' >> mason-airgap-package/install-mason-airgap.sh
+          echo '    echo "✗ Mason package not found"' >> mason-airgap-package/install-mason-airgap.sh
+          echo '    exit 1' >> mason-airgap-package/install-mason-airgap.sh
+          echo 'fi' >> mason-airgap-package/install-mason-airgap.sh
+          echo 'find "$MASON_DIR" -name "*" -type f -executable -exec chmod +x {} \; 2>/dev/null || true' >> mason-airgap-package/install-mason-airgap.sh
+          echo 'echo "✓ Mason air-gap installation complete!"' >> mason-airgap-package/install-mason-airgap.sh
+          chmod +x mason-airgap-package/install-mason-airgap.sh
+          echo '{"generated_at":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","method":"headless-neovim-mason","servers_installed":["gopls@v0.21.1","lua_ls@3.7.4","bashls@3.0.4","jsonls@0.19.0","yamlls@0.10.0","marksman@0.2.1"],"total_package_size":"'$(du -sh mason-airgap-package/mason-lsp-kit.tar.gz | cut -f1)'"}' > mason-airgap-package/mason-manifest.json
+          echo "✓ Mason air-gap package created"
+
       - name: Download fonts
         run: make update-fonts
 
@@ -310,6 +364,8 @@ jobs:
             airgap-dev-kit.tar.gz
             offline-packages/lazy-plugins.tar.gz
             checksums.txt
+            lsp-manifest.json
+            mason-airgap-package/
           retention-days: 30
 
       - name: Cleanup old releases

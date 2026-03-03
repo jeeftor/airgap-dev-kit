@@ -14,3 +14,11 @@ vim.api.nvim_create_autocmd("TextYankPost", {
     vim.highlight.on_yank({ timeout = 200 })
   end,
 })
+
+-- Set up Go development configuration
+vim.api.nvim_create_autocmd("VeryLazy", {
+  group = vim.api.nvim_create_augroup("go_setup", { clear = true }),
+  callback = function()
+    require("config.go").setup()
+  end,
+})

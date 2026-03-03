@@ -120,10 +120,23 @@ wezterm start -- tmux new-session nvim
 - **dust** - Fast, intuitive disk usage visualizer
 - **gdu** - Interactive disk usage analyzer with TUI
 - **mkcert** - Local HTTPS certificate generator (requires NSS tools on Linux)
+- **gopls** - Go language server for IDE features (autocomplete, diagnostics, goto definitions)
 - **delta** - Stunning git diff viewer with syntax highlighting
 - **svu** - Semantic version utility for release management
 - **stow** - GNU Stow for dotfile symlink management (bundled)
 - **gum** - Charm Bracelet TUI toolkit for pretty prompts (bundled)
+
+### Language Support
+- **Go** - Complete LSP support with gopls (autocomplete, diagnostics, goto definitions)
+- **Lua** - Built-in LSP support
+- **Shell** - Basic syntax highlighting and completion
+
+### Go Development Features
+- **gopls integration** - Full IDE features for Go development
+- **Quick commands** - `<leader>lT` (test), `<leader>lR` (run), `<leader>lB` (build)
+- **Code generation** - Automatic Go code generation support
+- **Testing integration** - Run tests directly from Neovim
+- **Debugging support** - DAP integration (if delve is available)
 
 ### Extras
 - **JetBrainsMono Nerd Font** - Patched font with programming ligatures and icons
