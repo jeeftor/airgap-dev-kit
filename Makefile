@@ -293,7 +293,7 @@ update-linux:
 		echo "  → svu (semantic version utility)..."; \
 		tmp_dir=$$(mktemp -d); \
 		curl -fL "https://github.com/caarlos0/svu/releases/download/v$(SVU_VERSION)/svu_$(SVU_VERSION)_linux_amd64.tar.gz" | \
-			tar -xz -C $$tmp_dir --strip-components=1; \
+			tar -xz -C $$tmp_dir; \
 		mv $$tmp_dir/svu offline-packages/linux/svu; \
 		chmod +x offline-packages/linux/svu; \
 		rm -rf $$tmp_dir; \
@@ -505,7 +505,7 @@ update-macos:
 		echo "  → svu (semantic version utility)..."; \
 		tmp_dir=$$(mktemp -d); \
 		curl -fL "https://github.com/caarlos0/svu/releases/download/v$(SVU_VERSION)/svu_$(SVU_VERSION)_darwin_all.tar.gz" | \
-			tar -xz -C $$tmp_dir --strip-components=1; \
+			tar -xz -C $$tmp_dir; \
 		mv $$tmp_dir/svu offline-packages/macos/svu; \
 		chmod +x offline-packages/macos/svu; \
 		rm -rf $$tmp_dir; \
