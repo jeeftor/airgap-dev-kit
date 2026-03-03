@@ -17,6 +17,7 @@ offline-packages/linux/lsd
 offline-packages/linux/nvim-linux-x86_64
 offline-packages/macos/WezTerm-macos.zip
 offline-packages/macos/nvim-macos-arm64
+offline-packages/
 
 # Bundled Neovim plugins
 offline-packages/lazy-plugins.tar.gz
