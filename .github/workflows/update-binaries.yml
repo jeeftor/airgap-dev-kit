@@ -78,6 +78,14 @@ jobs:
           echo "Ensuring Treesitter parsers are compiled..."
           $NVIM --headless "+TSUpdateSync" +qa || echo "Treesitter update completed (may show errors, that's ok)"
 
+          # Install Mason LSP servers and tools
+          echo "Installing Mason LSP servers and tools..."
+          $NVIM --headless "+MasonInstall lua-language-server pyright typescript-language-server bash-language-server json-lsp yaml-language-server gopls rust-analyzer clangd stylua black prettier shfmt shellcheck eslint_d pylint" +qa || echo "Mason install initiated"
+
+          # Give Mason time to download and install packages
+          echo "Waiting for Mason downloads to complete..."
+          sleep 30
+
           # Give a final wait for any background compilation
           echo "Waiting for background tasks to complete..."
           sleep 5
@@ -94,17 +102,33 @@ jobs:
             exit 0
           fi
 
-          # Bundle plugins into tarball
-          echo "Bundling plugins..."
+          # Verify Mason packages were installed
+          if [[ -d ~/.local/share/nvim/mason ]]; then
+            echo "Mason packages installed successfully:"
+            ls -la ~/.local/share/nvim/mason/packages/
+          else
+            echo "Warning: No Mason packages directory found"
+          fi
+
+          # Bundle plugins and Mason packages into tarball
+          echo "Bundling plugins and Mason LSP servers..."
           cd ~/.local/share/nvim
 
-          # Include lazy-lock.json if it exists, otherwise just bundle lazy/
+          # Include lazy-lock.json if it exists
           if [[ -f ~/.config/nvim/lazy-lock.json ]]; then
             echo "Including lazy-lock.json from config directory"
             cp ~/.config/nvim/lazy-lock.json .
+          fi
+
+          # Create tarball with plugins and Mason packages
+          if [[ -d mason ]] && [[ -f lazy-lock.json ]]; then
+            tar -czf lazy-plugins.tar.gz lazy/ mason/ lazy-lock.json
+          elif [[ -d mason ]]; then
+            tar -czf lazy-plugins.tar.gz lazy/ mason/
+          elif [[ -f lazy-lock.json ]]; then
             tar -czf lazy-plugins.tar.gz lazy/ lazy-lock.json
           else
-            echo "No lazy-lock.json found, bundling plugins only"
+            echo "No lazy-lock.json or Mason found, bundling plugins only"
             tar -czf lazy-plugins.tar.gz lazy/
           fi
 
