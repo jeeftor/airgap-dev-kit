@@ -71,12 +71,43 @@ jobs:
           echo "This includes Mason LSP servers, formatters, and linters..."
           echo "This may take 3-5 minutes for all plugins, Treesitter parsers, and LSP tools..."
 
-          # Single sync - LazyVim will install everything including Mason packages
+          # Single sync - Install plugins (Mason packages via LazyVim don't work reliably in headless)
           $NVIM --headless "+Lazy! sync" +qa
 
-          # Give Mason time to complete all background installations
-          echo "Waiting 60 seconds for Mason to complete all LSP installations..."
-          sleep 60
+          # Manual Mason installation using robust Lua script
+          echo "Installing LSP servers via Mason registry API..."
+          cat > /tmp/mason-install.lua <<'MASON_EOF'
+          local registry = require("mason-registry")
+          local packages = {
+            "lua-language-server", "pyright", "typescript-language-server",
+            "bash-language-server", "vscode-langservers-extracted",
+            "yaml-language-server", "gopls", "stylua", "black",
+            "prettier", "shfmt", "shellcheck", "eslint_d", "flake8"
+          }
+
+          registry.refresh()
+          for _, pkg_name in ipairs(packages) do
+            local ok, pkg = pcall(registry.get_package, pkg_name)
+            if ok and not pkg:is_installed() then
+              print("Installing " .. pkg_name)
+              pkg:install()
+            end
+          end
+
+          -- Wait for installations
+          local max_wait = 180
+          for i = 1, max_wait do
+            if #registry.get_installed_package_names() >= #packages then break end
+            vim.wait(1000)
+          end
+
+          print("\nInstalled packages:")
+          for _, name in ipairs(registry.get_installed_package_names()) do
+            print("  ✓ " .. name)
+          end
+          MASON_EOF
+
+          $NVIM --headless -c "luafile /tmp/mason-install.lua" -c "qa"
 
           # Restore air-gap setting
           sed -i 's/missing = true/missing = false/' ~/.config/nvim/lua/config/lazy.lua
