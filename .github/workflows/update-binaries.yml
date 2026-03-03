@@ -47,14 +47,14 @@ jobs:
           # Install plugins first
           nvim --headless "+Lazy sync" +qa
           
-          # Install essential LSP servers with version pinning for reproducibility
+          # Install essential LSP servers (Mason handles versions automatically)
           nvim --headless \
-            "+MasonInstall gopls@v0.21.1" \
-            "+MasonInstall lua_ls@3.7.4" \
-            "+MasonInstall bashls@3.0.4" \
-            "+MasonInstall jsonls@0.19.0" \
-            "+MasonInstall yamlls@0.10.0" \
-            "+MasonInstall marksman@0.2.1" \
+            "+MasonInstall gopls" \
+            "+MasonInstall lua_ls" \
+            "+MasonInstall bashls" \
+            "+MasonInstall jsonls" \
+            "+MasonInstall yamlls" \
+            "+MasonInstall marksman" \
             +qa
           
           echo "✓ LSP servers installed via Mason"

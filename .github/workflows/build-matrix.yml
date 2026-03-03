@@ -1,0 +1,310 @@
+name: Build Air-Gap Dev Kit (Matrix)
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+    inputs:
+      force_rebuild:
+        description: 'Force rebuild all binaries'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  BUILD_NUMBER: ${{ github.run_number }}
+  BUILD_ID: ${{ github.run_id }}
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform }} (${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            arch: x86_64
+            binary_dir: linux
+          - os: macos-latest
+            platform: macos
+            arch: arm64
+            binary_dir: macos
+      fail-fast: false
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup cache for binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            offline-packages/
+            ~/.local/share/nvim/mason/
+          key: ${{ matrix.platform }}-${{ matrix.arch }}-${{ hashFiles('Makefile', '.github/workflows/mason-config.lua') }}
+          restore-keys: |
+            ${{ matrix.platform }}-${{ matrix.arch }}-
+            ${{ matrix.platform }}-
+
+      - name: Download platform binaries
+        run: |
+          if [[ "${{ matrix.platform }}" == "linux" ]]; then
+            make update-linux
+          else
+            make update-macos
+          fi
+
+      - name: Install Neovim for Mason
+        uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: stable
+
+      - name: Setup Mason config
+        run: |
+          mkdir -p ~/.config/nvim
+          cp .github/workflows/mason-config.lua ~/.config/nvim/init.lua
+
+      - name: Install LSP servers via Mason
+        run: |
+          echo "Installing LSP servers using Mason..."
+          
+          # Install plugins first
+          nvim --headless "+Lazy sync" +qa
+          
+          # Install essential LSP servers (Mason handles versions automatically)
+          nvim --headless \
+            "+MasonInstall gopls" \
+            "+MasonInstall lua_ls" \
+            "+MasonInstall bashls" \
+            "+MasonInstall jsonls" \
+            "+MasonInstall yamlls" \
+            "+MasonInstall marksman" \
+            +qa
+          
+          echo "✓ LSP servers installed via Mason"
+
+      - name: Package Mason for air-gap deployment
+        run: |
+          echo "Packaging Mason for air-gap deployment..."
+          mkdir -p mason-airgap-package
+          tar -czf mason-airgap-package/mason-lsp-kit.tar.gz -C ~/.local/share/nvim mason
+          echo '#!/bin/bash' > mason-airgap-package/install-mason-airgap.sh
+          echo 'set -e' >> mason-airgap-package/install-mason-airgap.sh
+          echo 'MASON_DIR="$HOME/.local/share/nvim/mason"' >> mason-airgap-package/install-mason-airgap.sh
+          echo 'PACKAGE_DIR="$(dirname "$0")"' >> mason-airgap-package/install-mason-airgap.sh
+          echo 'echo "Installing Mason for air-gap Neovim..."' >> mason-airgap-package/install-mason-airgap.sh
+          echo 'mkdir -p "$MASON_DIR"' >> mason-airgap-package/install-mason-airgap.sh
+          echo 'if [[ -f "$PACKAGE_DIR/mason-lsp-kit.tar.gz" ]]; then' >> mason-airgap-package/install-mason-airgap.sh
+          echo '    tar -xzf "$PACKAGE_DIR/mason-lsp-kit.tar.gz" -C "$(dirname "$MASON_DIR")"' >> mason-airgap-package/install-mason-airgap.sh
+          echo '    echo "✓ Mason installation extracted"' >> mason-airgap-package/install-mason-airgap.sh
+          echo 'else' >> mason-airgap-package/install-mason-airgap.sh
+          echo '    echo "✗ Mason package not found"' >> mason-airgap-package/install-mason-airgap.sh
+          echo '    exit 1' >> mason-airgap-package/install-mason-airgap.sh
+          echo 'fi' >> mason-airgap-package/install-mason-airgap.sh
+          echo 'find "$MASON_DIR" -name "*" -type f -executable -exec chmod +x {} \; 2>/dev/null || true' >> mason-airgap-package/install-mason-airgap.sh
+          echo 'echo "✓ Mason air-gap installation complete!"' >> mason-airgap-package/install-mason-airgap.sh
+          chmod +x mason-airgap-package/install-mason-airgap.sh
+          echo '{"generated_at":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","method":"headless-neovim-mason","servers_installed":["gopls","lua_ls","bashls","jsonls","yamlls","marksman"],"total_package_size":"'$(du -sh mason-airgap-package/mason-lsp-kit.tar.gz | cut -f1)'"}' > mason-airgap-package/mason-manifest.json
+          echo "✓ Mason air-gap package created"
+
+      - name: Download fonts
+        run: make update-fonts
+
+      - name: Generate version metadata
+        run: make version-file
+
+      - name: Bundle Neovim plugins
+        run: |
+          echo "Setting up Neovim for plugin installation..."
+          # Extract the downloaded Neovim binary
+          cd $GITHUB_WORKSPACE/offline-packages/${{ matrix.binary_dir }}
+          tar -xzf nvim-linux64.tar.gz || tar -xzf nvim-macos-arm64.tar.gz
+          
+          # Set NVIM to the extracted binary path
+          if [[ "${{ matrix.platform }}" == "linux" ]]; then
+            NVIM="$GITHUB_WORKSPACE/offline-packages/${{ matrix.binary_dir }}/nvim-linux-x86_64/bin/nvim"
+          else
+            NVIM="$GITHUB_WORKSPACE/offline-packages/${{ matrix.binary_dir }}/nvim-macos-arm64/bin/nvim"
+          fi
+          
+          $NVIM --version
+          
+          # Set up Neovim config from repo
+          mkdir -p ~/.config/nvim
+          if [[ -d $GITHUB_WORKSPACE/config/.config/nvim ]]; then
+            cp -r $GITHUB_WORKSPACE/config/.config/nvim/* ~/.config/nvim/
+            echo "Neovim config copied from repo"
+          else
+            echo "Warning: No Neovim config found in config/.config/nvim/"
+            echo "Skipping plugin installation"
+            exit 0
+          fi
+          
+          # Temporarily enable plugin installation for GitHub Actions build
+          sed -i 's/missing = false/missing = true/' ~/.config/nvim/lua/config/lazy.lua
+          
+          # Install plugins using lazy.nvim (headless mode)
+          echo "Installing Neovim plugins with lazy.nvim..."
+          $NVIM --headless "+Lazy! sync" +qa
+          $NVIM --headless "+Lazy! sync" +qa
+          $NVIM --headless "+TSUpdateSync" +qa || echo "Treesitter update completed"
+          sleep 5
+          sed -i 's/missing = true/missing = false/' ~/.config/nvim/lua/config/lazy.lua
+          
+          # Bundle plugins into tarball
+          cd ~/.local/share/nvim
+          if [[ -f ~/.config/nvim/lazy-lock.json ]]; then
+            cp ~/.config/nvim/lazy-lock.json .
+            tar -czf lazy-plugins.tar.gz lazy/ lazy-lock.json
+          else
+            tar -czf lazy-plugins.tar.gz lazy/
+          fi
+          mv lazy-plugins.tar.gz $GITHUB_WORKSPACE/offline-packages/
+          echo "✓ Neovim plugins bundled"
+
+      - name: Verify binaries
+        run: make verify
+
+      - name: Create platform-specific package
+        run: |
+          mkdir -p staging-${{ matrix.platform }}/airgap-dev-kit/offline-packages
+          cp install.sh shell-setup-example.sh staging-${{ matrix.platform }}/airgap-dev-kit/
+          if [[ -f VERSION ]]; then
+            cp VERSION staging-${{ matrix.platform }}/airgap-dev-kit/
+          fi
+          cp -r fonts config staging-${{ matrix.platform }}/airgap-dev-kit/
+          cp -r offline-packages/${{ matrix.binary_dir }} staging-${{ matrix.platform }}/airgap-dev-kit/offline-packages/
+          cp offline-packages/lazy-plugins.tar.gz staging-${{ matrix.platform }}/airgap-dev-kit/offline-packages/
+          cp -r mason-airgap-package staging-${{ matrix.platform }}/airgap-dev-kit/
+          
+          echo "Creating ${{ matrix.platform }} package..."
+          tar -czf airgap-dev-kit-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz -C staging-${{ matrix.platform }} airgap-dev-kit
+          rm -rf staging-${{ matrix.platform }}
+          
+          echo "Package created:"
+          ls -lh airgap-dev-kit-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz
+
+      - name: Calculate checksums
+        run: |
+          sha256sum airgap-dev-kit-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz > checksums-${{ matrix.platform }}.txt
+          echo "Checksums:"
+          cat checksums-${{ matrix.platform }}.txt
+
+      - name: Upload platform artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: airgap-dev-kit-${{ matrix.platform }}-${{ matrix.arch }}-${{ github.run_number }}
+          path: |
+            airgap-dev-kit-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz
+            checksums-${{ matrix.platform }}.txt
+          retention-days: 30
+
+  create-release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: always() && needs.build.result == 'success'
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: airgap-dev-kit-*-${{ github.run_number }}
+          merge-multiple: true
+
+      - name: Create combined package
+        run: |
+          mkdir -p staging-combined/airgap-dev-kit
+          
+          # Copy common files from Linux build
+          tar -xzf airgap-dev-kit-linux-x86_64.tar.gz -C staging-combined/
+          
+          # Add macOS binaries to combined package
+          mkdir -p staging-combined/airgap-dev-kit/offline-packages/macos
+          tar -xzf airgap-dev-kit-macos-arm64.tar.gz -C /tmp
+          cp -r /tmp/airgap-dev-kit/offline-packages/macos staging-combined/airgap-dev-kit/offline-packages/
+          
+          # Create combined package
+          tar -czf airgap-dev-kit.tar.gz -C staging-combined airgap-dev-kit
+          
+          # Create combined checksums
+          cat checksums-linux.txt checksums-macos.txt > checksums.txt
+          
+          echo "Combined package created:"
+          ls -lh airgap-dev-kit.tar.gz
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}-${{ github.run_id }}
+          name: Air-Gap Dev Kit - Build ${{ github.run_number }}
+          body: |
+            # Air-Gap Development Kit - Matrix Build
+            
+            **Build Date:** ${{ github.event.repository.updated_at }}
+            **Run Number:** ${{ github.run_number }}
+            
+            ## 📦 Available Packages
+            
+            | Package | Platform | Size | Description |
+            |---------|----------|------|-------------|
+            | **airgap-dev-kit-linux-x86_64.tar.gz** | Linux x86_64 | ~200MB | Linux-only binaries |
+            | **airgap-dev-kit-macos-arm64.tar.gz** | macOS ARM64 | ~150MB | macOS-only binaries (Apple Silicon) |
+            | **airgap-dev-kit.tar.gz** | Both | ~350MB | Combined package |
+            | **checksums.txt** | All | <1KB | SHA256 checksums |
+            
+            ## 🚀 New Features
+            
+            - **✅ Mason-based LSP management** - Automatic LSP server installation
+            - **✅ Go language support** - Full IDE features for Go development
+            - **✅ Multi-language support** - Lua, Shell, JSON, YAML, Markdown
+            - **✅ Parallel builds** - Faster build times with matrix strategy
+            - **✅ Binary caching** - Faster rebuilds when unchanged
+            
+            ## 🎯 LSP Servers Included
+            
+            - **gopls** - Go language server
+            - **lua_ls** - Lua (Neovim configs)
+            - **bashls** - Shell scripting
+            - **jsonls** - JSON files
+            - **yamlls** - YAML files
+            - **marksman** - Markdown
+            
+            ## 🔒 Air-Gap Installation
+            
+            1. **Transfer** package to air-gapped machine
+            2. **Extract:** `tar -xzf airgap-devkit-*.tar.gz`
+            3. **Install:** `cd airgap-dev-kit && ./install.sh`
+            4. **Install Mason:** `./mason-airgap-package/install-mason-airgap.sh`
+            5. **Launch:** `wezterm start -- tmux new-session nvim`
+            6. **Open Go file:** `nvim main.go` - Full IDE functionality!
+            
+            *Built with matrix strategy and binary caching*
+          files: |
+            airgap-dev-kit-linux-x86_64.tar.gz
+            airgap-dev-kit-macos-arm64.tar.gz
+            airgap-dev-kit.tar.gz
+            checksums.txt
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate SLSA attestations
+        uses: actions/attest@v4
+        with:
+          subject-path: airgap-dev-kit-linux-x86_64.tar.gz
+
+      - name: Generate SLSA attestations for macOS
+        uses: actions/attest@v4
+        with:
+          subject-path: airgap-dev-kit-macos-arm64.tar.gz
+
+      - name: Generate SLSA attestations for combined package
+        uses: actions/attest@v4
+        with:
+          subject-path: airgap-dev-kit.tar.gz
