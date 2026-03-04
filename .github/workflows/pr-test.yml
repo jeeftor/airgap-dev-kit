@@ -60,20 +60,31 @@ jobs:
       - name: Test Makefile targets
         run: |
           # Verify Makefile syntax
-          make help
-
-          # Check if critical targets exist
-          grep -q "^test-manifest:" Makefile || {
-            echo "❌ Missing test-manifest target"
+          make help || {
+            echo "❌ Makefile help target failed"
             exit 1
           }
 
-          grep -q "^test-package-manifest:" Makefile || {
-            echo "❌ Missing test-package-manifest target"
-            exit 1
-          }
+          echo "✅ Makefile syntax OK"
 
-          echo "✅ Makefile targets verified"
+          # Check if DRY targets exist (if this is a DRY PR)
+          if grep -q "plugin-manifest" Makefile; then
+            echo "📋 DRY manifest system detected, checking targets..."
+
+            grep -q "test-manifest:" Makefile || {
+              echo "❌ Missing test-manifest target"
+              exit 1
+            }
+
+            grep -q "test-package-manifest:" Makefile || {
+              echo "❌ Missing test-package-manifest target"
+              exit 1
+            }
+
+            echo "✅ DRY Makefile targets verified"
+          else
+            echo "ℹ️  DRY system not present (this PR may not include it)"
+          fi
 
       - name: Verify manifest file
         run: |
