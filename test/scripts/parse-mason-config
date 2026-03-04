@@ -1,0 +1,64 @@
+#!/bin/bash
+# Parse Mason config file and extract ensure_installed packages
+
+set -e
+
+CONFIG_FILE="$1"
+
+if [ -z "$CONFIG_FILE" ]; then
+    echo "Usage: $0 <config-file.lua>"
+    echo "Example: $0 /opt/test-configs/mason-config.lua"
+    exit 1
+fi
+
+echo "🔍 Parsing Mason config: $CONFIG_FILE"
+
+# Extract ensure_installed packages from config
+PACKAGES=$(lua -e "
+local file = io.open('$CONFIG_FILE', 'r')
+if not file then
+    print('Error: Could not open config file')
+    os.exit(1)
+end
+
+local content = file:read('*all')
+file:close()
+
+-- Find ensure_installed table
+local ensure_installed = content:match('ensure_installed%s*=%s*{([^}]+)}')
+if not ensure_installed then
+    print('Error: Could not find ensure_installed in config')
+    os.exit(1)
+end
+
+-- Extract package names (quoted strings)
+local packages = {}
+for pkg in ensure_installed:gmatch('\"([^\"]+)\"') do
+    table.insert(packages, pkg)
+end
+
+-- Output packages as space-separated list
+print(table.concat(packages, ' '))
+")
+
+if [ $? -ne 0 ]; then
+    echo "❌ Failed to parse config file"
+    exit 1
+fi
+
+echo "📦 Found packages: $PACKAGES"
+
+# Generate Mason CLI command
+if [ -n "$PACKAGES" ]; then
+    echo "🚀 Generated CLI command:"
+    echo "nvim --headless \"+Lazy! sync\" \\"
+    
+    # Split packages and format as MasonInstall commands
+    IFS=' ' read -ra PKG_ARRAY <<< "$PACKAGES"
+    for pkg in "${PKG_ARRAY[@]}"; do
+        echo "  \":MasonInstall $pkg\" \\"
+    done
+    echo "  +qa"
+else
+    echo "❌ No packages found in config"
+fi

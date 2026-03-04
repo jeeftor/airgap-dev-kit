@@ -1,0 +1,25 @@
+# Mason Packages Configuration
+# Reference file for all Mason package installations
+
+standard_packages:
+  - shfmt
+  - stylua
+  - prettier
+  - eslint_d
+  - black
+
+lsp_servers:
+  - lua-language-server
+  - bash-language-server
+  - typescript-language-server
+  - vscode-langservers-extracted
+  - yaml-language-server
+  - marksman
+
+# GitHub workflow uses these LSP servers
+github_lsp_servers:
+  - lua-language-server
+  - bash-language-server
+  - vscode-langservers-extracted
+  - yaml-language-server
+  - marksman

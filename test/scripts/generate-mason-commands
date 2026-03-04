@@ -1,0 +1,45 @@
+#!/bin/bash
+# Generate Mason installation commands from YAML file
+
+set -e
+
+YAML_FILE="$1"
+PACKAGE_TYPE="$2"
+
+if [ -z "$YAML_FILE" ] || [ -z "$PACKAGE_TYPE" ]; then
+    echo "Usage: $0 <yaml-file> <package-type>"
+    echo "Package types: standard_packages, lsp_servers, github_lsp_servers"
+    echo "Example: $0 mason-packages.yaml standard_packages"
+    exit 1
+fi
+
+echo "🔍 Reading packages from $YAML_FILE (type: $PACKAGE_TYPE)"
+
+# Extract packages from YAML using simple text parsing
+PACKAGES=$(grep -A 20 "^$PACKAGE_TYPE:" "$YAML_FILE" | grep -E "^\s*-\s+" | sed 's/^\s*-\s*//' | tr '\n' ' ')
+
+if [ -z "$PACKAGES" ]; then
+    echo "❌ No packages found for type: $PACKAGE_TYPE"
+    exit 1
+fi
+
+echo "📦 Found packages: $PACKAGES"
+
+# Generate nvim command
+echo "🚀 Generated nvim command:"
+echo "nvim --headless \"+Lazy! sync\" \\"
+
+for pkg in $PACKAGES; do
+    echo "  \":MasonInstall $pkg\" \\"
+done
+echo "  +qa"
+
+# Also output as single line for eval
+echo ""
+echo "📋 Single line version:"
+SINGLE_CMD="nvim --headless \"+Lazy! sync\""
+for pkg in $PACKAGES; do
+    SINGLE_CMD="$SINGLE_CMD \":MasonInstall $pkg\""
+done
+SINGLE_CMD="$SINGLE_CMD +qa"
+echo "$SINGLE_CMD"
