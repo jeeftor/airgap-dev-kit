@@ -14,10 +14,10 @@ jobs:
       - name: Checkout PR
         uses: actions/checkout@v4
 
-      - name: Install Docker dependencies
+      - name: Setup Docker
         run: |
-          sudo apt-get update
-          sudo apt-get install -y docker.io
+          # Docker is already installed on ubuntu-latest
+          docker --version
 
       - name: Build test Docker image
         run: |

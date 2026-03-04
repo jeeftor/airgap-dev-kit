@@ -198,7 +198,7 @@ update-linux:
 	# gping - ping with a graph
 	@if [ ! -f offline-packages/linux/gping ] || [ $$(stat -f%z offline-packages/linux/gping 2>/dev/null || stat -c%s offline-packages/linux/gping 2>/dev/null) -lt 1000 ]; then \
 		echo "  → gping (ping with graph)..."; \
-		curl -fL "https://github.com/orf/gping/releases/download/gping-v$(GPING_VERSION)/gping-x86_64-unknown-linux-musl.tar.gz" | \
+		curl -fL "https://github.com/orf/gping/releases/download/gping-v$(GPING_VERSION)/gping-Linux-musl-x86_64.tar.gz" | \
 			tar -xz -C /tmp/ && mv /tmp/gping offline-packages/linux/gping; \
 		chmod +x offline-packages/linux/gping; \
 	else \
