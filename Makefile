@@ -16,6 +16,7 @@ GDU_VERSION := v5.33.0
 MKCERT_VERSION := v1.4.4
 DIRENV_VERSION := v2.37.1
 SVU_VERSION := 3.3.0
+GPING_VERSION := 1.20.1
 
 # Detect OS for local testing
 OS := $(shell uname -s)
@@ -194,8 +195,19 @@ update-linux:
 		echo "  ✓ mkcert already present"; \
 	fi
 
-	# gopls - Go language server (installed via Mason in GitHub Actions)
-	# NOTE: Mason-installed LSPs are bundled in lazy-plugins.tar.gz, not as standalone binaries
+	# gping - ping with a graph
+	@if [ ! -f offline-packages/linux/gping ] || [ $$(stat -f%z offline-packages/linux/gping 2>/dev/null || stat -c%s offline-packages/linux/gping 2>/dev/null) -lt 1000 ]; then \
+		echo "  → gping (ping with graph)..."; \
+		curl -fL "https://github.com/orf/gping/releases/download/gping-v$(GPING_VERSION)/gping-Linux-musl-x86_64.tar.gz" | \
+			tar -xz -C /tmp/ && mv /tmp/gping offline-packages/linux/gping; \
+		chmod +x offline-packages/linux/gping; \
+	else \
+		echo "  ✓ gping already present"; \
+	fi
+
+	# gopls - Go language server
+	# NOTE: gopls requires Go toolchain to be installed. It cannot be bundled as a standalone binary.
+	# Users who need Go development should install Go separately, then gopls will work automatically.
 
 	# delta - better git diff
 	@if [ ! -f offline-packages/linux/delta ] || [ $$(stat -f%z offline-packages/linux/delta 2>/dev/null || stat -c%s offline-packages/linux/delta 2>/dev/null) -lt 1000 ]; then \

@@ -1,0 +1,48 @@
+#!/bin/bash
+# Check Mason installation results
+# Usage: check-mason <app_name> [show_binaries]
+
+set -e
+
+app_name="$1"
+show_binaries="${2:-false}"
+
+if [ -z "$app_name" ]; then
+    echo "Usage: check-mason <app_name> [show_binaries]"
+    exit 1
+fi
+
+mason_dir="$HOME/.local/share/$app_name/mason"
+
+echo "=========================================="
+echo "Checking Mason Installation"
+echo "=========================================="
+
+if [ -d "$mason_dir/packages" ]; then
+    package_count=$(find "$mason_dir/packages" -maxdepth 1 -type d | wc -l)
+    package_count=$((package_count - 1))  # Subtract 1 for the packages directory itself
+    echo "✓ Found $package_count packages in $mason_dir/packages"
+    
+    if [ "$package_count" -gt 0 ]; then
+        echo ""
+        echo "Installed packages:"
+        for package in "$mason_dir/packages"/*; do
+            if [ -d "$package" ]; then
+                package_name=$(basename "$package")
+                echo "  ✓ $package_name"
+                
+                if [ "$show_binaries" = "true" ]; then
+                    echo "    Binaries:"
+                    find "$package/bin" -type f -executable 2>/dev/null | head -3 | sed 's/^/      /'
+                fi
+            fi
+        done
+    fi
+else
+    echo "❌ Mason packages directory not found: $mason_dir/packages"
+fi
+
+echo ""
+echo "=========================================="
+echo "Mason Check Complete"
+echo "=========================================="

@@ -1,0 +1,25 @@
+#!/bin/bash
+# Copy config file to app directory
+# Usage: copy-config <config_file> <app_name> <target_name>
+
+set -e
+
+config_file="$1"
+app_name="$2"
+target_name="$3"
+
+if [ -z "$config_file" ] || [ -z "$app_name" ] || [ -z "$target_name" ]; then
+    echo "Usage: copy-config <config_file> <app_name> <target_name>"
+    exit 1
+fi
+
+config_dir="$HOME/.config/$app_name"
+source_dir="/workspace/test/configs"
+
+if [ -f "$source_dir/$config_file" ]; then
+    cp "$source_dir/$config_file" "$config_dir/$target_name"
+    echo "✓ Copied $config_file to $app_name/$target_name"
+else
+    echo "❌ Config file not found: $source_dir/$config_file"
+    exit 1
+fi

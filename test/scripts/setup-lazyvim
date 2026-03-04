@@ -1,0 +1,38 @@
+#!/bin/bash
+# Quick setup for LazyVim + Mason testing
+
+set -e
+
+echo "🔧 Setting up LazyVim environment..."
+
+# Backup existing
+mv ~/.config/nvim ~/.config/nvim.bak 2>/dev/null || true
+mv ~/.local/share/nvim ~/.local/share/nvim.bak 2>/dev/null || true
+
+# Clone LazyVim
+echo "📦 Cloning LazyVim starter..."
+git clone https://github.com/LazyVim/starter ~/.config/nvim
+rm -rf ~/.config/nvim/.git
+
+# Copy Mason config
+echo "⚙️  Copying Mason config..."
+cp /opt/test-configs/mason-config.lua ~/.config/nvim/init.lua
+
+# Add Mason plugins to LazyVim
+echo "🔌 Adding Mason plugins to LazyVim..."
+mkdir -p ~/.config/nvim/lua/plugins
+cp /opt/test-configs/lazyvim-mason-plugins.lua ~/.config/nvim/lua/plugins/mason.lua
+
+# Create Mason directories
+echo "📁 Creating Mason directories..."
+mkdir -p ~/.local/share/nvim/mason/packages
+
+echo "✅ LazyVim environment ready!"
+echo ""
+echo "🚀 Now you can run:"
+echo "  # Step 1: Install Mason plugins"
+echo "  nvim --headless \"+Lazy install mason.nvim mason-lspconfig.nvim\" +qa"
+echo ""
+echo "  # Step 2: Use Mason to install packages"
+echo "  nvim --headless \"+Lazy! sync\" \":MasonInstall lua-language-server\" +qa"
+echo "  ls ~/.local/share/nvim/mason/packages/"

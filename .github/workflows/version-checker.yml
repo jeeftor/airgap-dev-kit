@@ -1,0 +1,222 @@
+name: Version Checker
+
+on:
+  schedule:
+    # Run nightly at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check-versions:
+    name: Check for Binary Updates
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check for updates
+        id: check
+        run: |
+          set -e
+
+          # Read current versions from Makefile
+          CURRENT_FZF=$(grep "^FZF_VERSION :=" Makefile | awk '{print $3}')
+          CURRENT_TMUX=$(grep "^TMUX_VERSION :=" Makefile | awk '{print $3}')
+          CURRENT_BTOP=$(grep "^BTOP_VERSION :=" Makefile | awk '{print $3}')
+          CURRENT_LSD=$(grep "^LSD_VERSION :=" Makefile | awk '{print $3}')
+          CURRENT_DELTA=$(grep "^DELTA_VERSION :=" Makefile | awk '{print $3}')
+          CURRENT_ZOXIDE=$(grep "^ZOXIDE_VERSION :=" Makefile | awk '{print $3}')
+          CURRENT_BAT=$(grep "^BAT_VERSION :=" Makefile | awk '{print $3}')
+          CURRENT_STARSHIP=$(grep "^STARSHIP_VERSION :=" Makefile | awk '{print $3}')
+          CURRENT_FD=$(grep "^FD_VERSION :=" Makefile | awk '{print $3}')
+          CURRENT_RG=$(grep "^RG_VERSION :=" Makefile | awk '{print $3}')
+          CURRENT_DIRENV=$(grep "^DIRENV_VERSION :=" Makefile | awk '{print $3}')
+          CURRENT_DUST=$(grep "^DUST_VERSION :=" Makefile | awk '{print $3}')
+          CURRENT_GDU=$(grep "^GDU_VERSION :=" Makefile | awk '{print $3}')
+          CURRENT_SVU=$(grep "^SVU_VERSION :=" Makefile | awk '{print $3}')
+          CURRENT_GUM=$(grep "^GUM_VERSION :=" Makefile | awk '{print $3}')
+          CURRENT_GPING=$(grep "^GPING_VERSION :=" Makefile | awk '{print $3}')
+
+          echo "Current versions:"
+          echo "fzf: $CURRENT_FZF"
+          echo "tmux: $CURRENT_TMUX"
+          echo "btop: $CURRENT_BTOP"
+          echo "lsd: $CURRENT_LSD"
+          echo "delta: $CURRENT_DELTA"
+          echo "zoxide: $CURRENT_ZOXIDE"
+          echo "bat: $CURRENT_BAT"
+          echo "starship: $CURRENT_STARSHIP"
+          echo "fd: $CURRENT_FD"
+          echo "ripgrep: $CURRENT_RG"
+          echo "direnv: $CURRENT_DIRENV"
+          echo "dust: $CURRENT_DUST"
+          echo "gdu: $CURRENT_GDU"
+          echo "svu: $CURRENT_SVU"
+          echo "gum: $CURRENT_GUM"
+          echo "gping: $CURRENT_GPING"
+          echo ""
+
+          # Function to get latest release from GitHub
+          get_latest_release() {
+            local repo=$1
+            local current=$2
+            local strip_v=${3:-false}
+
+            echo "Checking $repo..." >&2
+            latest=$(curl -s "https://api.github.com/repos/$repo/releases/latest" | jq -r '.tag_name')
+
+            if [ -z "$latest" ] || [ "$latest" = "null" ]; then
+              echo "⚠️  Failed to fetch latest release for $repo" >&2
+              echo "$current"
+              return
+            fi
+
+            # Strip 'v' prefix if requested
+            if [ "$strip_v" = "true" ]; then
+              latest=${latest#v}
+            fi
+
+            echo "$latest"
+          }
+
+          # Check each binary
+          LATEST_FZF=$(get_latest_release "junegunn/fzf" "$CURRENT_FZF" "true")
+          LATEST_TMUX=$(get_latest_release "tmux/tmux" "$CURRENT_TMUX" "false")
+          LATEST_BTOP=$(get_latest_release "aristocratos/btop" "$CURRENT_BTOP" "true")
+          LATEST_LSD=$(get_latest_release "lsd-rs/lsd" "$CURRENT_LSD" "true")
+          LATEST_DELTA=$(get_latest_release "dandavison/delta" "$CURRENT_DELTA" "false")
+          LATEST_ZOXIDE=$(get_latest_release "ajeetdsouza/zoxide" "$CURRENT_ZOXIDE" "true")
+          LATEST_BAT=$(get_latest_release "sharkdp/bat" "$CURRENT_BAT" "true")
+          LATEST_STARSHIP=$(get_latest_release "starship/starship" "$CURRENT_STARSHIP" "true")
+          LATEST_FD=$(get_latest_release "sharkdp/fd" "$CURRENT_FD" "true")
+          LATEST_RG=$(get_latest_release "BurntSushi/ripgrep" "$CURRENT_RG" "false")
+          LATEST_DIRENV=$(get_latest_release "direnv/direnv" "$CURRENT_DIRENV" "true")
+          LATEST_DUST=$(get_latest_release "bootandy/dust" "$CURRENT_DUST" "true")
+          LATEST_GDU=$(get_latest_release "dundee/gdu" "$CURRENT_GDU" "true")
+          LATEST_SVU=$(get_latest_release "caarlos0/svu" "$CURRENT_SVU" "true")
+          LATEST_GUM=$(get_latest_release "charmbracelet/gum" "$CURRENT_GUM" "true")
+          LATEST_GPING=$(get_latest_release "orf/gping" "$CURRENT_GPING" "false")
+
+          echo ""
+          echo "Latest versions:"
+          echo "fzf: $LATEST_FZF"
+          echo "tmux: $LATEST_TMUX"
+          echo "btop: $LATEST_BTOP"
+          echo "lsd: $LATEST_LSD"
+          echo "delta: $LATEST_DELTA"
+          echo "zoxide: $LATEST_ZOXIDE"
+          echo "bat: $LATEST_BAT"
+          echo "starship: $LATEST_STARSHIP"
+          echo "fd: $LATEST_FD"
+          echo "ripgrep: $LATEST_RG"
+          echo "direnv: $LATEST_DIRENV"
+          echo "dust: $LATEST_DUST"
+          echo "gdu: $LATEST_GDU"
+          echo "svu: $LATEST_SVU"
+          echo "gum: $LATEST_GUM"
+          echo "gping: $LATEST_GPING"
+          echo ""
+
+          # Build list of updates
+          UPDATES=""
+
+          [ "$CURRENT_FZF" != "$LATEST_FZF" ] && UPDATES="$UPDATES\n- fzf: $CURRENT_FZF → $LATEST_FZF"
+          [ "$CURRENT_TMUX" != "$LATEST_TMUX" ] && UPDATES="$UPDATES\n- tmux: $CURRENT_TMUX → $LATEST_TMUX"
+          [ "$CURRENT_BTOP" != "$LATEST_BTOP" ] && UPDATES="$UPDATES\n- btop: $CURRENT_BTOP → $LATEST_BTOP"
+          [ "$CURRENT_LSD" != "$LATEST_LSD" ] && UPDATES="$UPDATES\n- lsd: $CURRENT_LSD → $LATEST_LSD"
+          [ "$CURRENT_DELTA" != "$LATEST_DELTA" ] && UPDATES="$UPDATES\n- delta: $CURRENT_DELTA → $LATEST_DELTA"
+          [ "$CURRENT_ZOXIDE" != "$LATEST_ZOXIDE" ] && UPDATES="$UPDATES\n- zoxide: $CURRENT_ZOXIDE → $LATEST_ZOXIDE"
+          [ "$CURRENT_BAT" != "$LATEST_BAT" ] && UPDATES="$UPDATES\n- bat: $CURRENT_BAT → $LATEST_BAT"
+          [ "$CURRENT_STARSHIP" != "$LATEST_STARSHIP" ] && UPDATES="$UPDATES\n- starship: $CURRENT_STARSHIP → $LATEST_STARSHIP"
+          [ "$CURRENT_FD" != "$LATEST_FD" ] && UPDATES="$UPDATES\n- fd: $CURRENT_FD → $LATEST_FD"
+          [ "$CURRENT_RG" != "$LATEST_RG" ] && UPDATES="$UPDATES\n- ripgrep: $CURRENT_RG → $LATEST_RG"
+          [ "$CURRENT_DIRENV" != "$LATEST_DIRENV" ] && UPDATES="$UPDATES\n- direnv: $CURRENT_DIRENV → $LATEST_DIRENV"
+          [ "$CURRENT_DUST" != "$LATEST_DUST" ] && UPDATES="$UPDATES\n- dust: $CURRENT_DUST → $LATEST_DUST"
+          [ "$CURRENT_GDU" != "$LATEST_GDU" ] && UPDATES="$UPDATES\n- gdu: $CURRENT_GDU → $LATEST_GDU"
+          [ "$CURRENT_SVU" != "$LATEST_SVU" ] && UPDATES="$UPDATES\n- svu: $CURRENT_SVU → $LATEST_SVU"
+          [ "$CURRENT_GUM" != "$LATEST_GUM" ] && UPDATES="$UPDATES\n- gum: $CURRENT_GUM → $LATEST_GUM"
+          [ "$CURRENT_GPING" != "$LATEST_GPING" ] && UPDATES="$UPDATES\n- gping: $CURRENT_GPING → $LATEST_GPING"
+
+          if [ -n "$UPDATES" ]; then
+            echo "has_updates=true" >> $GITHUB_OUTPUT
+            echo "updates<<EOF" >> $GITHUB_OUTPUT
+            echo -e "$UPDATES" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+
+            # Save all versions for the update step
+            echo "latest_fzf=$LATEST_FZF" >> $GITHUB_OUTPUT
+            echo "latest_tmux=$LATEST_TMUX" >> $GITHUB_OUTPUT
+            echo "latest_btop=$LATEST_BTOP" >> $GITHUB_OUTPUT
+            echo "latest_lsd=$LATEST_LSD" >> $GITHUB_OUTPUT
+            echo "latest_delta=$LATEST_DELTA" >> $GITHUB_OUTPUT
+            echo "latest_zoxide=$LATEST_ZOXIDE" >> $GITHUB_OUTPUT
+            echo "latest_bat=$LATEST_BAT" >> $GITHUB_OUTPUT
+            echo "latest_starship=$LATEST_STARSHIP" >> $GITHUB_OUTPUT
+            echo "latest_fd=$LATEST_FD" >> $GITHUB_OUTPUT
+            echo "latest_rg=$LATEST_RG" >> $GITHUB_OUTPUT
+            echo "latest_direnv=$LATEST_DIRENV" >> $GITHUB_OUTPUT
+            echo "latest_dust=$LATEST_DUST" >> $GITHUB_OUTPUT
+            echo "latest_gdu=$LATEST_GDU" >> $GITHUB_OUTPUT
+            echo "latest_svu=$LATEST_SVU" >> $GITHUB_OUTPUT
+            echo "latest_gum=$LATEST_GUM" >> $GITHUB_OUTPUT
+            echo "latest_gping=$LATEST_GPING" >> $GITHUB_OUTPUT
+
+            echo "✅ Updates available:"
+            echo -e "$UPDATES"
+          else
+            echo "has_updates=false" >> $GITHUB_OUTPUT
+            echo "ℹ️  All binaries are up to date"
+          fi
+
+      - name: Update Makefile versions
+        if: steps.check.outputs.has_updates == 'true'
+        run: |
+          set -e
+
+          # Update each version in Makefile
+          [ -n "${{ steps.check.outputs.latest_fzf }}" ] && sed -i "s/^FZF_VERSION := .*/FZF_VERSION := ${{ steps.check.outputs.latest_fzf }}/" Makefile
+          [ -n "${{ steps.check.outputs.latest_tmux }}" ] && sed -i "s/^TMUX_VERSION := .*/TMUX_VERSION := ${{ steps.check.outputs.latest_tmux }}/" Makefile
+          [ -n "${{ steps.check.outputs.latest_btop }}" ] && sed -i "s/^BTOP_VERSION := .*/BTOP_VERSION := ${{ steps.check.outputs.latest_btop }}/" Makefile
+          [ -n "${{ steps.check.outputs.latest_lsd }}" ] && sed -i "s/^LSD_VERSION := .*/LSD_VERSION := ${{ steps.check.outputs.latest_lsd }}/" Makefile
+          [ -n "${{ steps.check.outputs.latest_delta }}" ] && sed -i "s/^DELTA_VERSION := .*/DELTA_VERSION := ${{ steps.check.outputs.latest_delta }}/" Makefile
+          [ -n "${{ steps.check.outputs.latest_zoxide }}" ] && sed -i "s/^ZOXIDE_VERSION := .*/ZOXIDE_VERSION := ${{ steps.check.outputs.latest_zoxide }}/" Makefile
+          [ -n "${{ steps.check.outputs.latest_bat }}" ] && sed -i "s/^BAT_VERSION := .*/BAT_VERSION := ${{ steps.check.outputs.latest_bat }}/" Makefile
+          [ -n "${{ steps.check.outputs.latest_starship }}" ] && sed -i "s/^STARSHIP_VERSION := .*/STARSHIP_VERSION := ${{ steps.check.outputs.latest_starship }}/" Makefile
+          [ -n "${{ steps.check.outputs.latest_fd }}" ] && sed -i "s/^FD_VERSION := .*/FD_VERSION := ${{ steps.check.outputs.latest_fd }}/" Makefile
+          [ -n "${{ steps.check.outputs.latest_rg }}" ] && sed -i "s/^RG_VERSION := .*/RG_VERSION := ${{ steps.check.outputs.latest_rg }}/" Makefile
+          [ -n "${{ steps.check.outputs.latest_direnv }}" ] && sed -i "s/^DIRENV_VERSION := .*/DIRENV_VERSION := ${{ steps.check.outputs.latest_direnv }}/" Makefile
+          [ -n "${{ steps.check.outputs.latest_dust }}" ] && sed -i "s/^DUST_VERSION := .*/DUST_VERSION := ${{ steps.check.outputs.latest_dust }}/" Makefile
+          [ -n "${{ steps.check.outputs.latest_gdu }}" ] && sed -i "s/^GDU_VERSION := .*/GDU_VERSION := ${{ steps.check.outputs.latest_gdu }}/" Makefile
+          [ -n "${{ steps.check.outputs.latest_svu }}" ] && sed -i "s/^SVU_VERSION := .*/SVU_VERSION := ${{ steps.check.outputs.latest_svu }}/" Makefile
+          [ -n "${{ steps.check.outputs.latest_gum }}" ] && sed -i "s/^GUM_VERSION := .*/GUM_VERSION := ${{ steps.check.outputs.latest_gum }}/" Makefile
+          [ -n "${{ steps.check.outputs.latest_gping }}" ] && sed -i "s/^GPING_VERSION := .*/GPING_VERSION := ${{ steps.check.outputs.latest_gping }}/" Makefile
+
+          echo "✅ Makefile updated with new versions"
+
+      - name: Create Pull Request
+        if: steps.check.outputs.has_updates == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: Update binary versions"
+          title: "chore: Update binary versions"
+          body: |
+            ## Binary Version Updates
+
+            This PR updates the following binaries to their latest releases:
+
+            ${{ steps.check.outputs.updates }}
+
+            ---
+
+            🤖 Auto-generated by version-checker workflow
+          branch: auto-update-versions
+          delete-branch: true
+          labels: |
+            dependencies
+            automated

@@ -1,0 +1,61 @@
+#!/bin/bash
+# Setup LazyVim environment for testing
+# Usage: setup-lazyvim-env <app_name>
+
+set -e
+
+app_name="$1"
+if [ -z "$app_name" ]; then
+    echo "Usage: setup-lazyvim-env <app_name>"
+    exit 1
+fi
+
+echo "ℹ Setting up Neovim environment for $app_name..."
+
+# Create config directory
+config_dir="$HOME/.config/$app_name"
+mkdir -p "$config_dir"
+echo "✓ Created config directory: $config_dir"
+
+# Clone lazy.nvim
+lazy_dir="$HOME/.local/share/$app_name/lazy/lazy.nvim"
+if [ ! -d "$lazy_dir" ]; then
+    echo "ℹ Cloning lazy.nvim..."
+    git clone https://github.com/folke/lazy.nvim.git "$lazy_dir"
+    echo "✓ lazy.nvim cloned"
+else
+    echo "✓ lazy.nvim already exists"
+fi
+
+# Create minimal init.lua
+cat > "$config_dir/init.lua" << 'EOF'
+-- Minimal LazyVim setup for testing
+local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
+if not vim.loop.fs_stat(lazypath) then
+  vim.fn.system({
+    "git",
+    "clone",
+    "--filter=blob:none",
+    "https://github.com/folke/lazy.nvim.git",
+    "--branch=stable",
+    lazypath,
+  })
+end
+vim.opt.rtp:prepend(lazypath)
+
+require("lazy").setup({
+  spec = {
+    -- Add LazyVim starter or your plugins here
+  },
+  install = {
+    colorscheme = { "habamax" },
+  },
+  checker = {
+    enabled = true,
+  },
+})
+EOF
+
+echo "✓ Created minimal init.lua for $app_name"
+echo "🎯 IMPORTANT: Use NVIM_APPNAME=$app_name when running nvim commands!"
+echo "   Example: NVIM_APPNAME=$app_name nvim --headless '+Lazy sync' +qa"
