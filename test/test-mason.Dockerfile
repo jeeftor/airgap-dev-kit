@@ -63,16 +63,12 @@ RUN cd /tmp/neovim  && make install && \
 # Create working directory
 WORKDIR /workspace
 
-# Copy test scripts and Mason configs
-COPY test/scripts/ /opt/test-scripts/
-COPY .github/workflows/mason-config.lua /opt/test-configs/
-COPY .github/workflows/mason-test-config.lua /opt/test-configs/
-COPY .github/workflows/mason-simple-config.lua /opt/test-configs/
-COPY .github/workflows/mason-dev-config.lua /opt/test-configs/
-COPY .github/workflows/lazyvim-mason-plugins.lua /opt/test-configs/
-RUN chmod +x /opt/test-scripts/* && \
-    echo 'export PATH="/opt/test-scripts:$PATH"' >> /root/.bashrc && \
-    echo 'export PATH="/opt/test-scripts:$PATH"' >> /root/.profile
+# Copy DRY system files
+COPY config/plugin-manifest.lua /workspace/config/
+COPY scripts/install-from-manifest.sh /workspace/scripts/
+COPY test/test-with-manifest.sh /workspace/test/
+RUN chmod +x /workspace/scripts/install-from-manifest.sh && \
+    chmod +x /workspace/test/test-with-manifest.sh
 
 # Verify installations and create symlinks (layer 4 - can change)
 RUN nvim --version && \
