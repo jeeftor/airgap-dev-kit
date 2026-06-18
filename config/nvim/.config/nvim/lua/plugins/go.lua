@@ -53,7 +53,11 @@ return {
               completeUnimported = true,
               deepCompletion = true,
               -- Formatting
-              ui.diagnostic.staticcheck = true,
+              ui = {
+                diagnostic = {
+                  staticcheck = true,
+                },
+              },
               -- Experimental features
               experimentalPostfixCompletions = true,
               experimentalWorkspaceModule = true,

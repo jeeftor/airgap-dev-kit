@@ -436,11 +436,10 @@ package: version-file
 	@echo "Building tarball: airgap-dev-kit.tar.gz"
 	@# Ship the full kit so the air-gapped machine has Makefile, scripts, docs, etc.
 	@# Exclude only build artifacts and VCS/tool-specific dirs.
-	@COPYFILE_DISABLE=1 tar --no-xattrs --exclude='*.tar.gz' \
+	@COPYFILE_DISABLE=1 tar --no-xattrs \
 		--exclude='.git' --exclude='.claude' --exclude='.devin' \
 		--exclude='.github' --exclude='test' \
 		--exclude='nvim-linux-x86_64' --exclude='nvim-linux64' \
-		--exclude='offline-packages/lazy-plugins.tar.gz' \
 		-czf airgap-dev-kit.tar.gz \
 		install.sh uninstall.sh Makefile VERSION \
 		README.md CHANGES.md CLAUDE.md \
@@ -448,6 +447,8 @@ package: version-file
 		check-neovim.sh install-mason-lsp.sh shell-setup-example.sh \
 		scripts/ docs/ \
 		offline-packages/linux/ \
+		$$( [ -f offline-packages/lazy-plugins.tar.gz ] && echo offline-packages/lazy-plugins.tar.gz ) \
+		$$( [ -f offline-packages/mason-lsp.tar.gz ] && echo offline-packages/mason-lsp.tar.gz ) \
 		config/ \
 		$$( [ -d fonts ] && echo fonts/ )
 	@echo ""
@@ -473,14 +474,19 @@ package-cli: version-file
 		.package-cli-staging/airgap-dev-kit/
 	@cp -R scripts docs config .package-cli-staging/airgap-dev-kit/
 	@cp -R offline-packages/linux .package-cli-staging/airgap-dev-kit/offline-packages/
+	@if [ -f offline-packages/lazy-plugins.tar.gz ]; then \
+		cp offline-packages/lazy-plugins.tar.gz .package-cli-staging/airgap-dev-kit/offline-packages/; \
+	fi
+	@if [ -f offline-packages/mason-lsp.tar.gz ]; then \
+		cp offline-packages/mason-lsp.tar.gz .package-cli-staging/airgap-dev-kit/offline-packages/; \
+	fi
 	@rm -f .package-cli-staging/airgap-dev-kit/offline-packages/linux/wezterm.AppImage
-	@COPYFILE_DISABLE=1 tar --no-xattrs --exclude='*.tar.gz' \
+	@COPYFILE_DISABLE=1 tar --no-xattrs \
 		--exclude='.git' --exclude='.claude' --exclude='.devin' \
 		--exclude='.github' --exclude='test' \
 		--exclude='fonts' \
 		--exclude='offline-packages/linux/wezterm.AppImage' \
 		--exclude='nvim-linux-x86_64' --exclude='nvim-linux64' \
-		--exclude='offline-packages/lazy-plugins.tar.gz' \
 		-czf airgap-dev-kit-cli.tar.gz -C .package-cli-staging airgap-dev-kit
 	@rm -rf .package-cli-staging
 	@rm -f VERSION
@@ -499,11 +505,10 @@ package-with-config: verify version-file
 		mkdir -p config/.config; \
 		echo "# Add your dotfiles here for GNU Stow" > config/README.md; \
 	fi
-	@COPYFILE_DISABLE=1 tar --no-xattrs --exclude='*.tar.gz' \
+	@COPYFILE_DISABLE=1 tar --no-xattrs \
 		--exclude='.git' --exclude='.claude' --exclude='.devin' \
 		--exclude='.github' --exclude='test' \
 		--exclude='nvim-linux-x86_64' --exclude='nvim-linux64' \
-		--exclude='offline-packages/lazy-plugins.tar.gz' \
 		-czf airgap-dev-kit-full.tar.gz \
 		install.sh uninstall.sh Makefile VERSION \
 		README.md CHANGES.md CLAUDE.md \
@@ -511,6 +516,8 @@ package-with-config: verify version-file
 		check-neovim.sh install-mason-lsp.sh shell-setup-example.sh \
 		scripts/ docs/ \
 		offline-packages/linux/ \
+		$$( [ -f offline-packages/lazy-plugins.tar.gz ] && echo offline-packages/lazy-plugins.tar.gz ) \
+		$$( [ -f offline-packages/mason-lsp.tar.gz ] && echo offline-packages/mason-lsp.tar.gz ) \
 		fonts/ \
 		config/
 	@ls -lh airgap-dev-kit-full.tar.gz
@@ -522,6 +529,7 @@ docker-test: package
 	@bash scripts/docker-smoke-test airgap-dev-kit.tar.gz
 
 test-cli-package:
+	@bash test/scripts/test-nvim-config-syntax.sh
 	@bash test/scripts/test-cli-only-package.sh
 	@bash test/scripts/test-busy-binary-replace.sh
 	@bash test/scripts/test-config-idempotent.sh

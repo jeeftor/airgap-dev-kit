@@ -689,6 +689,14 @@ if [[ -f offline-packages/lazy-plugins.tar.gz ]]; then
   fi
 fi
 
+if [[ -f offline-packages/mason-lsp.tar.gz ]]; then
+  echo "Installing Mason LSP servers..."
+  mkdir -p ~/.local/share/nvim
+  tar -xzf offline-packages/mason-lsp.tar.gz -C ~/.local/share/nvim/
+  log_install "DIRECTORY" "$HOME/.local/share/nvim/mason" "" ""
+  echo "✓ Mason LSP servers installed"
+fi
+
 # Install configs
 echo ""
 echo "Installing configuration files..."

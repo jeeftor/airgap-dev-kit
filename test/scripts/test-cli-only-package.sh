@@ -3,9 +3,33 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TMP_DIR="$(mktemp -d)"
-trap 'rm -rf "$TMP_DIR"' EXIT
+CREATED_LAZY_ARCHIVE=0
+CREATED_MASON_ARCHIVE=0
+
+cleanup() {
+  rm -rf "$TMP_DIR"
+  if [[ "$CREATED_LAZY_ARCHIVE" -eq 1 ]]; then
+    rm -f offline-packages/lazy-plugins.tar.gz
+  fi
+  if [[ "$CREATED_MASON_ARCHIVE" -eq 1 ]]; then
+    rm -f offline-packages/mason-lsp.tar.gz
+  fi
+}
+trap cleanup EXIT
 
 cd "$ROOT_DIR"
+
+if [[ ! -f offline-packages/lazy-plugins.tar.gz ]]; then
+  mkdir -p "$TMP_DIR/lazy/lazy/lazy.nvim"
+  tar -czf offline-packages/lazy-plugins.tar.gz -C "$TMP_DIR/lazy" lazy
+  CREATED_LAZY_ARCHIVE=1
+fi
+
+if [[ ! -f offline-packages/mason-lsp.tar.gz ]]; then
+  mkdir -p "$TMP_DIR/mason/mason/packages/gopls"
+  tar -czf offline-packages/mason-lsp.tar.gz -C "$TMP_DIR/mason" mason
+  CREATED_MASON_ARCHIVE=1
+fi
 
 make --no-print-directory package-cli >/tmp/airgap-package-cli.out
 
@@ -15,6 +39,8 @@ tar -tzf airgap-dev-kit-cli.tar.gz > "$TMP_DIR/package-files.txt"
 grep -q '^airgap-dev-kit/install.sh$' "$TMP_DIR/package-files.txt"
 grep -q '^airgap-dev-kit/\.airgap-cli-only$' "$TMP_DIR/package-files.txt"
 grep -q '^airgap-dev-kit/offline-packages/linux/tmux-3.4-static-x86_64$' "$TMP_DIR/package-files.txt"
+grep -q '^airgap-dev-kit/offline-packages/lazy-plugins.tar.gz$' "$TMP_DIR/package-files.txt"
+grep -q '^airgap-dev-kit/offline-packages/mason-lsp.tar.gz$' "$TMP_DIR/package-files.txt"
 
 if grep -q '^airgap-dev-kit/offline-packages/linux/wezterm.AppImage$' "$TMP_DIR/package-files.txt"; then
   echo "CLI-only package must not include WezTerm" >&2

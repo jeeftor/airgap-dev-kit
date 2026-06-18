@@ -76,7 +76,11 @@ return {
               usePlaceholders = true,
               completeUnimported = true,
               deepCompletion = true,
-              ui.diagnostic.staticcheck = true,
+              ui = {
+                diagnostic = {
+                  staticcheck = true,
+                },
+              },
               experimentalPostfixCompletions = true,
               experimentalWorkspaceModule = true,
             },
