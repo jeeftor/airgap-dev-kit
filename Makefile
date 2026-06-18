@@ -1,4 +1,4 @@
-.PHONY: help update verify package package-with-config docker-test check-updates check-updates-strict clean clean-all install sync-nvim-config version-file
+.PHONY: help update verify package package-with-config docker-test test-update-tools check-updates check-updates-strict clean clean-all install sync-nvim-config version-file
 
 # Version variables - update these when new releases are available
 WEZTERM_VERSION := 20230712-072601-f4abf8fd
@@ -30,6 +30,7 @@ help:
 	@echo "make verify            - Verify all binaries are present and valid"
 	@echo "make package           - Create tarball for offline deployment"
 	@echo "make docker-test       - Package and smoke test install/remove in Docker"
+	@echo "make test-update-tools - Test automated version-update planning"
 	@echo "make check-updates     - Check for newer tool releases (run on online machine)"
 	@echo "make check-updates-strict - Check releases and fail if updates are available"
 	@echo "make install           - Install on current machine (runs install.sh)"
@@ -482,6 +483,9 @@ package-with-config: verify version-file
 
 docker-test: package
 	@bash scripts/docker-smoke-test airgap-dev-kit.tar.gz
+
+test-update-tools:
+	@bash test/scripts/test-check-updates-json.sh
 
 install:
 	@echo "Installing Linux air-gap dev kit on current machine..."
