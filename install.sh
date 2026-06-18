@@ -94,6 +94,19 @@ log_install() {
   echo "$type|$path|$backup|$timestamp" >> "$INSTALL_LOG"
 }
 
+# Replace executables atomically so Linux can update a binary that is still
+# running. Directly copying over an active executable can fail with ETXTBSY.
+install_executable() {
+  local source_file="$1"
+  local dest_path="$2"
+  local tmp_path="${dest_path}.tmp.$$"
+
+  $USE_SUDO rm -f "$tmp_path"
+  $USE_SUDO cp "$source_file" "$tmp_path"
+  $USE_SUDO chmod +x "$tmp_path"
+  $USE_SUDO mv -f "$tmp_path" "$dest_path"
+}
+
 # Helper function to check if gum is available (for pretty TUI prompts)
 has_gum() {
   command -v gum &>/dev/null || [ -f "$PWD/offline-packages/linux/gum" ]
@@ -323,15 +336,13 @@ if [[ -f offline-packages/$OS/gum ]]; then
     if [[ "$existing_ver" == "$new_ver" ]]; then
       echo "✓ gum (already up-to-date: $existing_ver)"
     elif prompt_overwrite "gum" "$existing_ver" "$new_ver" "$BIN_DIR/gum"; then
-      $USE_SUDO cp offline-packages/$OS/gum "$BIN_DIR/"
-      $USE_SUDO chmod +x "$BIN_DIR/gum"
+      install_executable "offline-packages/$OS/gum" "$BIN_DIR/gum"
       echo "✓ gum updated ($existing_ver → $new_ver)"
     else
       echo "⊘ Skipped gum"
     fi
   else
-    $USE_SUDO cp offline-packages/$OS/gum "$BIN_DIR/"
-    $USE_SUDO chmod +x "$BIN_DIR/gum"
+    install_executable "offline-packages/$OS/gum" "$BIN_DIR/gum"
     echo "✓ gum installed"
     log_install "BINARY" "$BIN_DIR/gum" "" ""
   fi
@@ -393,8 +404,7 @@ install_binary() {
       backup_path="${dest_path}.backup-$(date +%Y%m%d-%H%M%S)"
       $USE_SUDO cp "$dest_path" "$backup_path"
       
-      $USE_SUDO cp "$source_file" "$dest_path"
-      $USE_SUDO chmod +x "$dest_path"
+      install_executable "$source_file" "$dest_path"
       echo "✓ $tool_name updated ($existing_ver → $new_ver)"
       log_install "BINARY" "$dest_path" "$backup_path" ""
     else
@@ -405,8 +415,7 @@ install_binary() {
     if [[ "$DRY_RUN" == true ]]; then
       echo "DRY RUN: Would install $tool_name to $dest_path"
     else
-      $USE_SUDO cp "$source_file" "$dest_path"
-      $USE_SUDO chmod +x "$dest_path"
+      install_executable "$source_file" "$dest_path"
       echo "✓ $tool_name installed"
       log_install "BINARY" "$dest_path" "" ""
     fi
@@ -597,13 +606,11 @@ if [[ $OS == "linux" ]]; then
         if [[ -f "$BIN_DIR/$dest" ]]; then
           backup_path="$BIN_DIR/$dest.backup-$(date +%Y%m%d-%H%M%S)"
           $USE_SUDO cp "$BIN_DIR/$dest" "$backup_path"
-          $USE_SUDO cp "$source" "$BIN_DIR/$dest"
-          $USE_SUDO chmod +x "$BIN_DIR/$dest"
+          install_executable "$source" "$BIN_DIR/$dest"
           echo "✓ $name installed"
           log_install "BINARY" "$BIN_DIR/$dest" "$backup_path" ""
         else
-          $USE_SUDO cp "$source" "$BIN_DIR/$dest"
-          $USE_SUDO chmod +x "$BIN_DIR/$dest"
+          install_executable "$source" "$BIN_DIR/$dest"
           echo "✓ $name installed"
           log_install "BINARY" "$BIN_DIR/$dest" "" ""
         fi
@@ -627,8 +634,7 @@ if [[ $OS == "linux" ]]; then
       if [[ "$existing_ver" == "$new_ver" ]]; then
         echo "✓ Neovim (already up-to-date: $existing_ver)"
       elif prompt_overwrite "Neovim" "$existing_ver" "$new_ver" "$BIN_DIR/nvim"; then
-        $USE_SUDO cp offline-packages/linux/nvim-static-x86_64 "$BIN_DIR/nvim"
-        $USE_SUDO chmod +x "$BIN_DIR/nvim"
+        install_executable "offline-packages/linux/nvim-static-x86_64" "$BIN_DIR/nvim"
         log_install "BINARY" "$BIN_DIR/nvim" "" ""
         echo "✓ Neovim updated ($existing_ver → $new_ver)"
       else
@@ -636,8 +642,7 @@ if [[ $OS == "linux" ]]; then
       fi
     else
       # Fresh install
-      $USE_SUDO cp offline-packages/linux/nvim-static-x86_64 "$BIN_DIR/nvim"
-      $USE_SUDO chmod +x "$BIN_DIR/nvim"
+      install_executable "offline-packages/linux/nvim-static-x86_64" "$BIN_DIR/nvim"
       log_install "BINARY" "$BIN_DIR/nvim" "" ""
       echo "✓ Neovim installed"
     fi

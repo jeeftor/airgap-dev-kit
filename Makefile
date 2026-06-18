@@ -523,6 +523,7 @@ docker-test: package
 
 test-cli-package:
 	@bash test/scripts/test-cli-only-package.sh
+	@bash test/scripts/test-busy-binary-replace.sh
 
 test-update-tools:
 	@bash test/scripts/test-check-updates-json.sh
