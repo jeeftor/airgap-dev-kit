@@ -791,8 +791,11 @@ else
               mkdir -p "$dest"
             fi
           elif [[ -f "$entry" ]]; then
-            # Backup existing file
             if [[ -e "$dest" ]]; then
+              if cmp -s "$entry" "$dest"; then
+                log_install "CONFIG" "$dest" "" ""
+                continue
+              fi
               backup_path="${dest}.backup-$(date +%Y%m%d-%H%M%S)"
               mv "$dest" "$backup_path"
               log_install "CONFIG" "$dest" "$backup_path" ""
@@ -1034,9 +1037,9 @@ add_to_shell_rc() {
 
 # Detect user's shell
 DETECTED_SHELLS=()
-if [[ "$CLI_ONLY" == true && "${AIRGAP_DEV_KIT_CONFIGURE_SHELLS:-}" != "1" ]]; then
+if [[ "$CLI_ONLY" == true && "${AIRGAP_DEV_KIT_CONFIGURE_SHELLS:-}" == "0" ]]; then
   echo "CLI-only mode: skipped automatic shell configuration."
-  echo "Set AIRGAP_DEV_KIT_CONFIGURE_SHELLS=1 to opt in."
+  echo "Unset AIRGAP_DEV_KIT_CONFIGURE_SHELLS or set it to 1 to enable shell setup."
 else
 [[ -f "$HOME/.bashrc" ]] && DETECTED_SHELLS+=("$HOME/.bashrc")
 [[ -f "$HOME/.zshrc" ]] && DETECTED_SHELLS+=("$HOME/.zshrc")
@@ -1076,7 +1079,16 @@ else
   done
   echo ""
 
-  if can_use_gum_prompts && [[ -f "$BIN_DIR/gum" ]]; then
+  if [[ "$CLI_ONLY" == true ]]; then
+    if is_interactive || [[ "${AIRGAP_DEV_KIT_CONFIGURE_SHELLS:-}" == "1" ]]; then
+      echo "CLI-only mode: configuring detected shells automatically."
+    else
+      echo ""
+      echo "Skipped automatic shell configuration in non-interactive CLI-only mode."
+      echo "Set AIRGAP_DEV_KIT_CONFIGURE_SHELLS=1 to opt in."
+      DETECTED_SHELLS=()
+    fi
+  elif can_use_gum_prompts && [[ -f "$BIN_DIR/gum" ]]; then
     if ! "$BIN_DIR"/gum confirm "Configure shells automatically?"; then
       echo ""
       echo "Skipped automatic shell configuration."
