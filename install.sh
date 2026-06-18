@@ -1315,12 +1315,10 @@ if [[ ${#SHELL_CONFIG_ITEMS[@]} -gt 0 ]]; then
     "$BIN_DIR"/gum style --foreground 51 --bold "1. Restart your terminal (recommended)"
     "$BIN_DIR"/gum style --foreground 240 "   Close and reopen your terminal window"
     echo ""
-    "$BIN_DIR"/gum style --foreground 51 --bold "2. Source your shell config:"
-    if [[ "$SHELL_TYPE" == "zsh" ]]; then
-      "$BIN_DIR"/gum style --foreground 42 "   source ~/.zshrc"
-    else
-      "$BIN_DIR"/gum style --foreground 42 "   source ~/.bashrc"
-    fi
+    "$BIN_DIR"/gum style --foreground 51 --bold "2. Source only the config for your current shell:"
+    "$BIN_DIR"/gum style --foreground 42 "   bash: source ~/.bashrc"
+    "$BIN_DIR"/gum style --foreground 42 "   zsh:  source ~/.zshrc"
+    "$BIN_DIR"/gum style --foreground 240 "   Do not source ~/.zshrc from bash."
     echo ""
     "$BIN_DIR"/gum style --border rounded --border-foreground 212 --padding "0 2" --bold "🚀 Enjoy your new development environment!"
     echo ""
@@ -1334,12 +1332,10 @@ if [[ ${#SHELL_CONFIG_ITEMS[@]} -gt 0 ]]; then
     echo -e "  ${BOLD}${CYAN}1.${RESET} ${BOLD}Restart your terminal${RESET} ${DIM}(recommended)${RESET}"
     echo -e "     ${DIM}Close and reopen your terminal window${RESET}"
     echo ""
-    echo -e "  ${BOLD}${CYAN}2.${RESET} ${BOLD}Source your shell config:${RESET}"
-    if [[ "$SHELL_TYPE" == "zsh" ]]; then
-      echo -e "     ${GREEN}source ~/.zshrc${RESET}"
-    else
-      echo -e "     ${GREEN}source ~/.bashrc${RESET}"
-    fi
+    echo -e "  ${BOLD}${CYAN}2.${RESET} ${BOLD}Source only the config for your current shell:${RESET}"
+    echo -e "     ${GREEN}bash: source ~/.bashrc${RESET}"
+    echo -e "     ${GREEN}zsh:  source ~/.zshrc${RESET}"
+    echo -e "     ${DIM}Do not source ~/.zshrc from bash.${RESET}"
     echo ""
     echo -e "${BOLD}${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
     echo -e "${BOLD}${GREEN}🚀 Enjoy your new development environment!${RESET}"

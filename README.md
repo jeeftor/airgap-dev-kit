@@ -334,9 +334,10 @@ CLI-only installs do not create `~/.local/share/fonts/` from this kit and do not
 
 **Binaries not found after user-local install:**
 ```bash
-# Add to ~/.bashrc or ~/.zshrc
+# Add to the RC file for your shell
 export PATH="$HOME/.local/bin:$PATH"
-source ~/.bashrc  # or ~/.zshrc
+source ~/.bashrc  # bash
+source ~/.zshrc   # zsh only; do not run this from bash
 
 # Or if you used ~/bin instead:
 export PATH="$HOME/bin:$PATH"
