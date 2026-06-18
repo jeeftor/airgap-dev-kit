@@ -160,7 +160,7 @@ jobs:
 
           local packages = {
             "lua-language-server", "pyright", "typescript-language-server",
-            "bash-language-server", "vscode-langservers-extracted",
+            "bash-language-server", "json-lsp",
             "yaml-language-server", "gopls", "rust-analyzer", "clangd",
             "stylua", "black", "prettier", "shfmt",
             "shellcheck", "eslint_d", "flake8"

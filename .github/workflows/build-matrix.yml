@@ -73,7 +73,7 @@ jobs:
           nvim --headless \
             "+MasonInstall lua-language-server" \
             "+MasonInstall bash-language-server" \
-            "+MasonInstall vscode-langservers-extracted" \
+            "+MasonInstall json-lsp" \
             "+MasonInstall yaml-language-server" \
             "+MasonInstall marksman" \
             +qa
