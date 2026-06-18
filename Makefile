@@ -486,6 +486,7 @@ docker-test: package
 
 test-update-tools:
 	@bash test/scripts/test-check-updates-json.sh
+	@bash test/scripts/test-close-superseded-update-prs.sh
 
 install:
 	@echo "Installing Linux air-gap dev kit on current machine..."
