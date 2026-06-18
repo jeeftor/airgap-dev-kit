@@ -1080,13 +1080,22 @@ else
   echo ""
 
   if [[ "$CLI_ONLY" == true ]]; then
-    if is_interactive || [[ "${AIRGAP_DEV_KIT_CONFIGURE_SHELLS:-}" == "1" ]]; then
-      echo "CLI-only mode: configuring detected shells automatically."
-    else
+    if [[ "${AIRGAP_DEV_KIT_CONFIGURE_SHELLS:-}" == "1" ]]; then
+      echo "Configuring shells automatically because AIRGAP_DEV_KIT_CONFIGURE_SHELLS=1."
+    elif ! is_interactive; then
       echo ""
       echo "Skipped automatic shell configuration in non-interactive CLI-only mode."
       echo "Set AIRGAP_DEV_KIT_CONFIGURE_SHELLS=1 to opt in."
       DETECTED_SHELLS=()
+    else
+      read -p "Patch shell RC files for Starship, zoxide, fzf, and PATH? [Y/n]: " -n 1 -r
+      echo ""
+      if [[ ! $REPLY =~ ^[Yy]$ ]] && [[ -n $REPLY ]]; then
+        echo ""
+        echo "Skipped automatic shell configuration."
+        echo "See shell-setup-example.sh for manual setup instructions."
+        DETECTED_SHELLS=()
+      fi
     fi
   elif can_use_gum_prompts && [[ -f "$BIN_DIR/gum" ]]; then
     if ! "$BIN_DIR"/gum confirm "Configure shells automatically?"; then

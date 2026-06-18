@@ -34,7 +34,7 @@ wget -qO- https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/air
 curl -L https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/airgap-dev-kit-cli.tar.gz | tar -xz && cd airgap-dev-kit && ./install.sh
 ```
 
-The CLI-only package automatically runs in CLI-only mode. It skips WezTerm, skips font installation, disables GUI prompts, and configures detected interactive shells for Starship, zoxide, and fzf. Set `AIRGAP_DEV_KIT_CONFIGURE_SHELLS=0` to skip shell RC edits, or `AIRGAP_DEV_KIT_CONFIGURE_SHELLS=1` to force shell setup in non-interactive installs.
+The CLI-only package automatically runs in CLI-only mode. It skips WezTerm, skips font installation, disables GUI prompts, and asks before patching detected shell RC files for Starship, zoxide, fzf, and PATH. Set `AIRGAP_DEV_KIT_CONFIGURE_SHELLS=0` to skip shell RC edits, or `AIRGAP_DEV_KIT_CONFIGURE_SHELLS=1` to force shell setup in non-interactive installs.
 
 ### Traditional Install (with verification)
 
@@ -274,7 +274,7 @@ cp offline-packages/linux/your-tool ~/bin/
 5. **Installs plugins** - Extracts pre-downloaded Neovim plugins
 6. **Configures dotfiles** - Uses GNU Stow (if available) or direct copy
 7. **Installs fonts** - JetBrainsMono Nerd Font for icons in the full package only
-8. **Configures shell** - Optionally adds PATH and tool initialization to shell RC files; CLI-only packages configure interactive shells by default
+8. **Configures shell** - Optionally adds PATH and tool initialization to shell RC files; CLI-only packages prompt before patching interactive shells
 
 ### Directory Structure After Install
 
