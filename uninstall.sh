@@ -17,6 +17,23 @@ has_gum() {
   command -v gum &>/dev/null
 }
 
+can_use_gum_prompts() {
+  has_gum && [[ -t 0 && -t 1 ]]
+}
+
+confirm_prompt() {
+  local message="$1"
+  if can_use_gum_prompts; then
+    gum confirm "$message"
+    return
+  fi
+
+  local response
+  printf "%s [y/N]: " "$message"
+  read -r response || response=""
+  [[ "$response" =~ ^[Yy]$ ]]
+}
+
 # Check if we have an installation log
 if [[ -f "$INSTALL_LOG" ]]; then
   echo "✓ Found installation log: $INSTALL_LOG"
@@ -31,7 +48,8 @@ echo ""
 
 # Detect OS
 if [[ "$OSTYPE" == "darwin"* ]]; then
-  OS="macos"
+  echo "Error: macOS is not supported by this kit. This repository targets Linux installs."
+  exit 1
 else
   OS="linux"
 fi
@@ -46,8 +64,8 @@ parse_install_log() {
   fi
   
   # Extract metadata
-  BIN_DIR=$(grep "^METADATA|BIN_DIR=" "$INSTALL_LOG" | head -1 | cut -d'=' -f2)
-  USE_SUDO_ORIG=$(grep "^METADATA|USE_SUDO=" "$INSTALL_LOG" | head -1 | cut -d'=' -f2)
+  BIN_DIR=$(awk -F'[|=]' '$1 == "METADATA" && $2 == "BIN_DIR" { print $3; exit }' "$INSTALL_LOG")
+  USE_SUDO_ORIG=$(awk -F'[|=]' '$1 == "METADATA" && $2 == "USE_SUDO" { print $3; exit }' "$INSTALL_LOG")
   
   echo "Installation details from log:"
   echo "  Binary directory: $BIN_DIR"
@@ -86,7 +104,7 @@ fi
 
 # If still empty but we have a log with BIN_DIR, use that
 if [[ ${#INSTALL_LOCATIONS[@]} -eq 0 ]] && [[ "$USE_LOG" == true ]]; then
-  LOG_BIN_DIR=$(grep "^METADATA|BIN_DIR=" "$INSTALL_LOG" 2>/dev/null | head -1 | cut -d'=' -f2)
+  LOG_BIN_DIR=$(awk -F'[|=]' '$1 == "METADATA" && $2 == "BIN_DIR" { print $3; exit }' "$INSTALL_LOG" 2>/dev/null)
   if [[ -n "$LOG_BIN_DIR" && -d "$LOG_BIN_DIR" ]]; then
     INSTALL_LOCATIONS+=("$LOG_BIN_DIR")
     echo "  Using BIN_DIR from installation log: $LOG_BIN_DIR"
@@ -106,7 +124,7 @@ done
 echo ""
 
 # Warning prompt
-if has_gum; then
+if can_use_gum_prompts; then
   gum style --border double --border-foreground 196 --padding "1 2" --margin "1 0" \
     "⚠️  WARNING" \
     "" \
@@ -132,9 +150,7 @@ else
   echo "  • Fonts: JetBrainsMono Nerd Font"
   echo "  • Shell configurations (aliases and initializations)"
   echo ""
-  read -p "Continue with uninstallation? [y/N]: " -n 1 -r
-  echo
-  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+  if ! confirm_prompt "Continue with uninstallation?"; then
     echo "Uninstall cancelled."
     exit 0
   fi
@@ -234,15 +250,13 @@ fi
 
 # Remove WezTerm on macOS
 if [[ $OS == "macos" ]] && [[ -d "/Applications/WezTerm.app" ]]; then
-  if has_gum; then
+  if can_use_gum_prompts; then
     if gum confirm "Remove WezTerm.app from /Applications/?"; then
       rm -rf /Applications/WezTerm.app
       echo "  ✓ Removed WezTerm.app"
     fi
   else
-    read -p "Remove WezTerm.app from /Applications/? [y/N]: " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
+    if confirm_prompt "Remove WezTerm.app from /Applications/?"; then
       rm -rf /Applications/WezTerm.app
       echo "  ✓ Removed WezTerm.app"
     fi
@@ -271,7 +285,7 @@ if [[ "$USE_LOG" == true ]]; then
   while IFS='|' read -r type path backup timestamp; do
     if [[ "$type" == "CONFIG" ]]; then
       if [[ -e "$path" ]]; then
-        if has_gum; then
+        if can_use_gum_prompts; then
           if gum confirm "Remove config: $path?"; then
             rm -rf "$path"
             echo "  ✓ Removed $path"
@@ -280,9 +294,7 @@ if [[ "$USE_LOG" == true ]]; then
             fi
           fi
         else
-          read -p "Remove config: $path? [y/N]: " -n 1 -r
-          echo
-          if [[ $REPLY =~ ^[Yy]$ ]]; then
+          if confirm_prompt "Remove config: $path?"; then
             rm -rf "$path"
             echo "  ✓ Removed $path"
             if [[ -n "$backup" && -e "$backup" ]]; then
@@ -297,15 +309,13 @@ fi
 
 # Fallback: Remove common configs
 if [[ -d "$HOME/.config/nvim" ]]; then
-  if has_gum; then
+  if can_use_gum_prompts; then
     if gum confirm "Remove Neovim config (~/.config/nvim/)?"; then
       rm -rf "$HOME/.config/nvim"
       echo "  ✓ Removed ~/.config/nvim/"
     fi
   else
-    read -p "Remove Neovim config (~/.config/nvim/)? [y/N]: " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
+    if confirm_prompt "Remove Neovim config (~/.config/nvim/)?"; then
       rm -rf "$HOME/.config/nvim"
       echo "  ✓ Removed ~/.config/nvim/"
     fi
@@ -324,15 +334,13 @@ fi
 
 # Remove Neovim plugins and data
 if [[ -d "$HOME/.local/share/nvim" ]]; then
-  if has_gum; then
+  if can_use_gum_prompts; then
     if gum confirm "Remove Neovim plugins and data (~/.local/share/nvim/)?"; then
       rm -rf "$HOME/.local/share/nvim"
       echo "  ✓ Removed ~/.local/share/nvim/"
     fi
   else
-    read -p "Remove Neovim plugins and data (~/.local/share/nvim/)? [y/N]: " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
+    if confirm_prompt "Remove Neovim plugins and data (~/.local/share/nvim/)?"; then
       rm -rf "$HOME/.local/share/nvim"
       echo "  ✓ Removed ~/.local/share/nvim/"
     fi
@@ -341,26 +349,26 @@ fi
 
 # Remove fonts
 echo ""
-if has_gum; then
+if can_use_gum_prompts; then
   if gum confirm "Remove JetBrainsMono Nerd Font?"; then
     REMOVE_FONTS=true
   else
     REMOVE_FONTS=false
   fi
 else
-  read -p "Remove JetBrainsMono Nerd Font? [y/N]: " -n 1 -r
-  echo
-  if [[ $REPLY =~ ^[Yy]$ ]]; then
+  if confirm_prompt "Remove JetBrainsMono Nerd Font?"; then
     REMOVE_FONTS=true
   else
     REMOVE_FONTS=false
   fi
 fi
 
-if [[ "$REMOVE_FONTS" == true ]]; then
+  if [[ "$REMOVE_FONTS" == true ]]; then
   if [[ $OS == "linux" ]]; then
     rm -f "$HOME/.local/share/fonts/JetBrainsMono"*
-    fc-cache -fv > /dev/null 2>&1
+    if command -v fc-cache >/dev/null 2>&1; then
+      fc-cache -fv > /dev/null 2>&1
+    fi
     echo "  ✓ Removed JetBrainsMono fonts"
   else
     echo "  ℹ macOS fonts must be removed manually via Font Book"
@@ -417,7 +425,7 @@ echo ""
 # Offer to remove installation log
 if [[ "$USE_LOG" == true ]]; then
   echo "Installation log: $INSTALL_LOG"
-  if has_gum; then
+  if can_use_gum_prompts; then
     if gum confirm "Remove installation log?"; then
       rm -f "$INSTALL_LOG"
       echo "✓ Installation log removed"
@@ -425,9 +433,7 @@ if [[ "$USE_LOG" == true ]]; then
       echo "Installation log preserved for reference"
     fi
   else
-    read -p "Remove installation log? [y/N]: " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
+    if confirm_prompt "Remove installation log?"; then
       rm -f "$INSTALL_LOG"
       echo "✓ Installation log removed"
     else

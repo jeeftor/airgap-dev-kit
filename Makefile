@@ -1,4 +1,4 @@
-.PHONY: help update verify package package-with-config clean clean-all install sync-nvim-config version-file
+.PHONY: help update verify package package-with-config docker-test clean clean-all install sync-nvim-config version-file
 
 # Version variables - update these when new releases are available
 WEZTERM_VERSION := 20230712-072601-f4abf8fd
@@ -37,6 +37,7 @@ help:
 	@echo "make update            - Download all missing binaries"
 	@echo "make verify            - Verify all binaries are present and valid"
 	@echo "make package           - Create tarball for offline deployment"
+	@echo "make docker-test       - Package and smoke test install/remove in Docker"
 	@echo "make check-updates     - Check for newer tool releases (run on online machine)"
 	@echo "make install           - Install on current machine (runs install.sh)"
 	@echo "make sync              - Rsync repo to jstein@ai:~/airgap-dev-kit (for local testing)"
@@ -54,17 +55,14 @@ status:
 	@ls -lh offline-packages/linux/{wezterm.AppImage,tmux-3.4-static-x86_64,nvim-static-x86_64} 2>/dev/null | awk '{print $$5 "\t" $$9}' || echo "  Some core binaries missing"
 	@echo ""
 	@echo "CLI tools:"
-	@ls -lh offline-packages/linux/{fzf,fd,rg,bat,starship,btop,lsd,zoxide,delta,difft,gum,dust,gdu,mkcert,airgap-dev-kit} 2>/dev/null | awk '{print $$5 "\t" $$9}' || echo "  Some tools missing"
-	@echo ""
-	@echo "macOS binaries:"
-	@ls -lh offline-packages/macos/{WezTerm-macos.zip,nvim-macos-arm64.tar.gz} 2>/dev/null | awk '{print $$5 "\t" $$9}' || echo "  Some binaries missing"
+	@ls -lh offline-packages/linux/{fzf,fd,rg,bat,starship,btop,lsd,zoxide,delta,difft,gum,dust,gdu,mkcert,airgap-dev-kit,lazygit,jq,gping,svu,lua-language-server,shellcheck} 2>/dev/null | awk '{print $$5 "\t" $$9}' || echo "  Some tools missing"
 	@echo ""
 	@echo "Fonts:"
 	@ls -lh fonts/JetBrainsMono.zip 2>/dev/null | awk '{print $$5 "\t" $$9}' || echo "  Font missing"
 
-update: update-linux update-macos update-fonts
+update: update-linux update-fonts
 	@echo ""
-	@echo "✓ All binaries downloaded!"
+	@echo "✓ All Linux binaries downloaded!"
 	@echo "Run 'make verify' to check integrity"
 
 update-linux:
@@ -301,27 +299,9 @@ update-linux:
 	fi
 
 	@# airgap-dev-kit - CLI wrapper command
-	@if [ ! -f offline-packages/linux/airgap-dev-kit ]; then \
-		echo "  → airgap-dev-kit (CLI wrapper)..."; \
-		cp scripts/airgap-dev-kit offline-packages/linux/airgap-dev-kit; \
-		chmod +x offline-packages/linux/airgap-dev-kit; \
-	else \
-		echo "  ✓ airgap-dev-kit already present"; \
-	fi
-
-	@# stow - GNU Stow for dotfile management (Perl script, built from source)
-	@if [ ! -f offline-packages/linux/stow ] || [ $$(stat -f%z offline-packages/linux/stow 2>/dev/null || stat -c%s offline-packages/linux/stow 2>/dev/null) -lt 1000 ]; then \
-		echo "  → GNU Stow (dotfile manager)..."; \
-		mkdir -p /tmp/stow-src /tmp/stow-install; \
-		curl -fsSL "https://ftp.gnu.org/gnu/stow/stow-latest.tar.gz" | tar -xz -C /tmp/stow-src --strip-components=1; \
-		cd /tmp/stow-src && ./configure --prefix=/tmp/stow-install && make && make install; \
-		cp /tmp/stow-install/bin/stow offline-packages/linux/stow; \
-		cp /tmp/stow-install/bin/chkstow offline-packages/linux/chkstow 2>/dev/null || true; \
-		chmod +x offline-packages/linux/stow; \
-		rm -rf /tmp/stow-src /tmp/stow-install; \
-	else \
-		echo "  ✓ stow already present"; \
-	fi
+	@echo "  → airgap-dev-kit (CLI wrapper)..."; \
+	cp scripts/airgap-dev-kit offline-packages/linux/airgap-dev-kit; \
+	chmod +x offline-packages/linux/airgap-dev-kit
 
 	@# lazygit - Terminal UI for git
 	@if [ ! -f offline-packages/linux/lazygit ]; then \
@@ -654,18 +634,18 @@ verify:
 	if file offline-packages/linux/zoxide 2>/dev/null | grep -q "executable"; then echo "  ✓ zoxide"; else echo "  ✗ zoxide - missing or invalid"; FAIL=1; fi; \
 	if file offline-packages/linux/delta 2>/dev/null | grep -q "executable"; then echo "  ✓ delta"; else echo "  ✗ delta - missing or invalid"; FAIL=1; fi; \
 	if file offline-packages/linux/difft 2>/dev/null | grep -q "executable"; then echo "  ✓ difft"; else echo "  ✗ difft - missing or invalid"; FAIL=1; fi; \
-	if file offline-packages/linux/jq 2>/dev/null | grep -q "executable"; then echo "  ✓ jq"; else echo "  ✗ jq - missing or invalid"; FAIL=1; fi; \
 	if file offline-packages/linux/direnv 2>/dev/null | grep -q "executable"; then echo "  ✓ direnv"; else echo "  ✗ direnv - missing or invalid"; FAIL=1; fi; \
 	if file offline-packages/linux/dust 2>/dev/null | grep -q "executable"; then echo "  ✓ dust"; else echo "  ✗ dust - missing or invalid"; FAIL=1; fi; \
 	if file offline-packages/linux/gdu 2>/dev/null | grep -q "executable"; then echo "  ✓ gdu"; else echo "  ✗ gdu - missing or invalid"; FAIL=1; fi; \
 	if file offline-packages/linux/mkcert 2>/dev/null | grep -q "executable"; then echo "  ✓ mkcert"; else echo "  ✗ mkcert - missing or invalid"; FAIL=1; fi; \
+	if file offline-packages/linux/lazygit 2>/dev/null | grep -q "executable"; then echo "  ✓ lazygit"; else echo "  ✗ lazygit - missing or invalid"; FAIL=1; fi; \
+	if file offline-packages/linux/jq 2>/dev/null | grep -q "executable"; then echo "  ✓ jq"; else echo "  ✗ jq - missing or invalid"; FAIL=1; fi; \
+	if file offline-packages/linux/gping 2>/dev/null | grep -q "executable"; then echo "  ✓ gping"; else echo "  ✗ gping - missing or invalid"; FAIL=1; fi; \
+	if file offline-packages/linux/lua-language-server 2>/dev/null | grep -q "executable"; then echo "  ✓ lua-language-server"; else echo "  ✗ lua-language-server - missing or invalid"; FAIL=1; fi; \
+	if file offline-packages/linux/shellcheck 2>/dev/null | grep -q "executable"; then echo "  ✓ shellcheck"; else echo "  ✗ shellcheck - missing or invalid"; FAIL=1; fi; \
 	echo "  ⚠ gopls and other LSPs installed via Mason (not verified here)"; \
 	if file offline-packages/linux/airgap-dev-kit 2>/dev/null | grep -q "executable"; then echo "  ✓ airgap-dev-kit"; else echo "  ✗ airgap-dev-kit - missing or invalid"; FAIL=1; fi; \
 	if file offline-packages/linux/svu 2>/dev/null | grep -q "executable"; then echo "  ✓ svu"; else echo "  ✗ svu - missing or invalid"; FAIL=1; fi; \
-	echo ""; \
-	echo "macOS binaries:"; \
-	if file offline-packages/macos/WezTerm-macos.zip 2>/dev/null | grep -q "Zip\|archive"; then echo "  ✓ WezTerm-macos.zip"; else echo "  ✗ WezTerm-macos.zip - missing or invalid"; FAIL=1; fi; \
-	if file offline-packages/macos/nvim-macos-arm64.tar.gz 2>/dev/null | grep -q "gzip"; then echo "  ✓ nvim-macos-arm64.tar.gz"; else echo "  ✗ nvim-macos-arm64.tar.gz - missing or invalid"; FAIL=1; fi; \
 	echo ""; \
 	echo "Fonts:"; \
 	if file fonts/JetBrainsMono.zip 2>/dev/null | grep -q "Zip\|archive"; then echo "  ✓ JetBrainsMono.zip"; else echo "  ✗ JetBrainsMono.zip - missing or invalid"; FAIL=1; fi; \
@@ -695,7 +675,7 @@ package: version-file
 	@echo "Building tarball: airgap-dev-kit.tar.gz"
 	@# Ship the full kit so the air-gapped machine has Makefile, scripts, docs, etc.
 	@# Exclude only build artifacts and VCS/tool-specific dirs.
-	@tar --exclude='*.tar.gz' --exclude='*.zip' \
+	@COPYFILE_DISABLE=1 tar --no-xattrs --exclude='*.tar.gz' \
 		--exclude='.git' --exclude='.claude' --exclude='.devin' \
 		--exclude='.github' --exclude='test' \
 		--exclude='nvim-linux-x86_64' --exclude='nvim-linux64' \
@@ -706,7 +686,7 @@ package: version-file
 		STOW-BUNDLING.md INSTALLATION-TRACKING.md QUICK-START-FIXES.md TESTING.md \
 		check-neovim.sh install-mason-lsp.sh shell-setup-example.sh \
 		scripts/ docs/ \
-		offline-packages/ \
+		offline-packages/linux/ \
 		config/ \
 		$$( [ -d fonts ] && echo fonts/ )
 	@echo ""
@@ -714,7 +694,7 @@ package: version-file
 	@echo ""
 	@echo "✓ Package ready for deployment!"
 	@echo "  Transfer airgap-dev-kit.tar.gz to target machine"
-	@echo "  Extract: tar -xzf airgap-dev-kit.tar.gz"
+	@echo "  Extract: mkdir airgap-dev-kit && tar -xzf airgap-dev-kit.tar.gz -C airgap-dev-kit"
 	@echo "  Install: cd airgap-dev-kit && ./install.sh"
 	@rm -f VERSION
 
@@ -725,7 +705,7 @@ package-with-config: verify version-file
 		mkdir -p config/.config; \
 		echo "# Add your dotfiles here for GNU Stow" > config/README.md; \
 	fi
-	@tar --exclude='*.tar.gz' --exclude='*.zip' \
+	@COPYFILE_DISABLE=1 tar --no-xattrs --exclude='*.tar.gz' \
 		--exclude='.git' --exclude='.claude' --exclude='.devin' \
 		--exclude='.github' --exclude='test' \
 		--exclude='nvim-linux-x86_64' --exclude='nvim-linux64' \
@@ -736,13 +716,16 @@ package-with-config: verify version-file
 		STOW-BUNDLING.md INSTALLATION-TRACKING.md QUICK-START-FIXES.md TESTING.md \
 		check-neovim.sh install-mason-lsp.sh shell-setup-example.sh \
 		scripts/ docs/ \
-		offline-packages/ \
+		offline-packages/linux/ \
 		fonts/ \
 		config/
 	@ls -lh airgap-dev-kit-full.tar.gz
 	@echo ""
 	@echo "✓ Full package ready (includes config/)!"
 	@rm -f VERSION
+
+docker-test: package
+	@bash scripts/docker-smoke-test airgap-dev-kit.tar.gz
 
 install:
 	@echo "Installing on current machine ($(OS_TYPE))..."

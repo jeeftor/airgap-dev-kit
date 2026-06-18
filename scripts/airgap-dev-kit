@@ -19,7 +19,19 @@ COMMAND_NAME="airgap-dev-kit"
 
 # Detect installation directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INSTALL_LOG="$HOME/.airgap-dev-kit-install.log"
 KIT_DIR="$(dirname "$SCRIPT_DIR")"
+
+if [[ -f "$INSTALL_LOG" ]]; then
+    LOG_KIT_DIR=$(awk -F'[|=]' '$1 == "METADATA" && $2 == "KIT_DIR" { print $3; exit }' "$INSTALL_LOG")
+    if [[ -n "$LOG_KIT_DIR" && -f "$LOG_KIT_DIR/install.sh" ]]; then
+        KIT_DIR="$LOG_KIT_DIR"
+    fi
+fi
+
+if [[ ! -f "$KIT_DIR/install.sh" && -f "$PWD/install.sh" ]]; then
+    KIT_DIR="$PWD"
+fi
 
 # Load version if available
 if [[ -f "$KIT_DIR/VERSION" ]]; then
@@ -40,7 +52,8 @@ done
 # Detect OS for platform-specific behavior
 OS_TYPE=$(uname -s)
 if [[ "$OS_TYPE" == "Darwin" ]]; then
-    PLATFORM="macos"
+    echo -e "${RED}[ERROR]${NC} macOS is not supported by this kit. This repository targets Linux installs."
+    exit 1
 else
     PLATFORM="linux"
 fi
@@ -51,34 +64,53 @@ if command -v gum >/dev/null 2>&1; then
     GUM_AVAILABLE=true
 fi
 
+is_interactive() {
+    [[ -t 0 && -t 1 ]]
+}
+
+can_use_gum_prompts() {
+    [[ "$GUM_AVAILABLE" == true ]] && is_interactive
+}
+
+gum_command() {
+    local gum_path
+    gum_path=$(command -v gum 2>/dev/null || true)
+    [[ -n "$gum_path" && -x "$gum_path" ]] || return 1
+    printf '%s\n' "$gum_path"
+}
+
 # Function to print colored output
 print_status() {
-    if [[ "$GUM_AVAILABLE" == true ]]; then
-        gum style --foreground=green "✓ $1"
+    local gum_path
+    if [[ "$GUM_AVAILABLE" == true ]] && gum_path=$(gum_command); then
+        "$gum_path" style --foreground=green "✓ $1"
     else
         echo -e "${GREEN}[INFO]${NC} $1"
     fi
 }
 
 print_warning() {
-    if [[ "$GUM_AVAILABLE" == true ]]; then
-        gum style --foreground=yellow "⚠ $1"
+    local gum_path
+    if [[ "$GUM_AVAILABLE" == true ]] && gum_path=$(gum_command); then
+        "$gum_path" style --foreground=yellow "⚠ $1"
     else
         echo -e "${YELLOW}[WARN]${NC} $1"
     fi
 }
 
 print_error() {
-    if [[ "$GUM_AVAILABLE" == true ]]; then
-        gum style --foreground=red "✗ $1"
+    local gum_path
+    if [[ "$GUM_AVAILABLE" == true ]] && gum_path=$(gum_command); then
+        "$gum_path" style --foreground=red "✗ $1"
     else
         echo -e "${RED}[ERROR]${NC} $1"
     fi
 }
 
 print_header() {
-    if [[ "$GUM_AVAILABLE" == true ]]; then
-        gum style --foreground=blue --border=double --padding="1 2" --margin="1 0" "$1"
+    local gum_path
+    if [[ "$GUM_AVAILABLE" == true ]] && gum_path=$(gum_command); then
+        "$gum_path" style --foreground=blue --border=double --padding="1 2" --margin="1 0" "$1"
     else
         echo -e "${BLUE}$1${NC}"
     fi
@@ -90,7 +122,7 @@ show_progress() {
     local duration="${2:-3}"
     
     if [[ "$GUM_AVAILABLE" == true ]]; then
-        gum spin --spinner dot --title "$title" --sleep "$duration"
+        gum spin --spinner dot --title "$title" -- sleep "$duration"
     else
         echo "$title..."
         sleep "$duration"
@@ -101,7 +133,7 @@ show_progress() {
 confirm_action() {
     local message="$1"
     
-    if [[ "$GUM_AVAILABLE" == true ]]; then
+    if can_use_gum_prompts; then
         gum confirm "$message"
     else
         echo -n "$message (y/N): "
@@ -158,7 +190,7 @@ show_version() {
         gum style --foreground=212 "  Arch:" "$(uname -m)"
         gum style --foreground=212 "  Shell:" "$SHELL"
         
-        if [[ -f "$KIT_DIR/offline-packages" ]]; then
+        if [[ -d "$KIT_DIR/offline-packages" ]]; then
             gum style --foreground=212 "  Offline packages:" "Available"
         else
             gum style --foreground=212 "  Offline packages:" "Not found"
@@ -185,7 +217,7 @@ show_version() {
         echo "  Arch: $(uname -m)"
         echo "  Shell: $SHELL"
         
-        if [[ -f "$KIT_DIR/offline-packages" ]]; then
+        if [[ -d "$KIT_DIR/offline-packages" ]]; then
             echo "  Offline packages: Available"
         else
             echo "  Offline packages: Not found"
@@ -245,7 +277,7 @@ install_tools() {
 remove_installation() {
     print_header "Removing Air-Gap Dev Kit"
     
-    if [[ "$GUM_AVAILABLE" == true ]]; then
+    if can_use_gum_prompts; then
         gum style --foreground=red "⚠ This will completely remove the Air-Gap Dev Kit!"
         if ! confirm_action "Are you sure you want to continue?"; then
             print_warning "Removal cancelled."

@@ -32,8 +32,6 @@ else
   INFO='ℹ'
 fi
 
-echo "Air-Gap Dev Kit version installed: ${KIT_VERSION}"
-
 # Parse command line arguments
 DRY_RUN=false
 for arg in "$@"; do
@@ -91,6 +89,14 @@ has_gum() {
   command -v gum &>/dev/null || [ -f "$PWD/offline-packages/linux/gum" ] || [ -f "$PWD/offline-packages/macos/gum" ]
 }
 
+is_interactive() {
+  [[ -t 0 && -t 1 ]]
+}
+
+can_use_gum_prompts() {
+  has_gum && is_interactive
+}
+
 # Helper function to get version from binary
 get_version() {
   local binary="$1"
@@ -121,7 +127,7 @@ prompt_overwrite() {
     new_version="(version unknown)"
   fi
 
-  if has_gum; then
+  if can_use_gum_prompts; then
     # Use gum for pretty prompts if available
     local GUM="${BIN_DIR}/gum"
     [[ ! -f "$GUM" ]] && GUM="$PWD/offline-packages/$OS/gum"
@@ -138,6 +144,10 @@ prompt_overwrite() {
       return 1  # User said no
     fi
   else
+    if ! is_interactive; then
+      echo "Found existing $tool_name at $install_path; replacing non-interactively."
+      return 0
+    fi
     # Fallback to regular prompt
     echo ""
     echo "Found existing $tool_name:"
@@ -156,7 +166,8 @@ prompt_overwrite() {
 
 echo "Detecting OS..."
 if [[ "$OSTYPE" == "darwin"* ]]; then
-  OS="macos"
+  echo "Error: macOS is not supported by this kit. This repository targets Linux installs."
+  exit 1
 else
   OS="linux"
 fi
@@ -184,8 +195,8 @@ echo ""
 # Check if we're already root
 if [[ $EUID -eq 0 ]]; then
   echo "Note: Running as root, defaulting to system-wide install"
-  INSTALL_CHOICE="System-wide"
-elif command -v gum &> /dev/null; then
+  INSTALL_CHOICE="1"
+elif can_use_gum_prompts && command -v gum &> /dev/null; then
   # Use gum for a nice interactive prompt
   INSTALL_CHOICE=$(gum choose --header "Choose installation location:" \
     "System-wide (/usr/local/bin) - Available to all users, requires sudo" \
@@ -198,6 +209,9 @@ elif command -v gum &> /dev/null; then
     INSTALL_CHOICE="2"
   fi
 else
+  if ! is_interactive; then
+    INSTALL_CHOICE="2"
+  else
   # Fallback to basic prompt if gum not available
   echo "Choose installation location:"
   echo ""
@@ -217,6 +231,7 @@ else
   
   read -p "Install location [1=system-wide, 2=user-local]: " -n 1 -r INSTALL_CHOICE
   echo
+  fi
 fi
 
 # Default to user-local if no choice made
@@ -259,6 +274,7 @@ echo "Installing $OS binaries..."
 
 # Log installation metadata
 log_install "METADATA" "OS=$OS" "" ""
+log_install "METADATA" "KIT_DIR=$PWD" "" ""
 log_install "METADATA" "BIN_DIR=$BIN_DIR" "" ""
 log_install "METADATA" "USE_SUDO=$USE_SUDO" "" ""
 log_install "METADATA" "KIT_VERSION=$KIT_VERSION" "" ""
@@ -377,19 +393,24 @@ if [[ $OS == "linux" ]]; then
 
   # Ask about GUI/headless environment
   echo ""
-  if has_gum && [[ -f "$BIN_DIR/gum" ]]; then
+  if can_use_gum_prompts && [[ -f "$BIN_DIR/gum" ]]; then
     if $BIN_DIR/gum confirm "Install WezTerm (GUI terminal emulator)?"; then
       INSTALL_WEZTERM=true
     else
       INSTALL_WEZTERM=false
     fi
   else
+    if ! is_interactive; then
+      echo "Skipping WezTerm in non-interactive install."
+      INSTALL_WEZTERM=false
+    else
     read -p "Install WezTerm (GUI terminal emulator)? Needed for desktop, skip for SSH-only servers [y/N]: " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
       INSTALL_WEZTERM=true
     else
       INSTALL_WEZTERM=false
+    fi
     fi
   fi
 
@@ -480,7 +501,7 @@ if [[ $OS == "linux" ]]; then
 
     # Use gum for multi-select if available
     declare -a SELECTED_BINARIES=()
-    if has_gum && [[ -f "$BIN_DIR/gum" ]]; then
+    if can_use_gum_prompts && [[ -f "$BIN_DIR/gum" ]]; then
       echo "Select binaries to install/update:"
       echo ""
 
@@ -514,6 +535,13 @@ if [[ $OS == "linux" ]]; then
         echo "  • $display"
       done
       echo ""
+      if ! is_interactive; then
+        echo "Installing all selected-by-default binaries in non-interactive mode."
+        for choice in "${INSTALL_CHOICES[@]}"; do
+          IFS='|' read -r display spec <<< "$choice"
+          SELECTED_BINARIES+=("$spec")
+        done
+      else
       read -p "Continue? [Y/n]: " -n 1 -r
       echo
       if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
@@ -521,6 +549,7 @@ if [[ $OS == "linux" ]]; then
           IFS='|' read -r display spec <<< "$choice"
           SELECTED_BINARIES+=("$spec")
         done
+      fi
       fi
     fi
 
@@ -693,22 +722,6 @@ else
     $USE_SUDO chown -R $(whoami):$(id -gn) ~/.config
   fi
 
-  # Install bundled Stow if not already available
-  if ! command -v stow &>/dev/null; then
-    if [[ -f "offline-packages/$OS/stow" ]]; then
-      echo "  Installing bundled GNU Stow..."
-      $USE_SUDO cp offline-packages/$OS/stow "$BIN_DIR/"
-      $USE_SUDO chmod +x "$BIN_DIR/stow"
-      log_install "BINARY" "$BIN_DIR/stow" "" ""
-      if [[ -f "offline-packages/$OS/chkstow" ]]; then
-        $USE_SUDO cp offline-packages/$OS/chkstow "$BIN_DIR/"
-        $USE_SUDO chmod +x "$BIN_DIR/chkstow"
-        log_install "BINARY" "$BIN_DIR/chkstow" "" ""
-      fi
-      echo "  ✓ GNU Stow installed"
-    fi
-  fi
-
   # Each subdirectory of config/ is a Stow package whose contents mirror
   # the layout relative to $HOME (e.g. config/nvim/.config/nvim/ -> ~/.config/nvim/).
   # Non-directory entries (README.md, plugin-manifest.lua) are NOT packages and are skipped.
@@ -737,8 +750,11 @@ else
         package_name=$(basename "$pkg_path")
         echo "  → Stowing package: $package_name"
         # Capture stow output; detect conflicts
-        stow_out=$($STOW_CMD -t ~ "$pkg_path" 2>&1)
-        rc=$?
+        if stow_out=$($STOW_CMD -t ~ "$pkg_path" 2>&1); then
+          rc=0
+        else
+          rc=$?
+        fi
         if [[ $rc -eq 0 ]]; then
           echo "    ✓ $package_name stowed"
           log_install "STOW_PACKAGE" "$package_name" "" ""
@@ -846,7 +862,7 @@ else
     echo "Font location: fonts/JetBrainsMono.zip (copy to your local machine)"
     echo ""
 
-    if has_gum && [[ -f "$BIN_DIR/gum" ]]; then
+    if can_use_gum_prompts && [[ -f "$BIN_DIR/gum" ]]; then
       if ! $BIN_DIR/gum confirm "Install fonts on this server anyway? (only needed if using local GUI terminal)"; then
         echo "⊘ Skipped font installation"
         INSTALL_FONTS=false
@@ -854,6 +870,10 @@ else
         INSTALL_FONTS=true
       fi
     else
+      if ! is_interactive; then
+        echo "⊘ Skipped font installation"
+        INSTALL_FONTS=false
+      else
       read -p "Install fonts on this server anyway? (only needed if using local GUI terminal) [y/N]: " -n 1 -r
       echo
       if [[ $REPLY =~ ^[Yy]$ ]]; then
@@ -861,6 +881,7 @@ else
       else
         echo "⊘ Skipped font installation"
         INSTALL_FONTS=false
+      fi
       fi
     fi
   else
@@ -1071,21 +1092,31 @@ else
   done
   echo ""
 
-  if has_gum && [[ -f "$BIN_DIR/gum" ]]; then
+  if can_use_gum_prompts && [[ -f "$BIN_DIR/gum" ]]; then
     if ! $BIN_DIR/gum confirm "Configure shells automatically?"; then
       echo ""
       echo "Skipped automatic shell configuration."
       echo "See shell-setup-example.sh for manual setup instructions."
-      exit 0
+      DETECTED_SHELLS=()
     fi
+  elif [[ "${AIRGAP_DEV_KIT_CONFIGURE_SHELLS:-}" == "1" ]]; then
+    echo "Configuring shells automatically because AIRGAP_DEV_KIT_CONFIGURE_SHELLS=1."
   else
-    read -p "Configure shells automatically? [Y/n]: " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]] && [[ -n $REPLY ]]; then
+    if ! is_interactive; then
       echo ""
-      echo "Skipped automatic shell configuration."
+      echo "Skipped automatic shell configuration in non-interactive mode."
       echo "See shell-setup-example.sh for manual setup instructions."
-      exit 0
+      DETECTED_SHELLS=()
+    fi
+    if [[ ${#DETECTED_SHELLS[@]} -gt 0 ]]; then
+      read -p "Configure shells automatically? [Y/n]: " -n 1 -r
+      echo
+      if [[ ! $REPLY =~ ^[Yy]$ ]] && [[ -n $REPLY ]]; then
+        echo ""
+        echo "Skipped automatic shell configuration."
+        echo "See shell-setup-example.sh for manual setup instructions."
+        DETECTED_SHELLS=()
+      fi
     fi
   fi
 
