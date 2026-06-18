@@ -248,21 +248,6 @@ if [[ $OS == "linux" ]]; then
   fi
 fi
 
-# Remove WezTerm on macOS
-if [[ $OS == "macos" ]] && [[ -d "/Applications/WezTerm.app" ]]; then
-  if can_use_gum_prompts; then
-    if gum confirm "Remove WezTerm.app from /Applications/?"; then
-      rm -rf /Applications/WezTerm.app
-      echo "  ✓ Removed WezTerm.app"
-    fi
-  else
-    if confirm_prompt "Remove WezTerm.app from /Applications/?"; then
-      rm -rf /Applications/WezTerm.app
-      echo "  ✓ Removed WezTerm.app"
-    fi
-  fi
-fi
-
 echo ""
 echo "Removing configurations..."
 
@@ -363,16 +348,12 @@ else
   fi
 fi
 
-  if [[ "$REMOVE_FONTS" == true ]]; then
-  if [[ $OS == "linux" ]]; then
+if [[ "$REMOVE_FONTS" == true ]]; then
     rm -f "$HOME/.local/share/fonts/JetBrainsMono"*
     if command -v fc-cache >/dev/null 2>&1; then
       fc-cache -fv > /dev/null 2>&1
     fi
     echo "  ✓ Removed JetBrainsMono fonts"
-  else
-    echo "  ℹ macOS fonts must be removed manually via Font Book"
-  fi
 fi
 
 # Clean shell configurations

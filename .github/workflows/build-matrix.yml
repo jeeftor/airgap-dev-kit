@@ -17,19 +17,14 @@ env:
 
 jobs:
   build:
-    name: Build ${{ matrix.platform }} (${{ matrix.arch }})
-    runs-on: ${{ matrix.os }}
+    name: Build Linux (x86_64)
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
-            platform: linux
+          - platform: linux
             arch: x86_64
             binary_dir: linux
-          - os: macos-latest
-            platform: macos
-            arch: arm64
-            binary_dir: macos
       fail-fast: false
 
     steps:
@@ -48,12 +43,7 @@ jobs:
             ${{ matrix.platform }}-
 
       - name: Download platform binaries
-        run: |
-          if [[ "${{ matrix.platform }}" == "linux" ]]; then
-            make update-linux
-          else
-            make update-macos
-          fi
+        run: make update-linux
 
       - name: Install Go for gopls
         uses: actions/setup-go@v5
@@ -77,6 +67,7 @@ jobs:
 
           # Install plugins first
           nvim --headless "+Lazy sync" +qa
+          nvim --headless "+MasonUpdate" +qa
 
           # Install essential LSP servers using correct Mason package names
           nvim --headless \
@@ -123,16 +114,8 @@ jobs:
         run: |
           echo "Setting up Neovim for plugin installation..."
 
-          # Use the downloaded binary directly (official release, no extraction needed)
-          if [[ "${{ matrix.platform }}" == "linux" ]]; then
-            NVIM="$GITHUB_WORKSPACE/offline-packages/${{ matrix.binary_dir }}/nvim-static-x86_64"
-            export VIMRUNTIME="$GITHUB_WORKSPACE/offline-packages/${{ matrix.binary_dir }}/nvim-runtime"
-          else
-            # macOS: extract from tarball
-            cd $GITHUB_WORKSPACE/offline-packages/${{ matrix.binary_dir }}
-            tar -xzf nvim-macos-arm64.tar.gz
-            NVIM="$GITHUB_WORKSPACE/offline-packages/${{ matrix.binary_dir }}/nvim-macos-arm64/bin/nvim"
-          fi
+          NVIM="$GITHUB_WORKSPACE/offline-packages/${{ matrix.binary_dir }}/nvim-static-x86_64"
+          export VIMRUNTIME="$GITHUB_WORKSPACE/offline-packages/${{ matrix.binary_dir }}/nvim-runtime"
           chmod +x "$NVIM"
 
           $NVIM --version
@@ -224,23 +207,10 @@ jobs:
 
       - name: Create combined package
         run: |
-          mkdir -p staging-combined/airgap-dev-kit
+          cp airgap-dev-kit-linux-x86_64.tar.gz airgap-dev-kit.tar.gz
+          cp checksums-linux.txt checksums.txt
           
-          # Copy common files from Linux build
-          tar -xzf airgap-dev-kit-linux-x86_64.tar.gz -C staging-combined/
-          
-          # Add macOS binaries to combined package
-          mkdir -p staging-combined/airgap-dev-kit/offline-packages/macos
-          tar -xzf airgap-dev-kit-macos-arm64.tar.gz -C /tmp
-          cp -r /tmp/airgap-dev-kit/offline-packages/macos staging-combined/airgap-dev-kit/offline-packages/
-          
-          # Create combined package
-          tar -czf airgap-dev-kit.tar.gz -C staging-combined airgap-dev-kit
-          
-          # Create combined checksums
-          cat checksums-linux.txt checksums-macos.txt > checksums.txt
-          
-          echo "Combined package created:"
+          echo "Linux package aliases created:"
           ls -lh airgap-dev-kit.tar.gz
 
       - name: Create Release
@@ -249,7 +219,7 @@ jobs:
           tag_name: build-${{ github.run_number }}-${{ github.run_id }}
           name: Air-Gap Dev Kit - Build ${{ github.run_number }}
           body: |
-            # Air-Gap Development Kit - Matrix Build
+            # Air-Gap Development Kit - Linux Build
             
             **Build Date:** ${{ github.event.repository.updated_at }}
             **Run Number:** ${{ github.run_number }}
@@ -259,8 +229,7 @@ jobs:
             | Package | Platform | Size | Description |
             |---------|----------|------|-------------|
             | **airgap-dev-kit-linux-x86_64.tar.gz** | Linux x86_64 | ~200MB | Linux-only binaries |
-            | **airgap-dev-kit-macos-arm64.tar.gz** | macOS ARM64 | ~150MB | macOS-only binaries (Apple Silicon) |
-            | **airgap-dev-kit.tar.gz** | Both | ~350MB | Combined package |
+            | **airgap-dev-kit.tar.gz** | Linux x86_64 | ~200MB | Linux package alias |
             | **checksums.txt** | All | <1KB | SHA256 checksums |
             
             ## 🚀 New Features
@@ -268,7 +237,6 @@ jobs:
             - **✅ Mason-based LSP management** - Automatic LSP server installation
             - **✅ Go language support** - Full IDE features for Go development
             - **✅ Multi-language support** - Lua, Shell, JSON, YAML, Markdown
-            - **✅ Parallel builds** - Faster build times with matrix strategy
             - **✅ Binary caching** - Faster rebuilds when unchanged
             
             ## 🎯 LSP Servers Included
@@ -289,10 +257,9 @@ jobs:
             5. **Launch:** `wezterm start -- tmux new-session nvim`
             6. **Open Go file:** `nvim main.go` - Full IDE functionality!
             
-            *Built with matrix strategy and binary caching*
+            *Built with Linux-only CI and binary caching*
           files: |
             airgap-dev-kit-linux-x86_64.tar.gz
-            airgap-dev-kit-macos-arm64.tar.gz
             airgap-dev-kit.tar.gz
             checksums.txt
           draft: false
@@ -304,11 +271,6 @@ jobs:
         uses: actions/attest@v4
         with:
           subject-path: airgap-dev-kit-linux-x86_64.tar.gz
-
-      - name: Generate SLSA attestations for macOS
-        uses: actions/attest@v4
-        with:
-          subject-path: airgap-dev-kit-macos-arm64.tar.gz
 
       - name: Generate SLSA attestations for combined package
         uses: actions/attest@v4

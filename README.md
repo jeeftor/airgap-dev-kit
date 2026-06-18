@@ -1,6 +1,6 @@
 # Air-Gap Development Kit
 
-A complete, offline-ready terminal development environment for macOS and Linux, designed for air-gapped systems. Features WezTerm, tmux, Neovim, and modern CLI tools—all bundled with zero internet dependency.
+A complete, offline-ready terminal development environment for Linux, designed for air-gapped systems. Features WezTerm, tmux, Neovim, and modern CLI tools, all bundled with zero internet dependency.
 
 [![GitHub Actions](https://img.shields.io/github/actions/workflow/status/jeeftor/airgap-dev-kit/update-binaries.yml)](https://github.com/jeeftor/airgap-dev-kit/actions)
 [![Latest Release](https://img.shields.io/github/v/release/jeeftor/airgap-dev-kit)](https://github.com/jeeftor/airgap-dev-kit/releases/latest)
@@ -19,13 +19,6 @@ curl -L https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/airga
 wget -qO- https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/airgap-dev-kit-linux-x86_64.tar.gz | tar -xz && cd airgap-dev-kit && ./install.sh
 ```
 
-### macOS (One-Liner)
-
-**Using curl:**
-```bash
-curl -L https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/airgap-dev-kit-macos-arm64.tar.gz | tar -xz && cd airgap-dev-kit && ./install.sh
-```
-
 ### Traditional Install (with verification)
 
 **Linux x86_64:**
@@ -39,21 +32,6 @@ sha256sum -c checksums.txt
 
 # Extract and install
 tar -xzf airgap-dev-kit-linux-x86_64.tar.gz
-cd airgap-dev-kit
-./install.sh
-```
-
-**macOS ARM64 (Apple Silicon):**
-```bash
-# Download latest release
-curl -LO https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/airgap-dev-kit-macos-arm64.tar.gz
-curl -LO https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/checksums.txt
-
-# Verify integrity
-shasum -a 256 -c checksums.txt
-
-# Extract and install
-tar -xzf airgap-dev-kit-macos-arm64.tar.gz
 cd airgap-dev-kit
 ./install.sh
 ```
@@ -148,7 +126,7 @@ wezterm start -- tmux new-session nvim
 
 - ✅ **Zero Internet Dependency** - All binaries are static or self-contained
 - ✅ **Automated Updates** - GitHub Actions builds fresh releases weekly
-- ✅ **Cross-Platform** - Works on macOS (ARM64) and Linux (x86_64)
+- ✅ **Linux-Focused** - Supports Linux x86_64 install and package workflows
 - ✅ **Air-Gap Ready** - Neovim plugins pre-bundled for offline use
 - ✅ **One-Command Install** - `./install.sh` does everything
 - ✅ **Installation Tracking** - Complete undo system with automatic backups
@@ -234,7 +212,7 @@ cp offline-packages/linux/your-tool ~/bin/
 ### What `install.sh` Does
 
 1. **Prompts for installation location** - System-wide (`/usr/local/bin`) or user-local (`~/.local/bin`)
-2. **Detects OS** - Determines macOS vs Linux
+2. **Checks OS** - Exits early outside Linux
 3. **Installs binaries** - Copies to chosen location with version checking
 4. **Extracts Neovim** - Unpacks and installs text editor
 5. **Installs plugins** - Extracts pre-downloaded Neovim plugins
@@ -318,12 +296,6 @@ sudo chmod +x /usr/local/bin/*
 - Installer will automatically use `~/.local/bin`
 - Remember to add to PATH as shown above
 
-**macOS security warnings:**
-```bash
-# Remove quarantine attribute
-xattr -cr /Applications/WezTerm.app
-```
-
 **Stow conflicts:**
 ```bash
 # The installer now handles this automatically with backups
@@ -406,7 +378,7 @@ Use 1GB+ USB drive for comfortable transfer.
 
 1. Fork the repository
 2. Create your feature branch
-3. Test on both macOS and Linux if possible
+3. Test on Linux with the repo-native checks
 4. Submit pull request
 
 ## 📝 License

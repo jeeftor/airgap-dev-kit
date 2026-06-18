@@ -14,17 +14,13 @@ on:
 
 jobs:
   build-nvim-packages:
-    name: Build ${{ matrix.os }} Packages
-    runs-on: ${{ matrix.runner }}
+    name: Build Linux Packages
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         include:
           - os: linux
-            runner: ubuntu-latest
             arch: x86_64
-          - os: macos
-            runner: macos-latest
-            arch: arm64
 
     steps:
       - name: Checkout repository
@@ -40,8 +36,7 @@ jobs:
           restore-keys: |
             nvim-packages-
 
-      - name: Install Neovim dependencies (Linux)
-        if: matrix.os == 'linux'
+      - name: Install Neovim dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -53,15 +48,6 @@ jobs:
 
           # Create fd symlink (Ubuntu packages it as fdfind)
           sudo ln -sf /usr/bin/fdfind /usr/local/bin/fd
-
-      - name: Install Neovim dependencies (macOS)
-        if: matrix.os == 'macos'
-        run: |
-          brew install \
-            git curl wget \
-            ripgrep fd fzf \
-            node \
-            ninja cmake gettext
 
       - name: Build Neovim from source
         run: |

@@ -86,7 +86,7 @@ log_install() {
 
 # Helper function to check if gum is available (for pretty TUI prompts)
 has_gum() {
-  command -v gum &>/dev/null || [ -f "$PWD/offline-packages/linux/gum" ] || [ -f "$PWD/offline-packages/macos/gum" ]
+  command -v gum &>/dev/null || [ -f "$PWD/offline-packages/linux/gum" ]
 }
 
 is_interactive() {
@@ -387,7 +387,7 @@ install_binary() {
 if [[ $OS == "linux" ]]; then
   # Check if we have linux binaries
   if [[ ! -d offline-packages/linux ]]; then
-    echo "Error: Linux binaries not found. Did you download the macOS package by mistake?"
+    echo "Error: Linux binaries not found. Run 'make update' on an online machine first."
     exit 1
   fi
 
@@ -631,67 +631,6 @@ if [[ $OS == "linux" ]]; then
     cp offline-packages/linux/fzf-scripts/* ~/.fzf/shell/
     echo "✓ fzf shell scripts installed to ~/.fzf/shell/"
   fi
-else
-  # Check if we have macOS binaries
-  if [[ ! -d offline-packages/macos ]]; then
-    echo "Error: macOS binaries not found. Did you download the Linux package by mistake?"
-    exit 1
-  fi
-
-  echo ""
-  echo "Installing macOS binaries..."
-
-  # WezTerm
-  if [[ -d /Applications/WezTerm.app ]]; then
-    echo "WezTerm already installed at /Applications/WezTerm.app"
-    read -p "Overwrite? [y/N]: " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-      unzip -oq offline-packages/macos/WezTerm-macos.zip -d /Applications/
-      echo "✓ WezTerm updated"
-    else
-      echo "⊘ Skipped WezTerm"
-    fi
-  else
-    unzip -q offline-packages/macos/WezTerm-macos.zip -d /Applications/
-    echo "✓ WezTerm installed"
-  fi
-
-  # Neovim
-  echo ""
-  echo "Installing Neovim..."
-  if [[ -f "$BIN_DIR/nvim" ]]; then
-    existing_ver=$(get_version "$BIN_DIR/nvim" "--version")
-    tar -xzf offline-packages/macos/nvim-macos-arm64.tar.gz -C /tmp/
-    new_ver=$(get_version "/tmp/nvim-macos-arm64/bin/nvim" "--version")
-
-    # Skip if same version
-    if [[ "$existing_ver" == "$new_ver" ]]; then
-      echo "✓ Neovim (already up-to-date: $existing_ver)"
-      rm -rf /tmp/nvim-macos-arm64
-    elif prompt_overwrite "Neovim" "$existing_ver" "$new_ver" "$BIN_DIR/nvim"; then
-      $USE_SUDO cp /tmp/nvim-macos-arm64/bin/nvim "$BIN_DIR/"
-      echo "✓ Neovim updated ($existing_ver → $new_ver)"
-      rm -rf /tmp/nvim-macos-arm64
-    else
-      echo "⊘ Skipped Neovim"
-      rm -rf /tmp/nvim-macos-arm64
-    fi
-  else
-    tar -xzf offline-packages/macos/nvim-macos-arm64.tar.gz -C /tmp/
-    $USE_SUDO cp /tmp/nvim-macos-arm64/bin/nvim "$BIN_DIR/"
-    rm -rf /tmp/nvim-macos-arm64
-    echo "✓ Neovim installed"
-  fi
-
-  # Install fzf shell integration scripts
-  if [[ -d offline-packages/macos/fzf-scripts ]]; then
-    echo ""
-    echo "Installing fzf shell integration..."
-    mkdir -p ~/.fzf/shell
-    cp offline-packages/macos/fzf-scripts/* ~/.fzf/shell/
-    echo "✓ fzf shell scripts installed to ~/.fzf/shell/"
-  fi
 fi
 
 # Install Neovim plugins and LSP servers (if bundled)
@@ -832,16 +771,7 @@ else
 fi
 
 # Fonts
-if [[ $OS == "macos" ]]; then
-  if [[ -f fonts/JetBrainsMono.zip ]]; then
-    echo ""
-    echo "Opening fonts for installation..."
-    open fonts/JetBrainsMono.zip
-    echo "✓ Font package opened (install manually via Font Book)"
-  fi
-else
-  # Linux: Ask if this is a desktop environment
-  echo ""
+echo ""
 
   # Detect if we're in a GUI environment
   if [[ -z "$DISPLAY" ]] && [[ -z "$WAYLAND_DISPLAY" ]]; then
@@ -914,7 +844,6 @@ else
       echo "⚠ Font file not found: fonts/JetBrainsMono.zip"
     fi
   fi
-fi
 
 echo ""
 echo "=========================================="
@@ -929,7 +858,7 @@ else
   echo "   Neovim: ~/.local/share/nvim/ (symlinked to $BIN_DIR/nvim)"
 fi
 echo "   Config: ~/.config/nvim/"
-echo "   Fonts: ~/.local/share/fonts/ (Linux) or /Applications/Font Book (macOS)"
+echo "   Fonts: ~/.local/share/fonts/"
 echo ""
 echo "📋 Next Steps:"
 echo ""
@@ -967,14 +896,14 @@ if [[ -f ~/bin/starship ]]; then
 fi
 echo ""
 echo "4. Launch your environment:"
-if [[ "$INSTALL_WEZTERM" == true || "$OSTYPE" == "darwin"* ]]; then
+if [[ "$INSTALL_WEZTERM" == true ]]; then
   echo "   wezterm start -- tmux new-session nvim  # GUI environment"
 else
   echo "   tmux new-session nvim  # Headless/SSH"
 fi
 echo ""
 echo "📚 Installed tools:"
-if [[ "$INSTALL_WEZTERM" == true || "$OSTYPE" == "darwin"* ]]; then
+if [[ "$INSTALL_WEZTERM" == true ]]; then
   echo "   Terminal: wezterm (GUI), tmux (multiplexer)"
 else
   echo "   Terminal: tmux (multiplexer)"
@@ -997,7 +926,7 @@ fi
 if [[ -f ~/bin/zoxide ]]; then
   echo "   - After setup, use 'z <dir>' to jump to directories"
 fi
-if [[ -z "$DISPLAY" && "$OSTYPE" != "darwin"* ]]; then
+if [[ -z "$DISPLAY" ]]; then
   echo ""
   echo "🔌 SSH/Headless Environment Detected:"
   echo "   - tmux is your friend: 'tmux new -s work'"

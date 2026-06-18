@@ -34,11 +34,6 @@ jobs:
         with:
           subject-path: artifacts/airgap-dev-kit-linux-x86_64.tar.gz
 
-      - name: Attest macOS package
-        uses: actions/attest@v4
-        with:
-          subject-path: artifacts/airgap-dev-kit-macos-arm64.tar.gz
-
       - name: Attest combined package
         uses: actions/attest@v4
         with:

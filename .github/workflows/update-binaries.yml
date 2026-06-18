@@ -27,9 +27,6 @@ jobs:
       - name: Download Linux binaries
         run: make update-linux
 
-      - name: Download macOS binaries
-        run: make update-macos
-
       - name: Download fonts
         run: make update-fonts
 
@@ -281,44 +278,33 @@ jobs:
         run: |
           # Create staging directories
           mkdir -p staging-linux/airgap-dev-kit/offline-packages
-          mkdir -p staging-macos/airgap-dev-kit/offline-packages
 
           # Copy common files
           cp install.sh shell-setup-example.sh staging-linux/airgap-dev-kit/
-          cp install.sh shell-setup-example.sh staging-macos/airgap-dev-kit/
           if [[ -f VERSION ]]; then
             cp VERSION staging-linux/airgap-dev-kit/
-            cp VERSION staging-macos/airgap-dev-kit/
           else
             echo "Warning: VERSION file not found; installer will show 'unknown'."
           fi
           cp -r fonts config staging-linux/airgap-dev-kit/
-          cp -r fonts config staging-macos/airgap-dev-kit/
 
           # Copy platform-specific binaries
           cp -r offline-packages/linux staging-linux/airgap-dev-kit/offline-packages/
           cp offline-packages/lazy-plugins.tar.gz staging-linux/airgap-dev-kit/offline-packages/
 
-          cp -r offline-packages/macos staging-macos/airgap-dev-kit/offline-packages/
-          cp offline-packages/lazy-plugins.tar.gz staging-macos/airgap-dev-kit/offline-packages/
-
-          # Ensure gum is included in both packages
+          # Ensure gum is included in the Linux package
           echo "Verifying gum is included..."
           ls -lh staging-linux/airgap-dev-kit/offline-packages/linux/gum || echo "Warning: gum not found for Linux"
-          ls -lh staging-macos/airgap-dev-kit/offline-packages/macos/gum || echo "Warning: gum not found for macOS"
 
           # Create tarballs with proper directory structure
           echo "Creating Linux x86_64 package..."
           tar -czf airgap-dev-kit-linux-x86_64.tar.gz -C staging-linux airgap-dev-kit
 
-          echo "Creating macOS ARM64 package..."
-          tar -czf airgap-dev-kit-macos-arm64.tar.gz -C staging-macos airgap-dev-kit
-
-          echo "Creating combined package (both platforms)..."
+          echo "Creating default Linux package..."
           make package
 
           # Clean up staging
-          rm -rf staging-linux staging-macos
+          rm -rf staging-linux
 
           echo "Packages created:"
           ls -lh airgap-dev-kit*.tar.gz
@@ -326,7 +312,6 @@ jobs:
       - name: Calculate checksums
         run: |
           sha256sum airgap-dev-kit-linux-x86_64.tar.gz > checksums.txt
-          sha256sum airgap-dev-kit-macos-arm64.tar.gz >> checksums.txt
           sha256sum airgap-dev-kit.tar.gz >> checksums.txt
           echo "Checksums:"
           cat checksums.txt
@@ -355,13 +340,10 @@ jobs:
 
             ## 📦 Available Packages
 
-            Choose the package for your platform:
-
             | Package | Platform | Size | Description |
             |---------|----------|------|-------------|
             | **airgap-dev-kit-linux-x86_64.tar.gz** | Linux x86_64 | ~200MB | Linux-only binaries |
-            | **airgap-dev-kit-macos-arm64.tar.gz** | macOS ARM64 | ~150MB | macOS-only binaries (Apple Silicon) |
-            | **airgap-dev-kit.tar.gz** | Both | ~350MB | Combined (use if you have mixed environments) |
+            | **airgap-dev-kit.tar.gz** | Linux x86_64 | ~200MB | Default Linux package |
             | **checksums.txt** | All | <1KB | SHA256 checksums for verification |
 
             ## 🚀 Quick Start - Linux (x86_64)
@@ -389,33 +371,6 @@ jobs:
             **One-liner (curl + extract + install):**
             ```bash
             curl -L https://github.com/jeeftor/airgap-dev-kit/releases/download/build-${{ github.run_number }}-${{ github.run_id }}/airgap-dev-kit-linux-x86_64.tar.gz | tar -xz && cd airgap-dev-kit && ./install.sh
-            ```
-
-            ## 🍎 Quick Start - macOS (ARM64 / Apple Silicon)
-
-            **Using wget:**
-            ```bash
-            wget https://github.com/jeeftor/airgap-dev-kit/releases/download/build-${{ github.run_number }}-${{ github.run_id }}/airgap-dev-kit-macos-arm64.tar.gz
-            wget https://github.com/jeeftor/airgap-dev-kit/releases/download/build-${{ github.run_number }}-${{ github.run_id }}/checksums.txt
-            shasum -a 256 -c checksums.txt
-            tar -xzf airgap-dev-kit-macos-arm64.tar.gz
-            cd airgap-dev-kit
-            ./install.sh
-            ```
-
-            **Using curl:**
-            ```bash
-            curl -LO https://github.com/jeeftor/airgap-dev-kit/releases/download/build-${{ github.run_number }}-${{ github.run_id }}/airgap-dev-kit-macos-arm64.tar.gz
-            curl -LO https://github.com/jeeftor/airgap-dev-kit/releases/download/build-${{ github.run_number }}-${{ github.run_id }}/checksums.txt
-            shasum -a 256 -c checksums.txt
-            tar -xzf airgap-dev-kit-macos-arm64.tar.gz
-            cd airgap-dev-kit
-            ./install.sh
-            ```
-
-            **One-liner (curl + extract + install):**
-            ```bash
-            curl -L https://github.com/jeeftor/airgap-dev-kit/releases/download/build-${{ github.run_number }}-${{ github.run_id }}/airgap-dev-kit-macos-arm64.tar.gz | tar -xz && cd airgap-dev-kit && ./install.sh
             ```
 
             ## 🔒 Air-Gap Installation
@@ -465,7 +420,6 @@ jobs:
             *This release was automatically generated by GitHub Actions*
           files: |
             airgap-dev-kit-linux-x86_64.tar.gz
-            airgap-dev-kit-macos-arm64.tar.gz
             airgap-dev-kit.tar.gz
             checksums.txt
           draft: false
@@ -516,12 +470,6 @@ jobs:
         uses: actions/attest@v4
         with:
           subject-path: airgap-dev-kit-linux-x86_64.tar.gz
-
-      - name: Generate SLSA attestations for macOS
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-        uses: actions/attest@v4
-        with:
-          subject-path: airgap-dev-kit-macos-arm64.tar.gz
 
       - name: Generate SLSA attestations for combined package
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
