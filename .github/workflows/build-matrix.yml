@@ -176,13 +176,18 @@ jobs:
           echo "Creating ${{ matrix.platform }} package..."
           tar -czf airgap-dev-kit-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz -C staging-${{ matrix.platform }} airgap-dev-kit
           rm -rf staging-${{ matrix.platform }}
+
+          echo "Creating CLI-only package..."
+          make package-cli
           
           echo "Package created:"
           ls -lh airgap-dev-kit-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz
+          ls -lh airgap-dev-kit-cli.tar.gz
 
       - name: Calculate checksums
         run: |
           sha256sum airgap-dev-kit-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz > checksums-${{ matrix.platform }}.txt
+          sha256sum airgap-dev-kit-cli.tar.gz >> checksums-${{ matrix.platform }}.txt
           echo "Checksums:"
           cat checksums-${{ matrix.platform }}.txt
 
@@ -192,6 +197,7 @@ jobs:
           name: airgap-dev-kit-${{ matrix.platform }}-${{ matrix.arch }}-${{ github.run_number }}
           path: |
             airgap-dev-kit-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz
+            airgap-dev-kit-cli.tar.gz
             checksums-${{ matrix.platform }}.txt
           retention-days: 30
 
@@ -217,6 +223,7 @@ jobs:
           
           echo "Linux package aliases created:"
           ls -lh airgap-dev-kit.tar.gz
+          ls -lh airgap-dev-kit-cli.tar.gz
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -235,6 +242,7 @@ jobs:
             |---------|----------|------|-------------|
             | **airgap-dev-kit-linux-x86_64.tar.gz** | Linux x86_64 | ~200MB | Linux-only binaries |
             | **airgap-dev-kit.tar.gz** | Linux x86_64 | ~200MB | Linux package alias |
+            | **airgap-dev-kit-cli.tar.gz** | Linux x86_64 | ~100MB | CLI-only package; no GUI prompts, WezTerm, or fonts |
             | **checksums.txt** | All | <1KB | SHA256 checksums |
             
             ## 🚀 New Features
@@ -266,6 +274,7 @@ jobs:
           files: |
             airgap-dev-kit-linux-x86_64.tar.gz
             airgap-dev-kit.tar.gz
+            airgap-dev-kit-cli.tar.gz
             checksums.txt
           draft: false
           prerelease: false
@@ -281,3 +290,8 @@ jobs:
         uses: actions/attest@v4
         with:
           subject-path: airgap-dev-kit.tar.gz
+
+      - name: Generate SLSA attestations for CLI-only package
+        uses: actions/attest@v4
+        with:
+          subject-path: airgap-dev-kit-cli.tar.gz

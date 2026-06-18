@@ -34,10 +34,15 @@ fi
 
 # Parse command line arguments
 DRY_RUN=false
+CLI_ONLY=false
 for arg in "$@"; do
   case $arg in
     --dry-run|-n)
       DRY_RUN=true
+      shift
+      ;;
+    --cli-only)
+      CLI_ONLY=true
       shift
       ;;
     --help|-h)
@@ -45,6 +50,7 @@ for arg in "$@"; do
       echo ""
       echo "Options:"
       echo "  --dry-run, -n    Show what would be installed without actually installing"
+      echo "  --cli-only       Install CLI tools only; skip GUI tools, fonts, and prompts"
       echo "  --help, -h       Show this help message"
       exit 0
       ;;
@@ -57,6 +63,10 @@ if [[ -f VERSION ]]; then
   KIT_VERSION=$(head -n 1 VERSION | tr -d ' \t\r\n')
 elif command -v git >/dev/null 2>&1 && git rev-parse --git-dir >/dev/null 2>&1; then
   KIT_VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "unknown")
+fi
+
+if [[ -f .airgap-cli-only ]]; then
+  CLI_ONLY=true
 fi
 
 # Installation tracking file
@@ -77,6 +87,9 @@ EOF
 
 # Log an installed item
 log_install() {
+  if [[ "$DRY_RUN" == true ]]; then
+    return 0
+  fi
   local type="$1"
   local path="$2"
   local backup="${3:-}"
@@ -94,6 +107,7 @@ is_interactive() {
 }
 
 can_use_gum_prompts() {
+  [[ "$CLI_ONLY" == true ]] && return 1
   has_gum && is_interactive
 }
 
@@ -179,6 +193,9 @@ echo "Version: ${KIT_VERSION}"
 if [[ "$DRY_RUN" == true ]]; then
   echo "(DRY RUN MODE - No changes will be made)"
 fi
+if [[ "$CLI_ONLY" == true ]]; then
+  echo "(CLI-only mode - GUI tools, fonts, and interactive prompts disabled)"
+fi
 echo "=========================================="
 echo ""
 
@@ -193,7 +210,10 @@ echo ""
 
 # Determine install location - prompt user FIRST
 # Check if we're already root
-if [[ $EUID -eq 0 ]]; then
+if [[ "$CLI_ONLY" == true && $EUID -ne 0 ]]; then
+  echo "CLI-only mode: defaulting to user-local install."
+  INSTALL_CHOICE="2"
+elif [[ $EUID -eq 0 ]]; then
   echo "Note: Running as root, defaulting to system-wide install"
   INSTALL_CHOICE="1"
 elif can_use_gum_prompts && command -v gum &> /dev/null; then
@@ -284,6 +304,13 @@ echo ""
 
 if [[ "$DRY_RUN" == true ]]; then
   echo "DRY RUN: Would create directory: $BIN_DIR"
+  if [[ "$CLI_ONLY" == true ]]; then
+    echo "DRY RUN: Would install bundled CLI tools from offline-packages/linux."
+    echo "DRY RUN: Would skip WezTerm, GUI fonts, and automatic shell configuration."
+    echo ""
+    echo "CLI-only dry run complete."
+    exit 0
+  fi
 else
   $USE_SUDO mkdir -p "$BIN_DIR"
 fi
@@ -393,7 +420,10 @@ if [[ $OS == "linux" ]]; then
 
   # Ask about GUI/headless environment
   echo ""
-  if can_use_gum_prompts && [[ -f "$BIN_DIR/gum" ]]; then
+  if [[ "$CLI_ONLY" == true ]]; then
+    echo "CLI-only mode: skipping WezTerm."
+    INSTALL_WEZTERM=false
+  elif can_use_gum_prompts && [[ -f "$BIN_DIR/gum" ]]; then
     if $BIN_DIR/gum confirm "Install WezTerm (GUI terminal emulator)?"; then
       INSTALL_WEZTERM=true
     else
@@ -501,7 +531,13 @@ if [[ $OS == "linux" ]]; then
 
     # Use gum for multi-select if available
     declare -a SELECTED_BINARIES=()
-    if can_use_gum_prompts && [[ -f "$BIN_DIR/gum" ]]; then
+    if [[ "$CLI_ONLY" == true ]]; then
+      echo "CLI-only mode: installing all bundled CLI tools without prompting."
+      for choice in "${INSTALL_CHOICES[@]}"; do
+        IFS='|' read -r display spec <<< "$choice"
+        SELECTED_BINARIES+=("$spec")
+      done
+    elif can_use_gum_prompts && [[ -f "$BIN_DIR/gum" ]]; then
       echo "Select binaries to install/update:"
       echo ""
 
@@ -773,6 +809,10 @@ fi
 # Fonts
 echo ""
 
+if [[ "$CLI_ONLY" == true ]]; then
+  echo "CLI-only mode: skipping GUI font installation."
+  INSTALL_FONTS=false
+else
   # Detect if we're in a GUI environment
   if [[ -z "$DISPLAY" ]] && [[ -z "$WAYLAND_DISPLAY" ]]; then
     # No display detected - likely headless/SSH
@@ -844,6 +884,7 @@ echo ""
       echo "⚠ Font file not found: fonts/JetBrainsMono.zip"
     fi
   fi
+fi
 
 echo ""
 echo "=========================================="
@@ -858,7 +899,9 @@ else
   echo "   Neovim: ~/.local/share/nvim/ (symlinked to $BIN_DIR/nvim)"
 fi
 echo "   Config: ~/.config/nvim/"
-echo "   Fonts: ~/.local/share/fonts/"
+if [[ "$CLI_ONLY" != true ]]; then
+  echo "   Fonts: ~/.local/share/fonts/"
+fi
 echo ""
 echo "📋 Next Steps:"
 echo ""
@@ -983,6 +1026,10 @@ add_to_shell_rc() {
 
 # Detect user's shell
 DETECTED_SHELLS=()
+if [[ "$CLI_ONLY" == true && "${AIRGAP_DEV_KIT_CONFIGURE_SHELLS:-}" != "1" ]]; then
+  echo "CLI-only mode: skipped automatic shell configuration."
+  echo "Set AIRGAP_DEV_KIT_CONFIGURE_SHELLS=1 to opt in."
+else
 [[ -f "$HOME/.bashrc" ]] && DETECTED_SHELLS+=("$HOME/.bashrc")
 [[ -f "$HOME/.zshrc" ]] && DETECTED_SHELLS+=("$HOME/.zshrc")
 [[ -f "$HOME/.config/fish/config.fish" ]] && DETECTED_SHELLS+=("$HOME/.config/fish/config.fish")
@@ -1190,6 +1237,7 @@ else
   fi
   
   echo ""
+fi
 fi
 
 echo ""

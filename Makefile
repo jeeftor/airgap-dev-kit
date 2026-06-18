@@ -1,4 +1,4 @@
-.PHONY: help update verify package package-with-config docker-test test-update-tools check-updates check-updates-strict clean clean-all install sync-nvim-config version-file
+.PHONY: help update verify package package-cli package-with-config docker-test test-cli-package test-update-tools check-updates check-updates-strict clean clean-all install sync-nvim-config version-file
 
 # Version variables - update these when new releases are available
 WEZTERM_VERSION := 20230712-072601-f4abf8fd
@@ -29,7 +29,9 @@ help:
 	@echo "make update            - Download all missing binaries"
 	@echo "make verify            - Verify all binaries are present and valid"
 	@echo "make package           - Create tarball for offline deployment"
+	@echo "make package-cli       - Create CLI-only tarball without GUI tools or fonts"
 	@echo "make docker-test       - Package and smoke test install/remove in Docker"
+	@echo "make test-cli-package  - Test the CLI-only package and installer mode"
 	@echo "make test-update-tools - Test automated version-update planning"
 	@echo "make check-updates     - Check for newer tool releases (run on online machine)"
 	@echo "make check-updates-strict - Check releases and fail if updates are available"
@@ -455,6 +457,36 @@ package: version-file
 	@echo "  Install: cd airgap-dev-kit && ./install.sh"
 	@rm -f VERSION
 
+package-cli: version-file
+	@echo "Creating CLI-only deployment package..."
+	@$(MAKE) --no-print-directory verify
+	@echo ""
+	@echo "Building tarball: airgap-dev-kit-cli.tar.gz"
+	@touch .airgap-cli-only
+	@COPYFILE_DISABLE=1 tar --no-xattrs --exclude='*.tar.gz' \
+		--exclude='.git' --exclude='.claude' --exclude='.devin' \
+		--exclude='.github' --exclude='test' \
+		--exclude='fonts' \
+		--exclude='offline-packages/linux/wezterm.AppImage' \
+		--exclude='nvim-linux-x86_64' --exclude='nvim-linux64' \
+		--exclude='offline-packages/lazy-plugins.tar.gz' \
+		-czf airgap-dev-kit-cli.tar.gz \
+		.airgap-cli-only install.sh uninstall.sh Makefile VERSION \
+		README.md CHANGES.md CLAUDE.md \
+		STOW-BUNDLING.md INSTALLATION-TRACKING.md QUICK-START-FIXES.md TESTING.md \
+		check-neovim.sh install-mason-lsp.sh shell-setup-example.sh \
+		scripts/ docs/ \
+		offline-packages/linux/ \
+		config/
+	@rm -f .airgap-cli-only VERSION
+	@echo ""
+	@ls -lh airgap-dev-kit-cli.tar.gz
+	@echo ""
+	@echo "✓ CLI-only package ready for deployment!"
+	@echo "  Transfer airgap-dev-kit-cli.tar.gz to target machine"
+	@echo "  Extract: mkdir airgap-dev-kit && tar -xzf airgap-dev-kit-cli.tar.gz -C airgap-dev-kit"
+	@echo "  Install: cd airgap-dev-kit && ./install.sh"
+
 package-with-config: verify version-file
 	@echo "Creating full deployment package (with config/)..."
 	@if [ ! -d config ]; then \
@@ -484,6 +516,9 @@ package-with-config: verify version-file
 docker-test: package
 	@bash scripts/docker-smoke-test airgap-dev-kit.tar.gz
 
+test-cli-package:
+	@bash test/scripts/test-cli-only-package.sh
+
 test-update-tools:
 	@bash test/scripts/test-check-updates-json.sh
 	@bash test/scripts/test-close-superseded-update-prs.sh
@@ -508,7 +543,7 @@ clean:
 
 clean-all: clean
 	@echo "Removing package tarballs..."
-	@rm -f airgap-dev-kit.tar.gz airgap-dev-kit-full.tar.gz
+	@rm -f airgap-dev-kit.tar.gz airgap-dev-kit-cli.tar.gz airgap-dev-kit-full.tar.gz
 	@echo "✓ All generated files removed."
 
 sync-nvim-config:
