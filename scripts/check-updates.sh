@@ -89,7 +89,7 @@ TOOLS=(
   "SVU_VERSION|svu|caarlos0/svu|strip_v"
 )
 
-report_header="| Tool | Current | Latest | Status |\n| --- | --- | --- | --- |"
+report_header=$'| Tool | Current | Latest | Status |\n| --- | --- | --- | --- |'
 report_rows=()
 outdated_count=0
 
@@ -117,7 +117,7 @@ for entry in "${TOOLS[@]}"; do
     report_rows+=("| $pretty | $current_version | $latest_version | ✅ up-to-date |")
   else
     report_rows+=("| $pretty | $current_version | $latest_version | 🔁 update available |")
-    ((outdated_count++))
+    ((outdated_count += 1))
   fi
 done
 

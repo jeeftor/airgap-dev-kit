@@ -1,4 +1,4 @@
-.PHONY: help update verify package package-with-config docker-test clean clean-all install sync-nvim-config version-file
+.PHONY: help update verify package package-with-config docker-test check-updates check-updates-strict clean clean-all install sync-nvim-config version-file
 
 # Version variables - update these when new releases are available
 WEZTERM_VERSION := 20230712-072601-f4abf8fd
@@ -6,17 +6,17 @@ FZF_VERSION := 0.66.1
 TMUX_VERSION := 3.5a
 NERD_FONT_VERSION := v3.2.1
 NVIM_VERSION := v0.11.5
-BTOP_VERSION := v1.3.2
-LSD_VERSION := v1.1.5
-ZOX_VERSION := v0.9.8
-DELTA_VERSION := 0.17.0
-DIFFTASTIC_VERSION := 0.67.0
-GUM_VERSION := v0.15.1
-DUST_VERSION := v1.2.3
+BTOP_VERSION := v1.4.7
+LSD_VERSION := v1.2.0
+ZOX_VERSION := v0.9.9
+DELTA_VERSION := 0.19.2
+DIFFTASTIC_VERSION := 0.69.0
+GUM_VERSION := v0.17.0
+DUST_VERSION := v1.2.4
 GDU_VERSION := v5.33.0
 MKCERT_VERSION := v1.4.4
 DIRENV_VERSION := v2.37.1
-SVU_VERSION := 3.3.0
+SVU_VERSION := 3.4.1
 GPING_VERSION := 1.20.1
 FD_VERSION := 10.2.0
 RG_VERSION := 14.1.1
@@ -39,6 +39,7 @@ help:
 	@echo "make package           - Create tarball for offline deployment"
 	@echo "make docker-test       - Package and smoke test install/remove in Docker"
 	@echo "make check-updates     - Check for newer tool releases (run on online machine)"
+	@echo "make check-updates-strict - Check releases and fail if updates are available"
 	@echo "make install           - Install on current machine (runs install.sh)"
 	@echo "make sync              - Rsync repo to jstein@ai:~/airgap-dev-kit (for local testing)"
 	@echo "make sync-nvim-config  - Sync local Neovim config to repo"
@@ -181,8 +182,8 @@ update-linux:
 	@# btop - resource monitor
 	@if [ ! -f offline-packages/linux/btop ] || [ $$(stat -f%z offline-packages/linux/btop 2>/dev/null || stat -c%s offline-packages/linux/btop 2>/dev/null) -lt 1000 ]; then \
 		echo "  → btop (resource monitor)..."; \
-		curl -fsSL "https://github.com/aristocratos/btop/releases/download/$(BTOP_VERSION)/btop-x86_64-linux-musl.tbz" | \
-			tar -xj -C /tmp/ && mv /tmp/btop/bin/btop offline-packages/linux/btop && rm -rf /tmp/btop; \
+		curl -fsSL "https://github.com/aristocratos/btop/releases/download/$(BTOP_VERSION)/btop-x86_64-unknown-linux-musl.tar.gz" | \
+			tar -xz -C /tmp/ && mv /tmp/btop/bin/btop offline-packages/linux/btop && rm -rf /tmp/btop; \
 		chmod +x offline-packages/linux/btop; \
 	else \
 		echo "  ✓ btop already present"; \
@@ -735,6 +736,10 @@ install:
 check-updates:
 	@echo "Checking for newer tool releases..."
 	@bash scripts/check-updates.sh
+
+check-updates-strict:
+	@echo "Checking for newer tool releases..."
+	@bash scripts/check-updates.sh --fail-on-outdated
 
 clean:
 	@echo "Removing downloaded binaries (keeping placeholders)..."

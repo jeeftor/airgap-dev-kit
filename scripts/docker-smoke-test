@@ -1,0 +1,186 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+IMAGE="${DOCKER_TEST_IMAGE:-ubuntu:22.04}"
+PLATFORM="${DOCKER_TEST_PLATFORM:-linux/amd64}"
+TARBALL="${1:-airgap-dev-kit.tar.gz}"
+RUN_ID="$(date +%Y%m%d%H%M%S)-$$"
+
+if [[ ! -f "$TARBALL" ]]; then
+  echo "Missing package: $TARBALL" >&2
+  echo "Run: make package" >&2
+  exit 1
+fi
+
+cleanup_container() {
+  local name="$1"
+  docker rm -f "$name" >/dev/null 2>&1 || true
+}
+
+new_container() {
+  local name="$1"
+  cleanup_container "$name"
+  docker create --platform "$PLATFORM" --name "$name" "$IMAGE" sleep infinity >/dev/null
+  docker cp "$TARBALL" "$name:/tmp/airgap-dev-kit.tar.gz"
+  docker start "$name" >/dev/null
+}
+
+run_case() {
+  local name="$1"
+  local command="$2"
+  local container="airgap-${name}-${RUN_ID}"
+  local full_command
+
+  echo "==> $name"
+  new_container "$container"
+  full_command="${SMOKE_HELPERS}${command}"
+  if docker exec "$container" bash -lc "$full_command"; then
+    cleanup_container "$container"
+    echo "✓ $name"
+  else
+    echo "✗ $name failed; container left for inspection: $container" >&2
+    return 1
+  fi
+}
+
+SMOKE_HELPERS='
+app_smoke() {
+echo "hello airgap" > /tmp/airgap-smoke.txt
+if tmux -V >/tmp/tmux-version.out 2>/tmp/tmux-version.err; then
+  cat /tmp/tmux-version.out
+elif head -c 10 "$(command -v tmux)" | od -An -tx1 | grep -q "41 49"; then
+  echo "tmux AppImage artifact present; Docker emulation cannot execute AppImage header"
+else
+  cat /tmp/tmux-version.err
+  exit 1
+fi
+nvim --headless "+qa" >/tmp/nvim-headless.out 2>&1
+fzf --version
+fd airgap /tmp
+rg "hello airgap" /tmp/airgap-smoke.txt
+bat --version
+starship --version | grep -q "^starship "
+starship prompt >/tmp/starship-prompt.out
+test -s /tmp/starship-prompt.out
+lsd --version
+lazygit --version
+zoxide --version
+delta --version
+difft --version
+jq --version
+btop --version
+direnv --version
+dust --version
+gdu --version
+mkcert --version
+svu --version
+test -x "$(command -v lua-language-server)"
+shellcheck --version
+}
+
+'
+
+BASE_INSTALL_REMOVE='
+set -euo pipefail
+rm -rf /tmp/smoke
+mkdir /tmp/smoke
+tar -xzf /tmp/airgap-dev-kit.tar.gz -C /tmp/smoke >/tmp/extract.out 2>/tmp/extract.err
+cd /tmp/smoke
+./install.sh > /tmp/install.out 2>&1
+app_smoke
+airgap-dev-kit version > /tmp/cli-version.out
+airgap-dev-kit status > /tmp/cli-status.out
+set +o pipefail
+yes y | airgap-dev-kit remove > /tmp/remove.out 2>&1
+remove_rc=${PIPESTATUS[1]}
+set -o pipefail
+if [[ "$remove_rc" -ne 0 ]]; then
+  tail -120 /tmp/remove.out
+  exit "$remove_rc"
+fi
+hash -r
+if command -v starship >/dev/null 2>&1; then
+  echo "starship still installed"
+  exit 1
+fi
+if command -v airgap-dev-kit >/dev/null 2>&1; then
+  echo "airgap-dev-kit still installed"
+  exit 1
+fi
+'
+
+BASH_SHELL_CONFIG='
+set -euo pipefail
+rm -rf /tmp/smoke
+mkdir /tmp/smoke
+tar -xzf /tmp/airgap-dev-kit.tar.gz -C /tmp/smoke >/tmp/extract.out 2>/tmp/extract.err
+rm -f /root/.zshrc
+touch /root/.bashrc
+cd /tmp/smoke
+AIRGAP_DEV_KIT_CONFIGURE_SHELLS=1 ./install.sh > /tmp/install.out 2>&1
+grep -F "eval \"\$(starship init bash)\"" /root/.bashrc
+grep -F "source ~/.fzf/shell/key-bindings.bash" /root/.bashrc
+app_smoke
+bash -lc "source /root/.bashrc >/tmp/bash-source.out 2>/tmp/bash-source.err; command -v starship >/dev/null; starship prompt >/tmp/bash-starship-prompt.out"
+test -s /tmp/bash-starship-prompt.out
+set +o pipefail
+yes y | ./uninstall.sh > /tmp/remove.out 2>&1
+remove_rc=${PIPESTATUS[1]}
+set -o pipefail
+if [[ "$remove_rc" -ne 0 ]]; then
+  tail -120 /tmp/remove.out
+  exit "$remove_rc"
+fi
+'
+
+ZSH_SHELL_CONFIG='
+set -euo pipefail
+for attempt in 1 2 3; do
+  if apt-get update -qq >/tmp/apt-update.out 2>&1; then
+    break
+  fi
+  if [[ "$attempt" -eq 3 ]]; then
+    echo "apt-get update failed after 3 attempts"
+    cat /tmp/apt-update.out
+    exit 1
+  fi
+  sleep 3
+done
+for attempt in 1 2 3; do
+  if DEBIAN_FRONTEND=noninteractive apt-get install -y -qq zsh >/tmp/apt-install.out 2>&1; then
+    break
+  fi
+  if [[ "$attempt" -eq 3 ]]; then
+    echo "apt-get install zsh failed after 3 attempts"
+    cat /tmp/apt-install.out
+    exit 1
+  fi
+  sleep 3
+done
+rm -rf /tmp/smoke
+mkdir /tmp/smoke
+tar -xzf /tmp/airgap-dev-kit.tar.gz -C /tmp/smoke >/tmp/extract.out 2>/tmp/extract.err
+rm -f /root/.bashrc
+touch /root/.zshrc
+cd /tmp/smoke
+SHELL=/bin/zsh AIRGAP_DEV_KIT_CONFIGURE_SHELLS=1 ./install.sh > /tmp/install.out 2>&1
+grep -F "eval \"\$(starship init zsh)\"" /root/.zshrc
+grep -F "source ~/.fzf/shell/key-bindings.zsh" /root/.zshrc
+app_smoke
+zsh -ic "command -v starship >/dev/null; starship prompt >/tmp/zsh-starship-prompt.out" 2>/tmp/zsh-shell.err
+test -s /tmp/zsh-starship-prompt.out
+set +o pipefail
+yes y | ./uninstall.sh > /tmp/remove.out 2>&1
+remove_rc=${PIPESTATUS[1]}
+set -o pipefail
+if [[ "$remove_rc" -ne 0 ]]; then
+  tail -120 /tmp/remove.out
+  exit "$remove_rc"
+fi
+'
+
+run_case "install-remove" "$BASE_INSTALL_REMOVE"
+run_case "bash-shell" "$BASH_SHELL_CONFIG"
+run_case "zsh-shell" "$ZSH_SHELL_CONFIG"
+
+echo "✓ Docker smoke tests passed"
