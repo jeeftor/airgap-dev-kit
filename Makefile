@@ -464,7 +464,16 @@ package-cli: version-file
 	@$(MAKE) --no-print-directory verify
 	@echo ""
 	@echo "Building tarball: airgap-dev-kit-cli.tar.gz"
-	@touch .airgap-cli-only
+	@rm -rf .package-cli-staging
+	@mkdir -p .package-cli-staging/airgap-dev-kit/offline-packages
+	@touch .package-cli-staging/airgap-dev-kit/.airgap-cli-only
+	@cp install.sh uninstall.sh Makefile VERSION README.md CHANGES.md CLAUDE.md \
+		STOW-BUNDLING.md INSTALLATION-TRACKING.md QUICK-START-FIXES.md TESTING.md \
+		check-neovim.sh install-mason-lsp.sh shell-setup-example.sh \
+		.package-cli-staging/airgap-dev-kit/
+	@cp -R scripts docs config .package-cli-staging/airgap-dev-kit/
+	@cp -R offline-packages/linux .package-cli-staging/airgap-dev-kit/offline-packages/
+	@rm -f .package-cli-staging/airgap-dev-kit/offline-packages/linux/wezterm.AppImage
 	@COPYFILE_DISABLE=1 tar --no-xattrs --exclude='*.tar.gz' \
 		--exclude='.git' --exclude='.claude' --exclude='.devin' \
 		--exclude='.github' --exclude='test' \
@@ -472,15 +481,9 @@ package-cli: version-file
 		--exclude='offline-packages/linux/wezterm.AppImage' \
 		--exclude='nvim-linux-x86_64' --exclude='nvim-linux64' \
 		--exclude='offline-packages/lazy-plugins.tar.gz' \
-		-czf airgap-dev-kit-cli.tar.gz \
-		.airgap-cli-only install.sh uninstall.sh Makefile VERSION \
-		README.md CHANGES.md CLAUDE.md \
-		STOW-BUNDLING.md INSTALLATION-TRACKING.md QUICK-START-FIXES.md TESTING.md \
-		check-neovim.sh install-mason-lsp.sh shell-setup-example.sh \
-		scripts/ docs/ \
-		offline-packages/linux/ \
-		config/
-	@rm -f .airgap-cli-only VERSION
+		-czf airgap-dev-kit-cli.tar.gz -C .package-cli-staging airgap-dev-kit
+	@rm -rf .package-cli-staging
+	@rm -f VERSION
 	@echo ""
 	@ls -lh airgap-dev-kit-cli.tar.gz
 	@echo ""
