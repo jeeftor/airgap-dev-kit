@@ -1,13 +1,22 @@
 # Air-Gap Development Kit
 
-A complete, offline-ready terminal development environment for Linux, designed for air-gapped systems. Features WezTerm, tmux, Neovim, and modern CLI tools, all bundled with zero internet dependency.
+A complete, offline-ready terminal development environment for Linux, designed for air-gapped systems. Choose the full package with WezTerm and fonts, or the CLI-only package for headless servers and SSH workflows. Both include tmux, Neovim, and modern CLI tools with zero internet dependency on the target machine.
 
 [![GitHub Actions](https://img.shields.io/github/actions/workflow/status/jeeftor/airgap-dev-kit/update-binaries.yml)](https://github.com/jeeftor/airgap-dev-kit/actions)
 [![Latest Release](https://img.shields.io/github/v/release/jeeftor/airgap-dev-kit)](https://github.com/jeeftor/airgap-dev-kit/releases/latest)
 
 ## ⚡ Quick Start
 
-### Linux (One-Liner)
+### Choose a Package
+
+| Package | Use When | Includes |
+| --- | --- | --- |
+| `airgap-dev-kit-linux-x86_64.tar.gz` | You want the full desktop-friendly kit | WezTerm, fonts, CLI tools, Neovim, config |
+| `airgap-dev-kit-cli.tar.gz` | You want headless Linux/SSH installs with no GUI prompts | CLI tools, tmux, Neovim, config; no WezTerm or fonts |
+
+`airgap-dev-kit.tar.gz` is the default full Linux package alias. For servers, CI workers, and air-gapped boxes accessed over SSH, use `airgap-dev-kit-cli.tar.gz`.
+
+### Full Linux Package (One-Liner)
 
 **Using curl:**
 ```bash
@@ -19,19 +28,39 @@ curl -L https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/airga
 wget -qO- https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/airgap-dev-kit-linux-x86_64.tar.gz | tar -xz && cd airgap-dev-kit && ./install.sh
 ```
 
+### CLI-Only Linux Package (One-Liner)
+
+```bash
+curl -L https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/airgap-dev-kit-cli.tar.gz | tar -xz && cd airgap-dev-kit && ./install.sh
+```
+
+The CLI-only package automatically runs in CLI-only mode. It skips WezTerm, skips font installation, disables interactive GUI prompts, and skips automatic shell RC edits unless you set `AIRGAP_DEV_KIT_CONFIGURE_SHELLS=1`.
+
 ### Traditional Install (with verification)
 
-**Linux x86_64:**
+**Full Linux x86_64:**
 ```bash
 # Download latest release
 wget https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/airgap-dev-kit-linux-x86_64.tar.gz
 wget https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/checksums.txt
 
-# Verify integrity
-sha256sum -c checksums.txt
+# Verify the selected package
+grep ' airgap-dev-kit-linux-x86_64.tar.gz$' checksums.txt | sha256sum -c -
 
 # Extract and install
 tar -xzf airgap-dev-kit-linux-x86_64.tar.gz
+cd airgap-dev-kit
+./install.sh
+```
+
+**CLI-only Linux x86_64:**
+```bash
+wget https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/airgap-dev-kit-cli.tar.gz
+wget https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/checksums.txt
+
+grep ' airgap-dev-kit-cli.tar.gz$' checksums.txt | sha256sum -c -
+
+tar -xzf airgap-dev-kit-cli.tar.gz
 cd airgap-dev-kit
 ./install.sh
 ```
@@ -54,12 +83,16 @@ make install
 
 # Or create package for transfer
 make package
+
+# Or create a CLI-only package for headless Linux installs
+make package-cli
 ```
 
 ### For Air-Gapped Machines
 
+**Full package:**
 ```bash
-# 1. Transfer airgap-dev-kit.tar.gz via USB/CD to air-gapped machine
+# 1. Transfer airgap-dev-kit.tar.gz or airgap-dev-kit-linux-x86_64.tar.gz
 
 # 2. Extract
 tar -xzf airgap-dev-kit.tar.gz
@@ -73,6 +106,24 @@ export PATH="$HOME/bin:$PATH"
 
 # 5. Launch your environment
 wezterm start -- tmux new-session nvim
+```
+
+**CLI-only package:**
+```bash
+# 1. Transfer airgap-dev-kit-cli.tar.gz
+
+# 2. Extract
+tar -xzf airgap-dev-kit-cli.tar.gz
+cd airgap-dev-kit
+
+# 3. Install without GUI prompts
+./install.sh
+
+# 4. Add to PATH if using a user-local install
+export PATH="$HOME/.local/bin:$PATH"
+
+# 5. Launch your environment
+tmux new-session nvim
 ```
 
 ## 🎯 What's Included
@@ -122,6 +173,8 @@ wezterm start -- tmux new-session nvim
 - **Shell completions** - For bash/zsh/fish
 - **Man pages** - Offline documentation
 
+The CLI-only package omits WezTerm and JetBrainsMono Nerd Font to keep installs non-GUI and non-interactive.
+
 ## 🚀 Features
 
 - ✅ **Zero Internet Dependency** - All binaries are static or self-contained
@@ -157,7 +210,10 @@ This repository automatically builds fresh releases every Sunday with:
 make help              # Show all commands and status
 make update            # Download all missing binaries
 make verify            # Verify binaries are valid
-make package           # Create deployment tarball
+make package           # Create full deployment tarball
+make package-cli       # Create CLI-only tarball
+make docker-test       # Smoke test full package in Docker
+make test-cli-package  # Test CLI-only package layout and dry-run behavior
 make install           # Install on current machine
 make sync-nvim-config  # Sync ~/.config/nvim to repo
 make clean             # Remove binaries (keep placeholders)
@@ -211,28 +267,30 @@ cp offline-packages/linux/your-tool ~/bin/
 
 ### What `install.sh` Does
 
-1. **Prompts for installation location** - System-wide (`/usr/local/bin`) or user-local (`~/.local/bin`)
+1. **Prompts for installation location** - System-wide (`/usr/local/bin`) or user-local (`~/.local/bin`); CLI-only packages default to user-local unless run as root
 2. **Checks OS** - Exits early outside Linux
 3. **Installs binaries** - Copies to chosen location with version checking
 4. **Extracts Neovim** - Unpacks and installs text editor
 5. **Installs plugins** - Extracts pre-downloaded Neovim plugins
 6. **Configures dotfiles** - Uses GNU Stow (if available) or direct copy
-7. **Installs fonts** - JetBrainsMono Nerd Font for icons
-8. **Configures shell** - Optionally adds PATH and tool initialization to shell RC files
+7. **Installs fonts** - JetBrainsMono Nerd Font for icons in the full package only
+8. **Configures shell** - Optionally adds PATH and tool initialization to shell RC files; CLI-only packages require `AIRGAP_DEV_KIT_CONFIGURE_SHELLS=1` to opt in
 
 ### Directory Structure After Install
 
 **System-wide install:**
 ```
 /usr/local/bin/        # Binaries (requires sudo)
-├── wezterm, tmux, nvim, fzf, fd, rg, bat, starship
+├── tmux, nvim, fzf, fd, rg, bat, starship
+├── wezterm           # Full package only
 └── (optional: btop, lsd, zoxide, direnv, dust, delta, svu, gum)
 ```
 
 **User-local install:**
 ```
 ~/.local/bin/          # Binaries (no sudo needed)
-├── wezterm, tmux, nvim, fzf, fd, rg, bat, starship
+├── tmux, nvim, fzf, fd, rg, bat, starship
+├── wezterm           # Full package only
 └── (optional: btop, lsd, zoxide, direnv, dust, delta, svu, gum)
 ```
 
@@ -247,6 +305,8 @@ cp offline-packages/linux/your-tool ~/bin/
     ├── fonts/         # JetBrainsMono Nerd Font
     └── nvim/lazy/     # Pre-installed Neovim plugins
 ```
+
+CLI-only installs do not create `~/.local/share/fonts/` from this kit and do not install `wezterm`.
 
 ## 🔧 Requirements
 
@@ -360,17 +420,16 @@ See [INSTALLATION-TRACKING.md](INSTALLATION-TRACKING.md) for details.
 
 ## 🔐 Security
 
-- Verify checksums: `sha256sum -c checksums.txt`
+- Verify the package you downloaded, for example: `grep ' airgap-dev-kit-cli.tar.gz$' checksums.txt | sha256sum -c -`
 - All binaries from official GitHub releases
 - Use write-protected media for transfer to air-gap
 - Scan with antivirus before deployment
 
 ## 📊 Package Size
 
-- **Minimal** (core tools only): ~150MB
-- **Full** (all optional tools): ~250MB
-- **With fonts**: ~350MB
-- **Complete with plugins**: ~400MB
+- **CLI-only release package**: smaller server-focused tarball without WezTerm or fonts
+- **Full release package**: desktop-friendly tarball with WezTerm and fonts
+- **Complete with plugins**: largest package because Neovim plugins and Mason payloads are bundled
 
 Use 1GB+ USB drive for comfortable transfer.
 
