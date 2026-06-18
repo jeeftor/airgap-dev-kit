@@ -1035,6 +1035,37 @@ add_to_shell_rc() {
   return 0
 }
 
+# Prompt initializers must run after any existing PS1/prompt setup in the
+# user's RC file. If an older copy exists earlier, append a final copy.
+add_terminal_shell_rc() {
+  local rc_file="$1"
+  local config_line="$2"
+  local description="$3"
+  local last_content_line
+
+  if [[ -f "$rc_file" ]] && config_exists "$rc_file" "$config_line"; then
+    last_content_line=$(awk 'NF { line = $0 } END { print line }' "$rc_file")
+    if [[ "$last_content_line" == "$config_line" ]]; then
+      SHELL_CONFIG_ITEMS+=("$description")
+      return 0
+    fi
+  fi
+
+  # Try to write, handle permission issues
+  if ! echo "" >> "$rc_file" 2>/dev/null; then
+    echo "  Permission denied, fixing ownership..."
+    $USE_SUDO chown "$(whoami):$(id -gn)" "$rc_file"
+  fi
+  {
+    echo ""
+    echo "# Added by airgap-dev-kit installer"
+    echo "$config_line"
+  } >> "$rc_file"
+  log_install "SHELL_CONFIG" "$rc_file" "" "$description"
+  SHELL_CONFIG_ITEMS+=("$description")
+  return 0
+}
+
 # Detect user's shell
 DETECTED_SHELLS=()
 if [[ "$CLI_ONLY" == true && "${AIRGAP_DEV_KIT_CONFIGURE_SHELLS:-}" == "0" ]]; then
@@ -1159,9 +1190,9 @@ else
     # Starship prompt
     if command -v starship &>/dev/null || [[ -f "$BIN_DIR/starship" ]]; then
       if [[ "$SHELL_TYPE" == "fish" ]]; then
-        add_to_shell_rc "$SHELL_RC" "starship init fish | source" "Starship prompt"
+        add_terminal_shell_rc "$SHELL_RC" "starship init fish | source" "Starship prompt"
       else
-        add_to_shell_rc "$SHELL_RC" "eval \"\$(starship init $SHELL_TYPE)\"" "Starship prompt"
+        add_terminal_shell_rc "$SHELL_RC" "eval \"\$(starship init $SHELL_TYPE)\"" "Starship prompt"
       fi
     fi
 

@@ -525,6 +525,7 @@ test-cli-package:
 	@bash test/scripts/test-cli-only-package.sh
 	@bash test/scripts/test-busy-binary-replace.sh
 	@bash test/scripts/test-config-idempotent.sh
+	@bash test/scripts/test-starship-init-last.sh
 
 test-update-tools:
 	@bash test/scripts/test-check-updates-json.sh
