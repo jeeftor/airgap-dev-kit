@@ -3,7 +3,6 @@ set -e
 
 # Color definitions
 if [[ -t 1 ]]; then
-  RED='\033[0;31m'
   GREEN='\033[0;32m'
   YELLOW='\033[1;33m'
   BLUE='\033[0;34m'
@@ -15,9 +14,7 @@ if [[ -t 1 ]]; then
   CHECK="${GREEN}✓${RESET}"
   ARROW="${CYAN}➜${RESET}"
   STAR="${YELLOW}★${RESET}"
-  INFO="${BLUE}ℹ${RESET}"
 else
-  RED=''
   GREEN=''
   YELLOW=''
   BLUE=''
@@ -29,7 +26,6 @@ else
   CHECK='✓'
   ARROW='➜'
   STAR='★'
-  INFO='ℹ'
 fi
 
 # Parse command line arguments
@@ -93,7 +89,8 @@ log_install() {
   local type="$1"
   local path="$2"
   local backup="${3:-}"
-  local timestamp=$(date +%Y%m%d-%H%M%S)
+  local timestamp
+  timestamp=$(date +%Y%m%d-%H%M%S)
   echo "$type|$path|$backup|$timestamp" >> "$INSTALL_LOG"
 }
 
@@ -122,7 +119,8 @@ get_version() {
   fi
 
   # Try to extract version, handle various formats
-  local version=$("$binary" "$version_flag" 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1 || echo "unknown")
+  local version
+  version=$("$binary" "$version_flag" 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1 || echo "unknown")
   echo "$version"
 }
 
@@ -350,8 +348,10 @@ needs_update() {
     return
   fi
 
-  local existing_ver=$(get_version "$dest_path" "$version_flag")
-  local new_ver=$(get_version "$source_file" "$version_flag")
+  local existing_ver
+  local new_ver
+  existing_ver=$(get_version "$dest_path" "$version_flag")
+  new_ver=$(get_version "$source_file" "$version_flag")
 
   if [[ "$existing_ver" == "$new_ver" ]]; then
     echo "same"  # Same version, skip
@@ -376,8 +376,10 @@ install_binary() {
 
   if [[ -f "$dest_path" ]]; then
     # Binary exists, check version
-    local existing_ver=$(get_version "$dest_path" "$version_flag")
-    local new_ver=$(get_version "$source_file" "$version_flag")
+    local existing_ver
+    local new_ver
+    existing_ver=$(get_version "$dest_path" "$version_flag")
+    new_ver=$(get_version "$source_file" "$version_flag")
 
     # Skip if same version
     if [[ "$existing_ver" == "$new_ver" ]]; then
@@ -424,7 +426,7 @@ if [[ $OS == "linux" ]]; then
     echo "CLI-only mode: skipping WezTerm."
     INSTALL_WEZTERM=false
   elif can_use_gum_prompts && [[ -f "$BIN_DIR/gum" ]]; then
-    if $BIN_DIR/gum confirm "Install WezTerm (GUI terminal emulator)?"; then
+    if "$BIN_DIR"/gum confirm "Install WezTerm (GUI terminal emulator)?"; then
       INSTALL_WEZTERM=true
     else
       INSTALL_WEZTERM=false
@@ -446,11 +448,6 @@ if [[ $OS == "linux" ]]; then
 
   # Collect binaries that need updates
   declare -a BINARIES_TO_CHECK=()
-  declare -a BINARY_SOURCES=()
-  declare -a BINARY_DESTS=()
-  declare -a BINARY_NAMES=()
-  declare -a BINARY_FLAGS=()
-
   # Core binaries
   if [[ "$INSTALL_WEZTERM" == true ]]; then
     BINARIES_TO_CHECK+=("offline-packages/linux/wezterm.AppImage|wezterm|WezTerm|--version")
@@ -548,7 +545,7 @@ if [[ $OS == "linux" ]]; then
       done > /tmp/binary_choices.txt
 
       # Run gum choose with multi-select
-      if selected=$($BIN_DIR/gum choose --no-limit < /tmp/binary_choices.txt); then
+      if selected=$("$BIN_DIR"/gum choose --no-limit < /tmp/binary_choices.txt); then
         while IFS= read -r line; do
           # Find the matching spec
           for choice in "${INSTALL_CHOICES[@]}"; do
@@ -698,7 +695,7 @@ else
   mkdir -p ~/.config
   if [[ -d ~/.config ]] && [[ ! -w ~/.config ]]; then
     echo "  Fixing permissions on ~/.config..."
-    $USE_SUDO chown -R $(whoami):$(id -gn) ~/.config
+    $USE_SUDO chown -R "$(whoami):$(id -gn)" ~/.config
   fi
 
   # Each subdirectory of config/ is a Stow package whose contents mirror
@@ -837,7 +834,7 @@ else
     echo ""
 
     if can_use_gum_prompts && [[ -f "$BIN_DIR/gum" ]]; then
-      if ! $BIN_DIR/gum confirm "Install fonts on this server anyway? (only needed if using local GUI terminal)"; then
+      if ! "$BIN_DIR"/gum confirm "Install fonts on this server anyway? (only needed if using local GUI terminal)"; then
         echo "⊘ Skipped font installation"
         INSTALL_FONTS=false
       else
@@ -1018,11 +1015,13 @@ add_to_shell_rc() {
   # Try to write, handle permission issues
   if ! echo "" >> "$rc_file" 2>/dev/null; then
     echo "  Permission denied, fixing ownership..."
-    $USE_SUDO chown $(whoami):$(id -gn) "$rc_file"
+    $USE_SUDO chown "$(whoami):$(id -gn)" "$rc_file"
   fi
-  echo "" >> "$rc_file"
-  echo "# Added by airgap-dev-kit installer" >> "$rc_file"
-  echo "$config_line" >> "$rc_file"
+  {
+    echo ""
+    echo "# Added by airgap-dev-kit installer"
+    echo "$config_line"
+  } >> "$rc_file"
   log_install "SHELL_CONFIG" "$rc_file" "" "$description"
   SHELL_CONFIG_ITEMS+=("$description")
   return 0
@@ -1068,12 +1067,12 @@ if [[ ${#DETECTED_SHELLS[@]} -eq 0 ]]; then
 else
   echo "Detected shell configuration files:"
   for shell_rc in "${DETECTED_SHELLS[@]}"; do
-    echo "  • $(basename $shell_rc)"
+    echo "  • $(basename "$shell_rc")"
   done
   echo ""
 
   if can_use_gum_prompts && [[ -f "$BIN_DIR/gum" ]]; then
-    if ! $BIN_DIR/gum confirm "Configure shells automatically?"; then
+    if ! "$BIN_DIR"/gum confirm "Configure shells automatically?"; then
       echo ""
       echo "Skipped automatic shell configuration."
       echo "See shell-setup-example.sh for manual setup instructions."
@@ -1103,7 +1102,7 @@ else
   echo ""
 
   for SHELL_RC in "${DETECTED_SHELLS[@]}"; do
-    echo "Configuring $(basename $SHELL_RC)..."
+    echo "Configuring $(basename "$SHELL_RC")..."
     echo ""
 
     # Determine shell type
@@ -1221,12 +1220,12 @@ else
   
   # Show summary with gum if available
   if has_gum && [[ -f "$BIN_DIR/gum" ]]; then
-    $BIN_DIR/gum style --border double --border-foreground 212 --padding "1 2" --bold "✓ Shell Configuration Complete!"
+    "$BIN_DIR"/gum style --border double --border-foreground 212 --padding "1 2" --bold "✓ Shell Configuration Complete!"
     echo ""
-    $BIN_DIR/gum style --foreground 212 --bold "Configured the following:"
+    "$BIN_DIR"/gum style --foreground 212 --bold "Configured the following:"
     echo ""
     for item in "${SHELL_CONFIG_ITEMS[@]}"; do
-      $BIN_DIR/gum style --foreground 42 "  ✓ $item"
+      "$BIN_DIR"/gum style --foreground 42 "  ✓ $item"
     done
   else
     echo -e "${BOLD}${CYAN}╔════════════════════════════════════════════════════════════╗${RESET}"
@@ -1247,16 +1246,16 @@ fi
 echo ""
 
 if has_gum && [[ -f "$BIN_DIR/gum" ]]; then
-  $BIN_DIR/gum style --border double --border-foreground 33 --padding "1 2" --bold "📝 Installation Tracking"
+  "$BIN_DIR"/gum style --border double --border-foreground 33 --padding "1 2" --bold "📝 Installation Tracking"
   echo ""
-  echo "$($BIN_DIR/gum style --foreground 240 "Installation log saved to: ")$($BIN_DIR/gum style --foreground 51 "$INSTALL_LOG")"
+  echo "$("$BIN_DIR"/gum style --foreground 240 "Installation log saved to: ")$("$BIN_DIR"/gum style --foreground 51 "$INSTALL_LOG")"
   echo ""
-  $BIN_DIR/gum style --bold "This log tracks everything installed and can be used for:"
-  $BIN_DIR/gum style --foreground 51 "  ➜ Uninstalling with: ./uninstall.sh"
-  $BIN_DIR/gum style --foreground 51 "  ➜ Reviewing what was installed"
-  $BIN_DIR/gum style --foreground 51 "  ➜ Restoring from backups (if any were created)"
+  "$BIN_DIR"/gum style --bold "This log tracks everything installed and can be used for:"
+  "$BIN_DIR"/gum style --foreground 51 "  ➜ Uninstalling with: ./uninstall.sh"
+  "$BIN_DIR"/gum style --foreground 51 "  ➜ Reviewing what was installed"
+  "$BIN_DIR"/gum style --foreground 51 "  ➜ Restoring from backups (if any were created)"
   echo ""
-  echo "$($BIN_DIR/gum style --foreground 240 "To view the log: ")$($BIN_DIR/gum style --foreground 51 "cat $INSTALL_LOG")"
+  echo "$("$BIN_DIR"/gum style --foreground 240 "To view the log: ")$("$BIN_DIR"/gum style --foreground 51 "cat $INSTALL_LOG")"
   echo ""
 else
   echo -e "${BOLD}${BLUE}╔════════════════════════════════════════════════════════════╗${RESET}"
@@ -1283,21 +1282,21 @@ if [[ ${#SHELL_CONFIG_ITEMS[@]} -gt 0 ]]; then
   echo ""
   
   if has_gum && [[ -f "$BIN_DIR/gum" ]]; then
-    $BIN_DIR/gum style --border double --border-foreground 42 --padding "1 2" --bold "★ NEXT STEPS - Apply Your Changes"
+    "$BIN_DIR"/gum style --border double --border-foreground 42 --padding "1 2" --bold "★ NEXT STEPS - Apply Your Changes"
     echo ""
-    $BIN_DIR/gum style --bold "To activate your new shell configuration, choose one:"
+    "$BIN_DIR"/gum style --bold "To activate your new shell configuration, choose one:"
     echo ""
-    $BIN_DIR/gum style --foreground 51 --bold "1. Restart your terminal (recommended)"
-    $BIN_DIR/gum style --foreground 240 "   Close and reopen your terminal window"
+    "$BIN_DIR"/gum style --foreground 51 --bold "1. Restart your terminal (recommended)"
+    "$BIN_DIR"/gum style --foreground 240 "   Close and reopen your terminal window"
     echo ""
-    $BIN_DIR/gum style --foreground 51 --bold "2. Source your shell config:"
+    "$BIN_DIR"/gum style --foreground 51 --bold "2. Source your shell config:"
     if [[ "$SHELL_TYPE" == "zsh" ]]; then
-      $BIN_DIR/gum style --foreground 42 "   source ~/.zshrc"
+      "$BIN_DIR"/gum style --foreground 42 "   source ~/.zshrc"
     else
-      $BIN_DIR/gum style --foreground 42 "   source ~/.bashrc"
+      "$BIN_DIR"/gum style --foreground 42 "   source ~/.bashrc"
     fi
     echo ""
-    $BIN_DIR/gum style --border rounded --border-foreground 212 --padding "0 2" --bold "🚀 Enjoy your new development environment!"
+    "$BIN_DIR"/gum style --border rounded --border-foreground 212 --padding "0 2" --bold "🚀 Enjoy your new development environment!"
     echo ""
   else
     echo -e "${BOLD}${GREEN}╔════════════════════════════════════════════════════════════╗${RESET}"

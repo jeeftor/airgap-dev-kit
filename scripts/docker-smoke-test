@@ -43,6 +43,7 @@ run_case() {
   fi
 }
 
+# shellcheck disable=SC2016
 SMOKE_HELPERS='
 app_smoke() {
 echo "hello airgap" > /tmp/airgap-smoke.txt
@@ -80,6 +81,7 @@ shellcheck --version
 
 '
 
+# shellcheck disable=SC2016
 BASE_INSTALL_REMOVE='
 set -euo pipefail
 rm -rf /tmp/smoke
@@ -109,6 +111,7 @@ if command -v airgap-dev-kit >/dev/null 2>&1; then
 fi
 '
 
+# shellcheck disable=SC2016
 BASH_SHELL_CONFIG='
 set -euo pipefail
 rm -rf /tmp/smoke
@@ -133,6 +136,7 @@ if [[ "$remove_rc" -ne 0 ]]; then
 fi
 '
 
+# shellcheck disable=SC2016
 ZSH_SHELL_CONFIG='
 set -euo pipefail
 for attempt in 1 2 3; do
