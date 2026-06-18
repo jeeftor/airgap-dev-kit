@@ -222,7 +222,7 @@ test/test-mason.sh
 .github/workflows/build.yml
   - Hard-coded: "lua-language-server"
 
-config/.config/nvim/lua/plugins/airgap-lsp.lua
+config/nvim/.config/nvim/lua/plugins/airgap-lsp.lua
   - Hard-coded: "lua_ls"
 
 ❌ Three places to edit!

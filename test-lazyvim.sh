@@ -9,10 +9,10 @@ echo "Testing LazyVim Plugin Installation"
 echo "=========================================="
 
 # Copy your actual config
-if [[ -d /workspace/config/.config/nvim ]]; then
+if [[ -d /workspace/config/nvim/.config/nvim ]]; then
   echo "Copying LazyVim config from repo..."
   mkdir -p ~/.config/nvim
-  cp -r /workspace/config/.config/nvim/* ~/.config/nvim/
+  cp -r /workspace/config/nvim/.config/nvim/* ~/.config/nvim/
 
   # Enable plugin installation (override air-gap setting)
   if [[ -f ~/.config/nvim/lua/config/lazy.lua ]]; then
@@ -20,7 +20,7 @@ if [[ -d /workspace/config/.config/nvim ]]; then
     echo "✓ Enabled plugin installation"
   fi
 else
-  echo "⚠ No config found in /workspace/config/.config/nvim"
+  echo "⚠ No config found in /workspace/config/nvim/.config/nvim"
   exit 1
 fi
 

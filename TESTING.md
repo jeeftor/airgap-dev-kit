@@ -42,7 +42,7 @@ Tests vanilla Neovim + Mason LSP server installation:
 
 ### `test-lazyvim.sh`
 Tests your actual LazyVim config:
-- Copies config from `config/.config/nvim/`
+- Copies config from `config/nvim/.config/nvim/`
 - Runs `Lazy! sync` like GitHub Actions
 - Shows installed plugins
 - Checks if Mason packages were installed

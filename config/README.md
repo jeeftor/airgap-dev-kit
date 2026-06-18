@@ -34,59 +34,17 @@ When you run `stow -t ~ nvim` from the `config/` directory:
 - `config/nvim/.config/nvim/init.lua` → `~/.config/nvim/init.lua`
 - This allows you to manage your dotfiles in a git repository while keeping them in their expected locations
 
-### Current Structure (NEEDS FIXING)
+### Current Structure
 
-⚠️ **The current structure is NOT Stow-compatible!**
-
-Current (incorrect):
 ```
 config/
-├── .config/           # ✗ This is wrong - dotfiles should be inside packages
-│   ├── nvim/
-│   └── starship.toml
-└── .tmux.conf         # ✗ This is wrong - should be in a package directory
-```
-
-Should be:
-```
-config/
-├── nvim/              # ✓ Package name (no dot)
-│   └── .config/       # ✓ Directory structure relative to $HOME
-│       └── nvim/
-├── tmux/              # ✓ Package name
-│   └── .tmux.conf     # ✓ Dotfile inside package
-└── starship/          # ✓ Package name
-    └── .config/
-        └── starship.toml
-```
-
-## Fixing the Structure
-
-Run the provided script to automatically restructure:
-
-```bash
-./restructure-config-for-stow.sh
-```
-
-Or manually restructure:
-
-```bash
-# Backup current config
-cp -r config config.backup
-
-# Create new structure
-mkdir -p config-new/nvim/.config
-mkdir -p config-new/tmux
-mkdir -p config-new/starship/.config
-
-# Move files
-mv config/.config/nvim config-new/nvim/.config/
-mv config/.tmux.conf config-new/tmux/
-mv config/.config/starship.toml config-new/starship/.config/
-
-# Replace old with new
-rm -rf config
-mv config-new config
+├── nvim/              # Package: Neovim configuration
+│   └── .config/nvim/
+├── tmux/              # Package: tmux configuration
+│   └── .tmux.conf
+├── starship/          # Package: Starship prompt
+│   └── .config/starship.toml
+└── plugin-manifest.lua  # Build-time manifest (not a Stow package)
 ```
 
 ## Adding New Configurations

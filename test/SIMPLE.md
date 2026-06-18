@@ -47,14 +47,14 @@ mkdir -p ~/.local/share/nvim
 tar -xzf lazyvim-plugins.tar.gz -C ~/.local/share/nvim
 
 # Copy your config
-cp -r airgap-dev-kit/config/.config/nvim ~/.config/
+cp -r airgap-dev-kit/config/nvim/.config/nvim ~/.config/
 
 # Done! LazyVim will use the pre-installed plugins
 ```
 
 ## Key Config Setting
 
-Your `config/.config/nvim/lua/config/lazy.lua` already has:
+Your `config/nvim/.config/nvim/lua/config/lazy.lua` already has:
 
 ```lua
 install = {
@@ -79,7 +79,7 @@ LazyVim plugins ≠ Mason packages. They're different systems.
 
 ### Quick: Add a Plugin
 
-1. Edit `config/.config/nvim/lua/plugins/my-plugins.lua`:
+1. Edit `config/nvim/.config/nvim/lua/plugins/my-plugins.lua`:
 ```lua
 return {
   { "folke/zen-mode.nvim" },
@@ -91,7 +91,7 @@ return {
 
 ### Quick: Add an LSP Server
 
-1. Edit `config/.config/nvim/lua/plugins/airgap-lsp.lua`:
+1. Edit `config/nvim/.config/nvim/lua/plugins/airgap-lsp.lua`:
 ```lua
 {
   "williamboman/mason-lspconfig.nvim",

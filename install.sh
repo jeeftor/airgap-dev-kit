@@ -552,7 +552,7 @@ if [[ $OS == "linux" ]]; then
     echo "✓ All binaries are already up-to-date!"
   fi
 
-  # Extract Neovim to /opt (or ~/ if no sudo)
+  # Install Neovim binary and runtime
   echo ""
   echo "Installing Neovim..."
   if [[ -f offline-packages/linux/nvim-static-x86_64 ]]; then
@@ -565,18 +565,33 @@ if [[ $OS == "linux" ]]; then
       if [[ "$existing_ver" == "$new_ver" ]]; then
         echo "✓ Neovim (already up-to-date: $existing_ver)"
       elif prompt_overwrite "Neovim" "$existing_ver" "$new_ver" "$BIN_DIR/nvim"; then
-        install_binary "offline-packages/linux/nvim-static-x86_64" "nvim"
+        $USE_SUDO cp offline-packages/linux/nvim-static-x86_64 "$BIN_DIR/nvim"
+        $USE_SUDO chmod +x "$BIN_DIR/nvim"
+        log_install "BINARY" "$BIN_DIR/nvim" "" ""
         echo "✓ Neovim updated ($existing_ver → $new_ver)"
       else
         echo "⊘ Skipped Neovim"
       fi
     else
       # Fresh install
-      install_binary "offline-packages/linux/nvim-static-x86_64" "nvim"
+      $USE_SUDO cp offline-packages/linux/nvim-static-x86_64 "$BIN_DIR/nvim"
+      $USE_SUDO chmod +x "$BIN_DIR/nvim"
+      log_install "BINARY" "$BIN_DIR/nvim" "" ""
       echo "✓ Neovim installed"
     fi
+
+    # Install Neovim runtime files (bundled alongside binary in official releases)
+    if [[ -d offline-packages/linux/nvim-runtime ]]; then
+      NVIM_RUNTIME_DEST="$HOME/.local/share/nvim/runtime"
+      echo "  Installing Neovim runtime files..."
+      mkdir -p "$(dirname "$NVIM_RUNTIME_DEST")"
+      rm -rf "$NVIM_RUNTIME_DEST"
+      cp -r offline-packages/linux/nvim-runtime "$NVIM_RUNTIME_DEST"
+      log_install "DIRECTORY" "$NVIM_RUNTIME_DEST" "" ""
+      echo "  ✓ Neovim runtime installed to $NVIM_RUNTIME_DEST"
+    fi
   else
-    echo "Warning: Neovim static binary not found in offline-packages/linux/"
+    echo "Warning: Neovim binary not found in offline-packages/linux/"
   fi
 
   # Install fzf shell integration scripts
@@ -694,96 +709,109 @@ else
     fi
   fi
 
-  # Check if we have GNU Stow available (system or bundled)
-  if command -v stow &>/dev/null || [[ -f "$BIN_DIR/stow" ]]; then
-    echo "  Using GNU Stow for symlink management..."
-    STOW_CMD="stow"
-    [[ -f "$BIN_DIR/stow" ]] && STOW_CMD="$BIN_DIR/stow"
-    
-    # Stow expects packages as subdirectories of config/
-    # Each package should contain the directory structure relative to $HOME
-    # Example: config/nvim/.config/nvim/init.lua -> ~/.config/nvim/init.lua
-    
-    # Try to stow each package directory
-    cd config
-    for package in */; do
-      package_name="${package%/}"
-      echo "  → Stowing package: $package_name"
-      if $STOW_CMD -t ~ "$package_name" 2>&1 | grep -q "conflict"; then
-        echo "    ⚠ Conflicts detected. Backing up existing files..."
-        # Backup conflicting files
-        $STOW_CMD -t ~ "$package_name" 2>&1 | grep "existing target" | while read -r line; do
-          conflict_file=$(echo "$line" | grep -oP '(?<=existing target is ).*')
-          if [[ -n "$conflict_file" ]]; then
-            backup_path=~/"${conflict_file}.backup-$(date +%Y%m%d-%H%M%S)"
-            mv ~/"$conflict_file" "$backup_path"
-            log_install "CONFIG" ~/"$conflict_file" "$backup_path" ""
-          fi
-        done
-        # Try again
-        if $STOW_CMD -t ~ "$package_name"; then
+  # Each subdirectory of config/ is a Stow package whose contents mirror
+  # the layout relative to $HOME (e.g. config/nvim/.config/nvim/ -> ~/.config/nvim/).
+  # Non-directory entries (README.md, plugin-manifest.lua) are NOT packages and are skipped.
+
+  # Collect package directories (non-hidden only; README.md etc. are files, not packages)
+  packages=()
+  while IFS= read -r -d '' pkg; do
+    packages+=("$pkg")
+  done < <(find config -maxdepth 1 -mindepth 1 -type d ! -name '.*' -print0)
+
+  if [[ ${#packages[@]} -eq 0 ]]; then
+    echo "  ⚠ No Stow packages found in config/ — skipping config install"
+  else
+    # Decide whether to use Stow or fall back to direct copy.
+    STOW_CMD=""
+    if command -v stow &>/dev/null; then
+      STOW_CMD="stow"
+    elif [[ -f "$BIN_DIR/stow" ]]; then
+      STOW_CMD="$BIN_DIR/stow"
+    fi
+
+    if [[ -n "$STOW_CMD" ]]; then
+      echo "  Using GNU Stow for symlink management..."
+      stowed=0
+      for pkg_path in "${packages[@]}"; do
+        package_name=$(basename "$pkg_path")
+        echo "  → Stowing package: $package_name"
+        # Capture stow output; detect conflicts
+        stow_out=$($STOW_CMD -t ~ "$pkg_path" 2>&1)
+        rc=$?
+        if [[ $rc -eq 0 ]]; then
           echo "    ✓ $package_name stowed"
           log_install "STOW_PACKAGE" "$package_name" "" ""
-        else
-          echo "    ✗ Failed to stow $package_name"
+          stowed=$((stowed + 1))
+          continue
         fi
-      else
-        echo "    ✓ $package_name stowed"
-        log_install "STOW_PACKAGE" "$package_name" "" ""
-      fi
-    done
-    cd ..
-  else
-    echo "  GNU Stow not found, using direct copy method..."
-    echo "  Note: Install 'stow' for better dotfile management with symlinks"
-    
-    # Fallback: Copy files directly
-    # Handle .config subdirectory
-    if [[ -d config/.config ]]; then
-      echo "  → Copying .config files..."
-      for config_item in config/.config/*; do
-        if [[ -e "$config_item" ]]; then
-          dest_path="$HOME/.config/$(basename "$config_item")"
-          # Backup if exists
-          if [[ -e "$dest_path" ]]; then
-            backup_path="${dest_path}.backup-$(date +%Y%m%d-%H%M%S)"
-            mv "$dest_path" "$backup_path"
-            log_install "CONFIG" "$dest_path" "$backup_path" ""
+        # Handle conflicts by backing up existing targets, then retry
+        if echo "$stow_out" | grep -q "existing target"; then
+          echo "    ⚠ Conflicts detected. Backing up existing files..."
+          echo "$stow_out" | grep "existing target" | while read -r line; do
+            conflict_file=$(echo "$line" | grep -oP '(?<=existing target is )[^ ]+')
+            if [[ -n "$conflict_file" ]]; then
+              backup_path="${conflict_file}.backup-$(date +%Y%m%d-%H%M%S)"
+              mv "$conflict_file" "$backup_path"
+              log_install "CONFIG" "$conflict_file" "$backup_path" ""
+            fi
+          done
+          if $STOW_CMD -t ~ "$pkg_path"; then
+            echo "    ✓ $package_name stowed (after backup)"
+            log_install "STOW_PACKAGE" "$package_name" "" ""
+            stowed=$((stowed + 1))
+          else
+            echo "    ✗ Failed to stow $package_name"
           fi
-          cp -r "$config_item" ~/.config/ 2>/dev/null || {
-            echo "    Permission issue detected, adjusting ownership..."
-            $USE_SUDO cp -r "$config_item" ~/.config/
-            $USE_SUDO chown -R $(whoami):$(id -gn) "$dest_path"
-          }
-          log_install "CONFIG" "$dest_path" "" ""
+        else
+          echo "    ✗ Failed to stow $package_name: $stow_out"
         fi
       done
+
+      # If nothing stowed, fall through to copy method
+      if [[ $stowed -eq 0 ]]; then
+        echo "  ⚠ Stow stowed 0 packages — falling back to direct copy"
+        STOW_CMD=""
+      fi
     fi
-    
-    # Handle other dotfiles in config/ root (like .tmux.conf, .bashrc, etc.)
-    echo "  → Copying dotfiles..."
-    for file in config/.*; do
-      # Skip . and .. and .config directory
-      if [[ "$file" == "config/." ]] || [[ "$file" == "config/.." ]] || [[ "$file" == "config/.config" ]]; then
-        continue
-      fi
-      # Only process actual files
-      if [[ -f "$file" ]]; then
-        filename=$(basename "$file")
-        dest_path="$HOME/$filename"
-        echo "    → $filename"
-        # Backup if exists
-        if [[ -f "$dest_path" ]]; then
-          backup_path="${dest_path}.backup-$(date +%Y%m%d-%H%M%S)"
-          cp "$dest_path" "$backup_path"
-          log_install "CONFIG" "$dest_path" "$backup_path" ""
-        fi
-        cp "$file" ~/ 2>/dev/null || $USE_SUDO cp "$file" ~/
-        log_install "CONFIG" "$dest_path" "" ""
-      fi
-    done
+
+    if [[ -z "$STOW_CMD" ]]; then
+      echo "  Using direct copy method for configs..."
+      echo "  Note: Install 'stow' for symlink-based dotfile management."
+
+      # Copy each package's contents into $HOME, preserving relative paths.
+      for pkg_path in "${packages[@]}"; do
+        package_name=$(basename "$pkg_path")
+        echo "  → Copying package: $package_name"
+        # Walk every entry inside the package (including hidden ones like .config, .tmux.conf)
+        while IFS= read -r -d '' entry; do
+          rel="${entry#"$pkg_path"/}"
+          dest="$HOME/$rel"
+          # Skip the package root itself
+          [[ -z "$rel" || "$rel" == "." ]] && continue
+          if [[ -d "$entry" ]]; then
+            if [[ ! -d "$dest" ]]; then
+              mkdir -p "$dest"
+            fi
+          elif [[ -f "$entry" ]]; then
+            # Backup existing file
+            if [[ -e "$dest" ]]; then
+              backup_path="${dest}.backup-$(date +%Y%m%d-%H%M%S)"
+              mv "$dest" "$backup_path"
+              log_install "CONFIG" "$dest" "$backup_path" ""
+            fi
+            cp "$entry" "$dest" 2>/dev/null || {
+              echo "    Permission issue detected, adjusting ownership..."
+              $USE_SUDO cp "$entry" "$dest"
+              $USE_SUDO chown "$(whoami):$(id -gn)" "$dest"
+            }
+            log_install "CONFIG" "$dest" "" ""
+          fi
+        done < <(find "$pkg_path" -mindepth 1 -print0)
+      done
+    fi
   fi
-  
+
   echo "✓ Configuration files installed"
 fi
 
@@ -1009,6 +1037,30 @@ DETECTED_SHELLS=()
 [[ -f "$HOME/.zshrc" ]] && DETECTED_SHELLS+=("$HOME/.zshrc")
 [[ -f "$HOME/.config/fish/config.fish" ]] && DETECTED_SHELLS+=("$HOME/.config/fish/config.fish")
 
+# If no RC files found, create one based on the user's actual login shell
+if [[ ${#DETECTED_SHELLS[@]} -eq 0 ]]; then
+  CURRENT_SHELL=$(basename "${SHELL:-bash}")
+  echo "No existing shell RC files found. Detecting current shell: $CURRENT_SHELL"
+  case "$CURRENT_SHELL" in
+    zsh)
+      touch "$HOME/.zshrc"
+      DETECTED_SHELLS+=("$HOME/.zshrc")
+      echo "  Created ~/.zshrc"
+      ;;
+    fish)
+      mkdir -p "$HOME/.config/fish"
+      touch "$HOME/.config/fish/config.fish"
+      DETECTED_SHELLS+=("$HOME/.config/fish/config.fish")
+      echo "  Created ~/.config/fish/config.fish"
+      ;;
+    *)
+      touch "$HOME/.bashrc"
+      DETECTED_SHELLS+=("$HOME/.bashrc")
+      echo "  Created ~/.bashrc"
+      ;;
+  esac
+fi
+
 if [[ ${#DETECTED_SHELLS[@]} -eq 0 ]]; then
   echo "No shell configuration files found (.bashrc, .zshrc, config.fish)"
   echo "You can manually add configurations later using shell-setup-example.sh as reference"
@@ -1075,6 +1127,11 @@ else
       else
         add_to_shell_rc "$SHELL_RC" "eval \"\$(starship init $SHELL_TYPE)\"" "Starship prompt"
       fi
+    fi
+
+    # VIMRUNTIME - needed when nvim is installed from the bundled standalone binary
+    if [[ -d "$HOME/.local/share/nvim/runtime" ]]; then
+      add_to_shell_rc "$SHELL_RC" "export VIMRUNTIME=\"\$HOME/.local/share/nvim/runtime\"" "VIMRUNTIME (Neovim runtime path)"
     fi
 
     # Zoxide (smarter cd)

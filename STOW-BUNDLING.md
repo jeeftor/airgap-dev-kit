@@ -114,7 +114,7 @@ stow -t ~ nvim
 ~/.local/bin/stow -t ~ nvim
 
 # Fallback (if no stow)
-cp -r config/.config/nvim ~/.config/
+cp -r config/nvim/.config/nvim ~/.config/
 ```
 
 ## Testing

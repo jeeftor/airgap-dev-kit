@@ -122,26 +122,28 @@ jobs:
       - name: Bundle Neovim plugins
         run: |
           echo "Setting up Neovim for plugin installation..."
-          # Extract the downloaded Neovim binary
-          cd $GITHUB_WORKSPACE/offline-packages/${{ matrix.binary_dir }}
-          tar -xzf nvim-linux64.tar.gz || tar -xzf nvim-macos-arm64.tar.gz
-          
-          # Set NVIM to the extracted binary path
+
+          # Use the downloaded binary directly (official release, no extraction needed)
           if [[ "${{ matrix.platform }}" == "linux" ]]; then
-            NVIM="$GITHUB_WORKSPACE/offline-packages/${{ matrix.binary_dir }}/nvim-linux-x86_64/bin/nvim"
+            NVIM="$GITHUB_WORKSPACE/offline-packages/${{ matrix.binary_dir }}/nvim-static-x86_64"
+            export VIMRUNTIME="$GITHUB_WORKSPACE/offline-packages/${{ matrix.binary_dir }}/nvim-runtime"
           else
+            # macOS: extract from tarball
+            cd $GITHUB_WORKSPACE/offline-packages/${{ matrix.binary_dir }}
+            tar -xzf nvim-macos-arm64.tar.gz
             NVIM="$GITHUB_WORKSPACE/offline-packages/${{ matrix.binary_dir }}/nvim-macos-arm64/bin/nvim"
           fi
-          
+          chmod +x "$NVIM"
+
           $NVIM --version
           
           # Set up Neovim config from repo
           mkdir -p ~/.config/nvim
-          if [[ -d $GITHUB_WORKSPACE/config/.config/nvim ]]; then
-            cp -r $GITHUB_WORKSPACE/config/.config/nvim/* ~/.config/nvim/
+          if [[ -d $GITHUB_WORKSPACE/config/nvim/.config/nvim ]]; then
+            cp -r $GITHUB_WORKSPACE/config/nvim/.config/nvim/* ~/.config/nvim/
             echo "Neovim config copied from repo"
           else
-            echo "Warning: No Neovim config found in config/.config/nvim/"
+            echo "Warning: No Neovim config found in config/nvim/.config/nvim/"
             echo "Skipping plugin installation"
             exit 0
           fi

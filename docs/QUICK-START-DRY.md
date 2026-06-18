@@ -96,7 +96,7 @@ offline-packages/
 ```bash
 tar -xzf lazyvim-plugins-manifest.tar.gz -C ~/.local/share/nvim/
 tar -xzf mason-packages-manifest.tar.gz -C ~/.local/share/nvim/mason/
-cp -r config/.config/nvim ~/.config/
+cp -r config/nvim/.config/nvim ~/.config/
 ```
 
 ## Benefits

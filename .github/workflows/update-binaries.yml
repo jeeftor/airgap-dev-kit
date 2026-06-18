@@ -40,22 +40,26 @@ jobs:
         run: |
           echo "Setting up Neovim for plugin installation..."
 
-          # Use the static Neovim binary directly (no extraction needed)
+          # Use the official Neovim binary with its bundled runtime
           NVIM="$GITHUB_WORKSPACE/offline-packages/linux/nvim-static-x86_64"
+          NVIM_RUNTIME="$GITHUB_WORKSPACE/offline-packages/linux/nvim-runtime"
 
           # Ensure it's executable
           chmod +x "$NVIM"
+
+          # Point to bundled runtime so vim.uri and other built-ins resolve correctly
+          export VIMRUNTIME="$NVIM_RUNTIME"
 
           # Verify Neovim is working
           $NVIM --version
 
           # Set up Neovim config from repo
           mkdir -p ~/.config/nvim
-          if [[ -d $GITHUB_WORKSPACE/config/.config/nvim ]]; then
-            cp -r $GITHUB_WORKSPACE/config/.config/nvim/* ~/.config/nvim/
+          if [[ -d $GITHUB_WORKSPACE/config/nvim/.config/nvim ]]; then
+            cp -r $GITHUB_WORKSPACE/config/nvim/.config/nvim/* ~/.config/nvim/
             echo "Neovim config copied from repo"
           else
-            echo "Warning: No Neovim config found in config/.config/nvim/"
+            echo "Warning: No Neovim config found in config/nvim/.config/nvim/"
             echo "Skipping plugin installation"
             exit 0
           fi
@@ -115,8 +119,9 @@ jobs:
           echo "Using vanilla Neovim + Mason (not LazyVim)"
           echo "=========================================="
 
-          # Use the static Neovim binary
+          # Use the official Neovim binary with its bundled runtime
           NVIM="$GITHUB_WORKSPACE/offline-packages/linux/nvim-static-x86_64"
+          export VIMRUNTIME="$GITHUB_WORKSPACE/offline-packages/linux/nvim-runtime"
           chmod +x "$NVIM"
 
           # Create minimal Mason config in a separate directory

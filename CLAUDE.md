@@ -29,7 +29,7 @@ tar -xzf airgap-dev-kit.tar.gz && cd airgap-dev-kit && ./install.sh
 
 - `Makefile` - Version variables, download URLs
 - `install.sh` - Binary installation, shell configuration (lines 397-424 for BINARIES_TO_CHECK)
-- `config/.config/nvim/` - LazyVim config (must have `install.missing=false` for air-gap)
+- `config/nvim/.config/nvim/` - LazyVim config (must have `install.missing=false` for air-gap)
 
 ## Notes
 

@@ -48,9 +48,9 @@ VERSION
 *.swn
 .*.sw[a-z]
 
-# Neovim runtime (keep config/.config/nvim/ in repo)
+# Neovim runtime (keep config/nvim/.config/nvim/ in repo)
 .nvim/
-config/.config/nvim/lazy-lock.json  # Lock file can be regenerated
+config/nvim/.config/nvim/lazy-lock.json  # Lock file can be regenerated
 
 # Stow conflicts
 .stow-local-ignore

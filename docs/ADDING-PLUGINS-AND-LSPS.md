@@ -8,7 +8,7 @@ This guide explains how to add new LazyVim plugins and LSP servers to your air-g
 - **What:** Editor features (UI, keymaps, utilities, themes, etc.)
 - **Location:** `~/.local/share/nvim/lazy/`
 - **Examples:** telescope, nvim-tree, which-key, colorschemes
-- **Config:** `config/.config/nvim/lua/plugins/*.lua`
+- **Config:** `config/nvim/.config/nvim/lua/plugins/*.lua`
 
 ### 2. Mason Packages (managed by Mason)
 - **What:** Language tools (LSP servers, formatters, linters, DAP adapters)
@@ -22,10 +22,10 @@ This guide explains how to add new LazyVim plugins and LSP servers to your air-g
 
 ### Step 1: Add Plugin to Config
 
-Create or edit a file in `config/.config/nvim/lua/plugins/`:
+Create or edit a file in `config/nvim/.config/nvim/lua/plugins/`:
 
 ```lua
--- config/.config/nvim/lua/plugins/my-plugins.lua
+-- config/nvim/.config/nvim/lua/plugins/my-plugins.lua
 return {
   -- Add a simple plugin
   {
@@ -53,7 +53,7 @@ return {
 }
 ```
 
-**See `config/.config/nvim/lua/plugins/example.lua` for more patterns!**
+**See `config/nvim/.config/nvim/lua/plugins/example.lua` for more patterns!**
 
 ### Step 2: Test Installation Online
 
@@ -83,18 +83,18 @@ make test-package
 tar -xzf lazyvim-plugins.tar.gz -C ~/.local/share/nvim/
 
 # Copy config
-cp -r airgap-dev-kit/config/.config/nvim ~/.config/
+cp -r airgap-dev-kit/config/nvim/.config/nvim ~/.config/
 ```
 
 ---
 
 ## Adding LSP Servers, Formatters, Linters
 
-You already have `config/.config/nvim/lua/plugins/airgap-lsp.lua` that lists common tools.
+You already have `config/nvim/.config/nvim/lua/plugins/airgap-lsp.lua` that lists common tools.
 
 ### Step 1: Add to Your Config
 
-Edit `config/.config/nvim/lua/plugins/airgap-lsp.lua`:
+Edit `config/nvim/.config/nvim/lua/plugins/airgap-lsp.lua`:
 
 ```lua
 return {
@@ -184,8 +184,8 @@ tar -xzf mason-packages.tar.gz -C ~/.local/share/nvim/mason/
 ### 1. Online Machine (Prepare)
 
 ```bash
-# Add plugins to config/.config/nvim/lua/plugins/*.lua
-# Add LSP servers to config/.config/nvim/lua/plugins/airgap-lsp.lua
+# Add plugins to config/nvim/.config/nvim/lua/plugins/*.lua
+# Add LSP servers to config/nvim/.config/nvim/lua/plugins/airgap-lsp.lua
 
 # Install everything
 nvim --headless "+Lazy! sync" +qa
@@ -204,7 +204,7 @@ tar -czf ~/mason-packages.tar.gz packages/
 # Copy these files:
 # - offline-packages/lazyvim-plugins.tar.gz
 # - mason-packages.tar.gz
-# - config/.config/nvim/
+# - config/nvim/.config/nvim/
 ```
 
 ### 3. Air-Gap Machine (Install)
@@ -218,7 +218,7 @@ tar -xzf lazyvim-plugins.tar.gz -C ~/.local/share/nvim/
 tar -xzf mason-packages.tar.gz -C ~/.local/share/nvim/mason/
 
 # Copy config
-cp -r config/.config/nvim ~/.config/
+cp -r config/nvim/.config/nvim ~/.config/
 
 # Done! Launch Neovim
 nvim
@@ -231,7 +231,7 @@ nvim
 ### Example 1: Add Python Support
 
 ```lua
--- config/.config/nvim/lua/plugins/python.lua
+-- config/nvim/.config/nvim/lua/plugins/python.lua
 return {
   -- LSP Server
   {
@@ -270,7 +270,7 @@ return {
 ### Example 2: Add a New Colorscheme
 
 ```lua
--- config/.config/nvim/lua/plugins/theme.lua
+-- config/nvim/.config/nvim/lua/plugins/theme.lua
 return {
   {
     "catppuccin/nvim",
@@ -289,7 +289,7 @@ return {
 ### Example 3: Add Rust Support
 
 ```lua
--- config/.config/nvim/lua/plugins/rust.lua
+-- config/nvim/.config/nvim/lua/plugins/rust.lua
 return {
   {
     "williamboman/mason-lspconfig.nvim",

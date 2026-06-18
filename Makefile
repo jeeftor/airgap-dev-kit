@@ -5,6 +5,7 @@ WEZTERM_VERSION := 20230712-072601-f4abf8fd
 FZF_VERSION := 0.66.1
 TMUX_VERSION := 3.5a
 NERD_FONT_VERSION := v3.2.1
+NVIM_VERSION := v0.11.5
 BTOP_VERSION := v1.3.2
 LSD_VERSION := v1.1.5
 ZOX_VERSION := v0.9.8
@@ -17,6 +18,10 @@ MKCERT_VERSION := v1.4.4
 DIRENV_VERSION := v2.37.1
 SVU_VERSION := 3.3.0
 GPING_VERSION := 1.20.1
+FD_VERSION := 10.2.0
+RG_VERSION := 14.1.1
+BAT_VERSION := 0.25.0
+STARSHIP_VERSION := 1.22.1
 
 # Detect OS for local testing
 OS := $(shell uname -s)
@@ -32,7 +37,9 @@ help:
 	@echo "make update            - Download all missing binaries"
 	@echo "make verify            - Verify all binaries are present and valid"
 	@echo "make package           - Create tarball for offline deployment"
+	@echo "make check-updates     - Check for newer tool releases (run on online machine)"
 	@echo "make install           - Install on current machine (runs install.sh)"
+	@echo "make sync              - Rsync repo to jstein@ai:~/airgap-dev-kit (for local testing)"
 	@echo "make sync-nvim-config  - Sync local Neovim config to repo"
 	@echo "make clean             - Remove downloaded binaries (keeps placeholders)"
 	@echo "make clean-all         - Remove everything including package tarballs"
@@ -64,109 +71,160 @@ update-linux:
 	@echo "Downloading Linux binaries..."
 	@mkdir -p offline-packages/linux
 
-	# WezTerm AppImage
+	@# WezTerm AppImage
 	@if [ ! -f offline-packages/linux/wezterm.AppImage ] || [ $$(stat -f%z offline-packages/linux/wezterm.AppImage 2>/dev/null || stat -c%s offline-packages/linux/wezterm.AppImage 2>/dev/null) -lt 1000 ]; then \
 		echo "  → WezTerm AppImage..."; \
-		curl -fL "https://github.com/wez/wezterm/releases/download/$(WEZTERM_VERSION)/WezTerm-$(WEZTERM_VERSION)-Ubuntu20.04.AppImage" \
+		curl -fsSL "https://github.com/wez/wezterm/releases/download/$(WEZTERM_VERSION)/WezTerm-$(WEZTERM_VERSION)-Ubuntu20.04.AppImage" \
 			-o offline-packages/linux/wezterm.AppImage; \
 		chmod +x offline-packages/linux/wezterm.AppImage; \
 	else \
 		echo "  ✓ WezTerm AppImage already present"; \
 	fi
 
-	# tmux AppImage
+	@# tmux AppImage
 	@if [ ! -f offline-packages/linux/tmux-3.4-static-x86_64 ] || [ $$(stat -f%z offline-packages/linux/tmux-3.4-static-x86_64 2>/dev/null || stat -c%s offline-packages/linux/tmux-3.4-static-x86_64 2>/dev/null) -lt 1000 ]; then \
 		echo "  → tmux AppImage..."; \
-		curl -fL "https://github.com/nelsonenzo/tmux-appimage/releases/download/$(TMUX_VERSION)/tmux.appimage" \
+		curl -fsSL "https://github.com/nelsonenzo/tmux-appimage/releases/download/$(TMUX_VERSION)/tmux.appimage" \
 			-o offline-packages/linux/tmux-3.4-static-x86_64; \
 		chmod +x offline-packages/linux/tmux-3.4-static-x86_64; \
 	else \
 		echo "  ✓ tmux already present"; \
 	fi
 
-	# Neovim Linux (static build from jeeftor/static-neovim)
+	@# Neovim Linux (official release tarball - includes runtime files)
 	@if [ ! -f offline-packages/linux/nvim-static-x86_64 ] || [ $$(stat -f%z offline-packages/linux/nvim-static-x86_64 2>/dev/null || stat -c%s offline-packages/linux/nvim-static-x86_64 2>/dev/null) -lt 1000 ]; then \
-		echo "  → Neovim Linux static build (from jeeftor/static-neovim)..."; \
-		curl -fL "https://github.com/jeeftor/static-neovim/releases/latest/download/nvim-static-x86_64" \
-			-o offline-packages/linux/nvim-static-x86_64; \
+		echo "  → Neovim Linux (official $(NVIM_VERSION))..."; \
+		mkdir -p /tmp/nvim-dl offline-packages/linux/nvim-runtime; \
+		curl -fsSL "https://github.com/neovim/neovim/releases/download/$(NVIM_VERSION)/nvim-linux-x86_64.tar.gz" | \
+			tar -xz -C /tmp/nvim-dl --strip-components=1; \
+		cp /tmp/nvim-dl/bin/nvim offline-packages/linux/nvim-static-x86_64; \
 		chmod +x offline-packages/linux/nvim-static-x86_64; \
+		cp -r /tmp/nvim-dl/share/nvim/runtime/ offline-packages/linux/nvim-runtime/; \
+		rm -rf /tmp/nvim-dl; \
 	else \
-		echo "  ✓ Neovim Linux static binary already present"; \
+		echo "  ✓ Neovim Linux binary already present"; \
 	fi
 
-	# fzf (binary and shell integration scripts)
+	@# fzf (binary and shell integration scripts)
 	@if [ ! -f offline-packages/linux/fzf ] || [ $$(stat -f%z offline-packages/linux/fzf 2>/dev/null || stat -c%s offline-packages/linux/fzf 2>/dev/null) -lt 1000 ]; then \
 		echo "  → fzf fuzzy finder..."; \
-		curl -fL "https://github.com/junegunn/fzf/releases/download/v$(FZF_VERSION)/fzf-$(FZF_VERSION)-linux_amd64.tar.gz" | \
+		curl -fsSL "https://github.com/junegunn/fzf/releases/download/v$(FZF_VERSION)/fzf-$(FZF_VERSION)-linux_amd64.tar.gz" | \
 			tar -xz -C offline-packages/linux/ fzf; \
 		chmod +x offline-packages/linux/fzf; \
 	else \
 		echo "  ✓ fzf already present"; \
 	fi
-	@if [ ! -f offline-packages/linux/fzf-key-bindings.bash ] || [ ! -f offline-packages/linux/fzf-completion.bash ]; then \
+	@if [ ! -f offline-packages/linux/fzf-scripts/key-bindings.bash ] || [ ! -f offline-packages/linux/fzf-scripts/completion.bash ]; then \
 		echo "  → fzf shell integration scripts..."; \
 		mkdir -p offline-packages/linux/fzf-scripts; \
-		curl -fL "https://raw.githubusercontent.com/junegunn/fzf/v$(FZF_VERSION)/shell/key-bindings.bash" \
+		curl -fsSL "https://raw.githubusercontent.com/junegunn/fzf/v$(FZF_VERSION)/shell/key-bindings.bash" \
 			-o offline-packages/linux/fzf-scripts/key-bindings.bash; \
-		curl -fL "https://raw.githubusercontent.com/junegunn/fzf/v$(FZF_VERSION)/shell/completion.bash" \
+		curl -fsSL "https://raw.githubusercontent.com/junegunn/fzf/v$(FZF_VERSION)/shell/completion.bash" \
 			-o offline-packages/linux/fzf-scripts/completion.bash; \
-		curl -fL "https://raw.githubusercontent.com/junegunn/fzf/v$(FZF_VERSION)/shell/key-bindings.zsh" \
+		curl -fsSL "https://raw.githubusercontent.com/junegunn/fzf/v$(FZF_VERSION)/shell/key-bindings.zsh" \
 			-o offline-packages/linux/fzf-scripts/key-bindings.zsh; \
-		curl -fL "https://raw.githubusercontent.com/junegunn/fzf/v$(FZF_VERSION)/shell/completion.zsh" \
+		curl -fsSL "https://raw.githubusercontent.com/junegunn/fzf/v$(FZF_VERSION)/shell/completion.zsh" \
 			-o offline-packages/linux/fzf-scripts/completion.zsh; \
-		curl -fL "https://raw.githubusercontent.com/junegunn/fzf/v$(FZF_VERSION)/shell/key-bindings.fish" \
+		curl -fsSL "https://raw.githubusercontent.com/junegunn/fzf/v$(FZF_VERSION)/shell/key-bindings.fish" \
 			-o offline-packages/linux/fzf-scripts/key-bindings.fish; \
 	else \
 		echo "  ✓ fzf shell scripts already present"; \
 	fi
 
-	@echo "  ✓ fd, rg, bat, starship already present (verified earlier)"
+	@# fd - fast find replacement
+	@if [ ! -f offline-packages/linux/fd ] || [ $$(stat -f%z offline-packages/linux/fd 2>/dev/null || stat -c%s offline-packages/linux/fd 2>/dev/null) -lt 1000 ]; then \
+		echo "  → fd (fast find)..."; \
+		mkdir -p /tmp/fd-dl; \
+		curl -fsSL "https://github.com/sharkdp/fd/releases/download/v$(FD_VERSION)/fd-v$(FD_VERSION)-x86_64-unknown-linux-musl.tar.gz" | \
+			tar -xz -C /tmp/fd-dl --strip-components=1; \
+		mv /tmp/fd-dl/fd offline-packages/linux/fd; \
+		chmod +x offline-packages/linux/fd; \
+		rm -rf /tmp/fd-dl; \
+	else \
+		echo "  ✓ fd already present"; \
+	fi
 
-	# btop - resource monitor
+	@# ripgrep - fast grep replacement
+	@if [ ! -f offline-packages/linux/rg ] || [ $$(stat -f%z offline-packages/linux/rg 2>/dev/null || stat -c%s offline-packages/linux/rg 2>/dev/null) -lt 1000 ]; then \
+		echo "  → ripgrep (fast grep)..."; \
+		mkdir -p /tmp/rg-dl; \
+		curl -fsSL "https://github.com/BurntSushi/ripgrep/releases/download/$(RG_VERSION)/ripgrep-$(RG_VERSION)-x86_64-unknown-linux-musl.tar.gz" | \
+			tar -xz -C /tmp/rg-dl --strip-components=1; \
+		mv /tmp/rg-dl/rg offline-packages/linux/rg; \
+		chmod +x offline-packages/linux/rg; \
+		rm -rf /tmp/rg-dl; \
+	else \
+		echo "  ✓ rg already present"; \
+	fi
+
+	@# bat - syntax-highlighting cat replacement
+	@if [ ! -f offline-packages/linux/bat ] || [ $$(stat -f%z offline-packages/linux/bat 2>/dev/null || stat -c%s offline-packages/linux/bat 2>/dev/null) -lt 1000 ]; then \
+		echo "  → bat (syntax-highlighting cat)..."; \
+		mkdir -p /tmp/bat-dl; \
+		curl -fsSL "https://github.com/sharkdp/bat/releases/download/v$(BAT_VERSION)/bat-v$(BAT_VERSION)-x86_64-unknown-linux-musl.tar.gz" | \
+			tar -xz -C /tmp/bat-dl --strip-components=1; \
+		mv /tmp/bat-dl/bat offline-packages/linux/bat; \
+		chmod +x offline-packages/linux/bat; \
+		rm -rf /tmp/bat-dl; \
+	else \
+		echo "  ✓ bat already present"; \
+	fi
+
+	@# starship - cross-shell prompt
+	@if [ ! -f offline-packages/linux/starship ] || [ $$(stat -f%z offline-packages/linux/starship 2>/dev/null || stat -c%s offline-packages/linux/starship 2>/dev/null) -lt 1000 ]; then \
+		echo "  → starship (cross-shell prompt)..."; \
+		curl -fsSL "https://github.com/starship/starship/releases/download/v$(STARSHIP_VERSION)/starship-x86_64-unknown-linux-musl.tar.gz" | \
+			tar -xz -C offline-packages/linux/ starship; \
+		chmod +x offline-packages/linux/starship; \
+	else \
+		echo "  ✓ starship already present"; \
+	fi
+
+	@# btop - resource monitor
 	@if [ ! -f offline-packages/linux/btop ] || [ $$(stat -f%z offline-packages/linux/btop 2>/dev/null || stat -c%s offline-packages/linux/btop 2>/dev/null) -lt 1000 ]; then \
 		echo "  → btop (resource monitor)..."; \
-		curl -fL "https://github.com/aristocratos/btop/releases/download/$(BTOP_VERSION)/btop-x86_64-linux-musl.tbz" | \
+		curl -fsSL "https://github.com/aristocratos/btop/releases/download/$(BTOP_VERSION)/btop-x86_64-linux-musl.tbz" | \
 			tar -xj -C /tmp/ && mv /tmp/btop/bin/btop offline-packages/linux/btop && rm -rf /tmp/btop; \
 		chmod +x offline-packages/linux/btop; \
 	else \
 		echo "  ✓ btop already present"; \
 	fi
 
-	# lsd - modern ls replacement
+	@# lsd - modern ls replacement
 	@if [ ! -f offline-packages/linux/lsd ] || [ $$(stat -f%z offline-packages/linux/lsd 2>/dev/null || stat -c%s offline-packages/linux/lsd 2>/dev/null) -lt 1000 ]; then \
 		echo "  → lsd (modern ls)..."; \
-		curl -fL "https://github.com/lsd-rs/lsd/releases/download/$(LSD_VERSION)/lsd-$(LSD_VERSION)-x86_64-unknown-linux-musl.tar.gz" | \
+		curl -fsSL "https://github.com/lsd-rs/lsd/releases/download/$(LSD_VERSION)/lsd-$(LSD_VERSION)-x86_64-unknown-linux-musl.tar.gz" | \
 			tar -xz -C offline-packages/linux/ --strip-components=1; \
 		chmod +x offline-packages/linux/lsd; \
 	else \
 		echo "  ✓ lsd already present"; \
 	fi
 
-	# zoxide - smarter cd
+	@# zoxide - smarter cd
 	@if [ ! -f offline-packages/linux/zoxide ] || [ $$(stat -f%z offline-packages/linux/zoxide 2>/dev/null || stat -c%s offline-packages/linux/zoxide 2>/dev/null) -lt 1000 ]; then \
 		echo "  → zoxide (smarter cd)..."; \
-		curl -fL "https://github.com/ajeetdsouza/zoxide/releases/download/$(ZOX_VERSION)/zoxide-$$(echo $(ZOX_VERSION) | sed 's/^v//')-x86_64-unknown-linux-musl.tar.gz" | \
+		curl -fsSL "https://github.com/ajeetdsouza/zoxide/releases/download/$(ZOX_VERSION)/zoxide-$$(echo $(ZOX_VERSION) | sed 's/^v//')-x86_64-unknown-linux-musl.tar.gz" | \
 			tar -xz -C offline-packages/linux/; \
 		chmod +x offline-packages/linux/zoxide; \
 	else \
 		echo "  ✓ zoxide already present"; \
 	fi
 
-	# direnv - per-directory environment manager
+	@# direnv - per-directory environment manager
 	@if [ ! -f offline-packages/linux/direnv ] || [ $$(stat -f%z offline-packages/linux/direnv 2>/dev/null || stat -c%s offline-packages/linux/direnv 2>/dev/null) -lt 1000 ]; then \
 		echo "  → direnv (environment loader)..."; \
-		curl -fL "https://github.com/direnv/direnv/releases/download/$(DIRENV_VERSION)/direnv.linux-amd64" \
+		curl -fsSL "https://github.com/direnv/direnv/releases/download/$(DIRENV_VERSION)/direnv.linux-amd64" \
 			-o offline-packages/linux/direnv; \
 		chmod +x offline-packages/linux/direnv; \
 	else \
 		echo "  ✓ direnv already present"; \
 	fi
 
-	# dust - disk usage viewer
+	@# dust - disk usage viewer
 	@if [ ! -f offline-packages/linux/dust ] || [ $$(stat -f%z offline-packages/linux/dust 2>/dev/null || stat -c%s offline-packages/linux/dust 2>/dev/null) -lt 1000 ]; then \
 		echo "  → dust (disk usage)..."; \
 		mkdir -p /tmp/dust-download; \
-		curl -fL "https://github.com/bootandy/dust/releases/download/$(DUST_VERSION)/dust-$(DUST_VERSION)-x86_64-unknown-linux-gnu.tar.gz" | \
+		curl -fsSL "https://github.com/bootandy/dust/releases/download/$(DUST_VERSION)/dust-$(DUST_VERSION)-x86_64-unknown-linux-gnu.tar.gz" | \
 			tar -xz -C /tmp/dust-download --strip-components=1; \
 		mv /tmp/dust-download/dust offline-packages/linux/dust; \
 		chmod +x offline-packages/linux/dust; \
@@ -175,71 +233,74 @@ update-linux:
 		echo "  ✓ dust already present"; \
 	fi
 
-	# gdu - interactive disk usage analyzer
+	@# gdu - interactive disk usage analyzer
 	@if [ ! -f offline-packages/linux/gdu ] || [ $$(stat -f%z offline-packages/linux/gdu 2>/dev/null || stat -c%s offline-packages/linux/gdu 2>/dev/null) -lt 1000 ]; then \
 		echo "  → gdu (interactive disk usage)..."; \
-		curl -fL "https://github.com/dundee/gdu/releases/download/$(GDU_VERSION)/gdu_linux_amd64.tgz" | \
+		curl -fsSL "https://github.com/dundee/gdu/releases/download/$(GDU_VERSION)/gdu_linux_amd64.tgz" | \
 			tar -xz -C /tmp/ && mv /tmp/gdu_linux_amd64 offline-packages/linux/gdu; \
 		chmod +x offline-packages/linux/gdu; \
 	else \
 		echo "  ✓ gdu already present"; \
 	fi
 
-	# mkcert - local HTTPS certificate generator
+	@# mkcert - local HTTPS certificate generator
 	@if [ ! -f offline-packages/linux/mkcert ] || [ $$(stat -f%z offline-packages/linux/mkcert 2>/dev/null || stat -c%s offline-packages/linux/mkcert 2>/dev/null) -lt 1000 ]; then \
 		echo "  → mkcert (local HTTPS certificates)..."; \
-		curl -fL "https://github.com/FiloSottile/mkcert/releases/download/$(MKCERT_VERSION)/mkcert-$(MKCERT_VERSION)-linux-amd64" \
+		curl -fsSL "https://github.com/FiloSottile/mkcert/releases/download/$(MKCERT_VERSION)/mkcert-$(MKCERT_VERSION)-linux-amd64" \
 			-o offline-packages/linux/mkcert; \
 		chmod +x offline-packages/linux/mkcert; \
 	else \
 		echo "  ✓ mkcert already present"; \
 	fi
 
-	# gping - ping with a graph
+	@# gping - ping with a graph
 	@if [ ! -f offline-packages/linux/gping ] || [ $$(stat -f%z offline-packages/linux/gping 2>/dev/null || stat -c%s offline-packages/linux/gping 2>/dev/null) -lt 1000 ]; then \
 		echo "  → gping (ping with graph)..."; \
-		curl -fL "https://github.com/orf/gping/releases/download/gping-v$(GPING_VERSION)/gping-Linux-musl-x86_64.tar.gz" | \
+		curl -fsSL "https://github.com/orf/gping/releases/download/gping-v$(GPING_VERSION)/gping-Linux-musl-x86_64.tar.gz" | \
 			tar -xz -C /tmp/ && mv /tmp/gping offline-packages/linux/gping; \
 		chmod +x offline-packages/linux/gping; \
 	else \
 		echo "  ✓ gping already present"; \
 	fi
 
-	# gopls - Go language server
-	# NOTE: gopls requires Go toolchain to be installed. It cannot be bundled as a standalone binary.
-	# Users who need Go development should install Go separately, then gopls will work automatically.
+	@# gopls - Go language server
+	@# NOTE: gopls requires Go toolchain to be installed. It cannot be bundled as a standalone binary.
+	@# Users who need Go development should install Go separately, then gopls will work automatically.
 
-	# delta - better git diff
+	@# delta - better git diff
 	@if [ ! -f offline-packages/linux/delta ] || [ $$(stat -f%z offline-packages/linux/delta 2>/dev/null || stat -c%s offline-packages/linux/delta 2>/dev/null) -lt 1000 ]; then \
 		echo "  → delta (better git diff)..."; \
-		curl -fL "https://github.com/dandavison/delta/releases/download/$(DELTA_VERSION)/delta-$(DELTA_VERSION)-x86_64-unknown-linux-musl.tar.gz" | \
-			tar -xz --strip-components=1 -C /tmp/ && mv /tmp/delta offline-packages/linux/delta; \
+		mkdir -p /tmp/delta-download; \
+		curl -fsSL "https://github.com/dandavison/delta/releases/download/$(DELTA_VERSION)/delta-$(DELTA_VERSION)-x86_64-unknown-linux-musl.tar.gz" | \
+			tar -xz -C /tmp/delta-download --strip-components=1; \
+		mv /tmp/delta-download/delta offline-packages/linux/delta; \
 		chmod +x offline-packages/linux/delta; \
+		rm -rf /tmp/delta-download; \
 	else \
 		echo "  ✓ delta already present"; \
 	fi
 
-	# difftastic - structural diff tool
+	@# difftastic - structural diff tool
 	@if [ ! -f offline-packages/linux/difft ] || [ $$(stat -f%z offline-packages/linux/difft 2>/dev/null || stat -c%s offline-packages/linux/difft 2>/dev/null) -lt 1000 ]; then \
 		echo "  → difftastic (structural diff)..."; \
-		curl -fL "https://github.com/Wilfred/difftastic/releases/download/$(DIFFTASTIC_VERSION)/difft-x86_64-unknown-linux-gnu.tar.gz" | \
+		curl -fsSL "https://github.com/Wilfred/difftastic/releases/download/$(DIFFTASTIC_VERSION)/difft-x86_64-unknown-linux-gnu.tar.gz" | \
 			tar -xz -C offline-packages/linux/; \
 		chmod +x offline-packages/linux/difft; \
 	else \
 		echo "  ✓ difftastic already present"; \
 	fi
 
-	# gum - charm bracelet TUI library
+	@# gum - charm bracelet TUI library
 	@if [ ! -f offline-packages/linux/gum ] || [ $$(stat -f%z offline-packages/linux/gum 2>/dev/null || stat -c%s offline-packages/linux/gum 2>/dev/null) -lt 1000 ]; then \
 		echo "  → gum (pretty TUI toolkit)..."; \
-		curl -fL "https://github.com/charmbracelet/gum/releases/download/$(GUM_VERSION)/gum_$$(echo $(GUM_VERSION) | sed 's/^v//')_Linux_x86_64.tar.gz" | \
+		curl -fsSL "https://github.com/charmbracelet/gum/releases/download/$(GUM_VERSION)/gum_$$(echo $(GUM_VERSION) | sed 's/^v//')_Linux_x86_64.tar.gz" | \
 			tar -xz -C /tmp/ && mv /tmp/gum_$$(echo $(GUM_VERSION) | sed 's/^v//')_Linux_x86_64/gum offline-packages/linux/gum && rm -rf /tmp/gum_*; \
 		chmod +x offline-packages/linux/gum; \
 	else \
 		echo "  ✓ gum already present"; \
 	fi
 
-	# airgap-dev-kit - CLI wrapper command
+	@# airgap-dev-kit - CLI wrapper command
 	@if [ ! -f offline-packages/linux/airgap-dev-kit ]; then \
 		echo "  → airgap-dev-kit (CLI wrapper)..."; \
 		cp scripts/airgap-dev-kit offline-packages/linux/airgap-dev-kit; \
@@ -248,67 +309,45 @@ update-linux:
 		echo "  ✓ airgap-dev-kit already present"; \
 	fi
 
-	# stow - GNU Stow for dotfile management (Perl script, works everywhere)
+	@# stow - GNU Stow for dotfile management (Perl script, built from source)
 	@if [ ! -f offline-packages/linux/stow ] || [ $$(stat -f%z offline-packages/linux/stow 2>/dev/null || stat -c%s offline-packages/linux/stow 2>/dev/null) -lt 1000 ]; then \
 		echo "  → GNU Stow (dotfile manager)..."; \
-		mkdir -p /tmp/stow-download; \
-		curl -fL "https://ftp.gnu.org/gnu/stow/stow-latest.tar.gz" | tar -xz -C /tmp/stow-download --strip-components=1; \
-		cp /tmp/stow-download/bin/stow offline-packages/linux/stow; \
-		cp /tmp/stow-download/bin/chkstow offline-packages/linux/chkstow; \
-		chmod +x offline-packages/linux/stow offline-packages/linux/chkstow; \
-		rm -rf /tmp/stow-download; \
+		mkdir -p /tmp/stow-src /tmp/stow-install; \
+		curl -fsSL "https://ftp.gnu.org/gnu/stow/stow-latest.tar.gz" | tar -xz -C /tmp/stow-src --strip-components=1; \
+		cd /tmp/stow-src && ./configure --prefix=/tmp/stow-install && make && make install; \
+		cp /tmp/stow-install/bin/stow offline-packages/linux/stow; \
+		cp /tmp/stow-install/bin/chkstow offline-packages/linux/chkstow 2>/dev/null || true; \
+		chmod +x offline-packages/linux/stow; \
+		rm -rf /tmp/stow-src /tmp/stow-install; \
 	else \
 		echo "  ✓ stow already present"; \
 	fi
 
-	# lazygit - Terminal UI for git
+	@# lazygit - Terminal UI for git
 	@if [ ! -f offline-packages/linux/lazygit ]; then \
 		echo "  → lazygit (git TUI)..."; \
-		curl -fL "https://github.com/jesseduffield/lazygit/releases/download/v0.43.1/lazygit_0.43.1_Linux_x86_64.tar.gz" \
+		curl -fsSL "https://github.com/jesseduffield/lazygit/releases/download/v0.43.1/lazygit_0.43.1_Linux_x86_64.tar.gz" \
 			| tar -xz -C offline-packages/linux/ lazygit; \
 		chmod +x offline-packages/linux/lazygit; \
 	else \
 		echo "  ✓ lazygit already present"; \
 	fi
 
-	# zoxide - Smarter cd command
-	@if [ ! -f offline-packages/linux/zoxide ]; then \
-		echo "  → zoxide (smarter cd)..."; \
-		curl -fL "https://github.com/ajeetdsouza/zoxide/releases/download/v0.9.4/zoxide-0.9.4-x86_64-unknown-linux-musl.tar.gz" \
-			| tar -xz -C offline-packages/linux/ zoxide; \
-		chmod +x offline-packages/linux/zoxide; \
-	else \
-		echo "  ✓ zoxide already present"; \
-	fi
-
-	# delta - Better git diffs
-	@if [ ! -f offline-packages/linux/delta ]; then \
-		echo "  → delta (git diff viewer)..."; \
-		mkdir -p /tmp/delta-download; \
-		curl -fL "https://github.com/dandavison/delta/releases/download/0.17.0/delta-0.17.0-x86_64-unknown-linux-musl.tar.gz" \
-			| tar -xz -C /tmp/delta-download --strip-components=1; \
-		mv /tmp/delta-download/delta offline-packages/linux/; \
-		chmod +x offline-packages/linux/delta; \
-		rm -rf /tmp/delta-download; \
-	else \
-		echo "  ✓ delta already present"; \
-	fi
-
-	# jq - JSON processor
+	@# jq - JSON processor
 	@if [ ! -f offline-packages/linux/jq ]; then \
 		echo "  → jq (JSON processor)..."; \
-		curl -fL "https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-amd64" \
+		curl -fsSL "https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-amd64" \
 			-o offline-packages/linux/jq; \
 		chmod +x offline-packages/linux/jq; \
 	else \
 		echo "  ✓ jq already present"; \
 	fi
 
-	# svu - semantic version utility
+	@# svu - semantic version utility
 	@if [ ! -f offline-packages/linux/svu ]; then \
 		echo "  → svu (semantic version utility)..."; \
 		tmp_dir=$$(mktemp -d); \
-		curl -fL "https://github.com/caarlos0/svu/releases/download/v$(SVU_VERSION)/svu_$(SVU_VERSION)_linux_amd64.tar.gz" | \
+		curl -fsSL "https://github.com/caarlos0/svu/releases/download/v$(SVU_VERSION)/svu_$(SVU_VERSION)_linux_amd64.tar.gz" | \
 			tar -xz -C $$tmp_dir; \
 		mv $$tmp_dir/svu offline-packages/linux/svu; \
 		chmod +x offline-packages/linux/svu; \
@@ -317,33 +356,13 @@ update-linux:
 		echo "  ✓ svu already present"; \
 	fi
 
-	# btop - System monitor
-	@if [ ! -f offline-packages/linux/btop ]; then \
-		echo "  → btop (system monitor)..."; \
-		mkdir -p /tmp/btop-download; \
-		curl -fL "https://github.com/aristocratos/btop/releases/download/v1.3.2/btop-x86_64-linux-musl.tbz" \
-			| tar -xj -C /tmp/btop-download; \
-		mv /tmp/btop-download/btop/bin/btop offline-packages/linux/; \
-		chmod +x offline-packages/linux/btop; \
-		rm -rf /tmp/btop-download; \
-	else \
-		echo "  ✓ btop already present"; \
-	fi
+	@# gopls: not bundled - requires 'go install golang.org/x/tools/gopls@latest'
 
-	# gopls - Go language server (requires Go to build)
-	# Note: gopls doesn't provide pre-built binaries, requires 'go install'
-	# Skipping for now - users can install with: go install golang.org/x/tools/gopls@latest
-	# @if [ ! -f offline-packages/linux/gopls ]; then \
-	# 	echo "  → gopls (Go LSP) - requires Go toolchain to build"; \
-	# else \
-	# 	echo "  ✓ gopls already present"; \
-	# fi
-
-	# lua-language-server - Lua LSP
+	@# lua-language-server - Lua LSP
 	@if [ ! -f offline-packages/linux/lua-language-server ]; then \
 		echo "  → lua-language-server (Lua LSP)..."; \
 		mkdir -p /tmp/lua-ls-download; \
-		curl -fL "https://github.com/LuaLS/lua-language-server/releases/download/3.10.5/lua-language-server-3.10.5-linux-x64.tar.gz" \
+		curl -fsSL "https://github.com/LuaLS/lua-language-server/releases/download/3.10.5/lua-language-server-3.10.5-linux-x64.tar.gz" \
 			| tar -xz -C /tmp/lua-ls-download; \
 		mv /tmp/lua-ls-download/bin/lua-language-server offline-packages/linux/; \
 		chmod +x offline-packages/linux/lua-language-server; \
@@ -353,11 +372,11 @@ update-linux:
 	fi
 
 
-	# shellcheck - Shell script linter/analyzer
+	@# shellcheck - Shell script linter/analyzer
 	@if [ ! -f offline-packages/linux/shellcheck ]; then \
 		echo "  → shellcheck (Shell linter)..."; \
 		mkdir -p /tmp/shellcheck-download; \
-		curl -fL "https://github.com/koalaman/shellcheck/releases/download/v0.10.0/shellcheck-v0.10.0.linux.x86_64.tar.xz" \
+		curl -fsSL "https://github.com/koalaman/shellcheck/releases/download/v0.10.0/shellcheck-v0.10.0.linux.x86_64.tar.xz" \
 			| tar -xJ -C /tmp/shellcheck-download --strip-components=1; \
 		mv /tmp/shellcheck-download/shellcheck offline-packages/linux/; \
 		chmod +x offline-packages/linux/shellcheck; \
@@ -370,35 +389,35 @@ update-macos:
 	@echo "Downloading macOS binaries..."
 	@mkdir -p offline-packages/macos
 
-	# WezTerm macOS
+	@# WezTerm macOS
 	@if [ ! -f offline-packages/macos/WezTerm-macos.zip ] || [ $$(stat -f%z offline-packages/macos/WezTerm-macos.zip 2>/dev/null || stat -c%s offline-packages/macos/WezTerm-macos.zip 2>/dev/null) -lt 1000 ]; then \
 		echo "  → WezTerm macOS..."; \
-		curl -fL "https://github.com/wez/wezterm/releases/download/$(WEZTERM_VERSION)/WezTerm-macos-$(WEZTERM_VERSION).zip" \
+		curl -fsSL "https://github.com/wez/wezterm/releases/download/$(WEZTERM_VERSION)/WezTerm-macos-$(WEZTERM_VERSION).zip" \
 			-o offline-packages/macos/WezTerm-macos.zip; \
 	else \
 		echo "  ✓ WezTerm macOS already present"; \
 	fi
 
-	# Neovim macOS ARM64
+	@# Neovim macOS ARM64
 	@if [ ! -f offline-packages/macos/nvim-macos-arm64.tar.gz ] || [ $$(stat -f%z offline-packages/macos/nvim-macos-arm64.tar.gz 2>/dev/null || stat -c%s offline-packages/macos/nvim-macos-arm64.tar.gz 2>/dev/null) -lt 1000000 ]; then \
 		echo "  → Neovim macOS ARM64..."; \
-		curl -fL "https://github.com/neovim/neovim/releases/download/v0.11.5/nvim-macos-arm64.tar.gz" \
+		curl -fsSL "https://github.com/neovim/neovim/releases/download/v0.11.5/nvim-macos-arm64.tar.gz" \
 			-o offline-packages/macos/nvim-macos-arm64.tar.gz; \
 	else \
 		echo "  ✓ Neovim macOS already present"; \
 	fi
 
-	# gum - charm bracelet TUI library
+	@# gum - charm bracelet TUI library
 	@if [ ! -f offline-packages/macos/gum ] || [ $$(stat -f%z offline-packages/macos/gum 2>/dev/null || stat -c%s offline-packages/macos/gum 2>/dev/null) -lt 1000 ]; then \
 		echo "  → gum (pretty TUI toolkit)..."; \
-		curl -fL "https://github.com/charmbracelet/gum/releases/download/$(GUM_VERSION)/gum_$$(echo $(GUM_VERSION) | sed 's/^v//')_Darwin_arm64.tar.gz" | \
+		curl -fsSL "https://github.com/charmbracelet/gum/releases/download/$(GUM_VERSION)/gum_$$(echo $(GUM_VERSION) | sed 's/^v//')_Darwin_arm64.tar.gz" | \
 			tar -xz -C /tmp/ && mv /tmp/gum_$$(echo $(GUM_VERSION) | sed 's/^v//')_Darwin_arm64/gum offline-packages/macos/gum && rm -rf /tmp/gum_*; \
 		chmod +x offline-packages/macos/gum; \
 	else \
 		echo "  ✓ gum already present"; \
 	fi
 
-	# airgap-dev-kit - CLI wrapper command
+	@# airgap-dev-kit - CLI wrapper command
 	@if [ ! -f offline-packages/macos/airgap-dev-kit ]; then \
 		echo "  → airgap-dev-kit (CLI wrapper)..."; \
 		cp scripts/airgap-dev-kit offline-packages/macos/airgap-dev-kit; \
@@ -407,11 +426,11 @@ update-macos:
 		echo "  ✓ airgap-dev-kit already present"; \
 	fi
 
-	# stow - GNU Stow for dotfile management (Perl script, same for all platforms)
+	@# stow - GNU Stow for dotfile management (Perl script, same for all platforms)
 	@if [ ! -f offline-packages/macos/stow ] || [ $$(stat -f%z offline-packages/macos/stow 2>/dev/null || stat -c%s offline-packages/macos/stow 2>/dev/null) -lt 1000 ]; then \
 		echo "  → GNU Stow (dotfile manager)..."; \
 		mkdir -p /tmp/stow-download; \
-		curl -fL "https://ftp.gnu.org/gnu/stow/stow-latest.tar.gz" | tar -xz -C /tmp/stow-download --strip-components=1; \
+		curl -fsSL "https://ftp.gnu.org/gnu/stow/stow-latest.tar.gz" | tar -xz -C /tmp/stow-download --strip-components=1; \
 		cp /tmp/stow-download/bin/stow offline-packages/macos/stow; \
 		cp /tmp/stow-download/bin/chkstow offline-packages/macos/chkstow; \
 		chmod +x offline-packages/macos/stow offline-packages/macos/chkstow; \
@@ -420,31 +439,31 @@ update-macos:
 		echo "  ✓ stow already present"; \
 	fi
 
-	# lazygit - Terminal UI for git
+	@# lazygit - Terminal UI for git
 	@if [ ! -f offline-packages/macos/lazygit ]; then \
 		echo "  → lazygit (git TUI)..."; \
-		curl -fL "https://github.com/jesseduffield/lazygit/releases/download/v0.43.1/lazygit_0.43.1_Darwin_arm64.tar.gz" \
+		curl -fsSL "https://github.com/jesseduffield/lazygit/releases/download/v0.43.1/lazygit_0.43.1_Darwin_arm64.tar.gz" \
 			| tar -xz -C offline-packages/macos/ lazygit; \
 		chmod +x offline-packages/macos/lazygit; \
 	else \
 		echo "  ✓ lazygit already present"; \
 	fi
 
-	# zoxide - Smarter cd command
+	@# zoxide - Smarter cd command
 	@if [ ! -f offline-packages/macos/zoxide ]; then \
 		echo "  → zoxide (smarter cd)..."; \
-		curl -fL "https://github.com/ajeetdsouza/zoxide/releases/download/v0.9.4/zoxide-0.9.4-aarch64-apple-darwin.tar.gz" \
+		curl -fsSL "https://github.com/ajeetdsouza/zoxide/releases/download/v0.9.4/zoxide-0.9.4-aarch64-apple-darwin.tar.gz" \
 			| tar -xz -C offline-packages/macos/ zoxide; \
 		chmod +x offline-packages/macos/zoxide; \
 	else \
 		echo "  ✓ zoxide already present"; \
 	fi
 
-	# delta - Better git diffs
+	@# delta - Better git diffs
 	@if [ ! -f offline-packages/macos/delta ]; then \
 		echo "  → delta (git diff viewer)..."; \
 		mkdir -p /tmp/delta-download; \
-		curl -fL "https://github.com/dandavison/delta/releases/download/0.17.0/delta-0.17.0-aarch64-apple-darwin.tar.gz" \
+		curl -fsSL "https://github.com/dandavison/delta/releases/download/0.17.0/delta-0.17.0-aarch64-apple-darwin.tar.gz" \
 			| tar -xz -C /tmp/delta-download --strip-components=1; \
 		mv /tmp/delta-download/delta offline-packages/macos/; \
 		chmod +x offline-packages/macos/delta; \
@@ -453,41 +472,41 @@ update-macos:
 		echo "  ✓ delta already present"; \
 	fi
 
-	# difftastic - structural diff tool
+	@# difftastic - structural diff tool
 	@if [ ! -f offline-packages/macos/difft ]; then \
 		echo "  → difftastic (structural diff)..."; \
-		curl -fL "https://github.com/Wilfred/difftastic/releases/download/$(DIFFTASTIC_VERSION)/difft-aarch64-apple-darwin.tar.gz" \
+		curl -fsSL "https://github.com/Wilfred/difftastic/releases/download/$(DIFFTASTIC_VERSION)/difft-aarch64-apple-darwin.tar.gz" \
 			| tar -xz -C offline-packages/macos/; \
 		chmod +x offline-packages/macos/difft; \
 	else \
 		echo "  ✓ difftastic already present"; \
 	fi
 
-	# jq - JSON processor
+	@# jq - JSON processor
 	@if [ ! -f offline-packages/macos/jq ]; then \
 		echo "  → jq (JSON processor)..."; \
-		curl -fL "https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-macos-arm64" \
+		curl -fsSL "https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-macos-arm64" \
 			-o offline-packages/macos/jq; \
 		chmod +x offline-packages/macos/jq; \
 	else \
 		echo "  ✓ jq already present"; \
 	fi
 
-	# direnv - per-directory environment manager
+	@# direnv - per-directory environment manager
 	@if [ ! -f offline-packages/macos/direnv ]; then \
 		echo "  → direnv (environment loader)..."; \
-		curl -fL "https://github.com/direnv/direnv/releases/download/$(DIRENV_VERSION)/direnv.darwin-arm64" \
+		curl -fsSL "https://github.com/direnv/direnv/releases/download/$(DIRENV_VERSION)/direnv.darwin-arm64" \
 			-o offline-packages/macos/direnv; \
 		chmod +x offline-packages/macos/direnv; \
 	else \
 		echo "  ✓ direnv already present"; \
 	fi
 
-	# dust - disk usage viewer
+	@# dust - disk usage viewer
 	@if [ ! -f offline-packages/macos/dust ]; then \
 		echo "  → dust (disk usage)..."; \
 		mkdir -p /tmp/dust-macos-download; \
-		curl -fL "https://github.com/bootandy/dust/releases/download/$(DUST_VERSION)/dust-$(DUST_VERSION)-x86_64-apple-darwin.tar.gz" | \
+		curl -fsSL "https://github.com/bootandy/dust/releases/download/$(DUST_VERSION)/dust-$(DUST_VERSION)-x86_64-apple-darwin.tar.gz" | \
 			tar -xz -C /tmp/dust-macos-download --strip-components=1; \
 		mv /tmp/dust-macos-download/dust offline-packages/macos/dust; \
 		chmod +x offline-packages/macos/dust; \
@@ -496,34 +515,34 @@ update-macos:
 		echo "  ✓ dust already present"; \
 	fi
 
-	# gdu - interactive disk usage analyzer
+	@# gdu - interactive disk usage analyzer
 	@if [ ! -f offline-packages/macos/gdu ]; then \
 		echo "  → gdu (interactive disk usage)..."; \
-		curl -fL "https://github.com/dundee/gdu/releases/download/$(GDU_VERSION)/gdu_darwin_amd64.tgz" | \
+		curl -fsSL "https://github.com/dundee/gdu/releases/download/$(GDU_VERSION)/gdu_darwin_amd64.tgz" | \
 			tar -xz -C /tmp/ && mv /tmp/gdu_darwin_amd64 offline-packages/macos/gdu; \
 		chmod +x offline-packages/macos/gdu; \
 	else \
 		echo "  ✓ gdu already present"; \
 	fi
 
-	# mkcert - local HTTPS certificate generator
+	@# mkcert - local HTTPS certificate generator
 	@if [ ! -f offline-packages/macos/mkcert ]; then \
 		echo "  → mkcert (local HTTPS certificates)..."; \
-		curl -fL "https://github.com/FiloSottile/mkcert/releases/download/$(MKCERT_VERSION)/mkcert-$(MKCERT_VERSION)-darwin-amd64" \
+		curl -fsSL "https://github.com/FiloSottile/mkcert/releases/download/$(MKCERT_VERSION)/mkcert-$(MKCERT_VERSION)-darwin-amd64" \
 			-o offline-packages/macos/mkcert; \
 		chmod +x offline-packages/macos/mkcert; \
 	else \
 		echo "  ✓ mkcert already present"; \
 	fi
 
-	# gopls - Go language server (installed via Mason in GitHub Actions)
-	# NOTE: Mason-installed LSPs are bundled in lazy-plugins.tar.gz, not as standalone binaries
+	@# gopls - Go language server (installed via Mason in GitHub Actions)
+	@# NOTE: Mason-installed LSPs are bundled in lazy-plugins.tar.gz, not as standalone binaries
 
-	# svu - semantic version utility
+	@# svu - semantic version utility
 	@if [ ! -f offline-packages/macos/svu ]; then \
 		echo "  → svu (semantic version utility)..."; \
 		tmp_dir=$$(mktemp -d); \
-		curl -fL "https://github.com/caarlos0/svu/releases/download/v$(SVU_VERSION)/svu_$(SVU_VERSION)_darwin_all.tar.gz" | \
+		curl -fsSL "https://github.com/caarlos0/svu/releases/download/v$(SVU_VERSION)/svu_$(SVU_VERSION)_darwin_all.tar.gz" | \
 			tar -xz -C $$tmp_dir; \
 		mv $$tmp_dir/svu offline-packages/macos/svu; \
 		chmod +x offline-packages/macos/svu; \
@@ -532,21 +551,21 @@ update-macos:
 		echo "  ✓ svu already present"; \
 	fi
 
-	# lsd - Modern ls replacement
+	@# lsd - Modern ls replacement
 	@if [ ! -f offline-packages/macos/lsd ]; then \
 		echo "  → lsd (modern ls)..."; \
-		curl -fL "https://github.com/lsd-rs/lsd/releases/download/$(LSD_VERSION)/lsd-$(LSD_VERSION)-aarch64-apple-darwin.tar.gz" \
+		curl -fsSL "https://github.com/lsd-rs/lsd/releases/download/$(LSD_VERSION)/lsd-$(LSD_VERSION)-aarch64-apple-darwin.tar.gz" \
 			| tar -xz -C offline-packages/macos/ --strip-components=1; \
 		chmod +x offline-packages/macos/lsd; \
 	else \
 		echo "  ✓ lsd already present"; \
 	fi
 
-	# btop - System monitor
+	@# btop - System monitor
 	@if [ ! -f offline-packages/macos/btop ]; then \
 		echo "  → btop (system monitor)..."; \
 		mkdir -p /tmp/btop-download; \
-		curl -fL "https://github.com/aristocratos/btop/releases/download/v1.3.2/btop-aarch64-apple-darwin.tbz" \
+		curl -fsSL "https://github.com/aristocratos/btop/releases/download/v1.3.2/btop-aarch64-apple-darwin.tbz" \
 			| tar -xj -C /tmp/btop-download; \
 		mv /tmp/btop-download/btop/bin/btop offline-packages/macos/; \
 		chmod +x offline-packages/macos/btop; \
@@ -555,20 +574,14 @@ update-macos:
 		echo "  ✓ btop already present"; \
 	fi
 
-	# gopls - Go language server (requires Go to build)
-	# Note: gopls doesn't provide pre-built binaries, requires 'go install'
-	# Skipping for now - users can install with: go install golang.org/x/tools/gopls@latest
-	# @if [ ! -f offline-packages/macos/gopls ]; then \
-	# 	echo "  → gopls (Go LSP) - requires Go toolchain to build"; \
-	# else \
-	# 	echo "  ✓ gopls already present"; \
-	# fi
+	@# gopls - Go language server (requires Go to build)
+	@# gopls: not bundled - requires 'go install golang.org/x/tools/gopls@latest'
 
-	# lua-language-server - Lua LSP
+	@# lua-language-server - Lua LSP
 	@if [ ! -f offline-packages/macos/lua-language-server ]; then \
 		echo "  → lua-language-server (Lua LSP)..."; \
 		mkdir -p /tmp/lua-ls-download; \
-		curl -fL "https://github.com/LuaLS/lua-language-server/releases/download/3.10.5/lua-language-server-3.10.5-darwin-arm64.tar.gz" \
+		curl -fsSL "https://github.com/LuaLS/lua-language-server/releases/download/3.10.5/lua-language-server-3.10.5-darwin-arm64.tar.gz" \
 			| tar -xz -C /tmp/lua-ls-download; \
 		mv /tmp/lua-ls-download/bin/lua-language-server offline-packages/macos/; \
 		chmod +x offline-packages/macos/lua-language-server; \
@@ -578,11 +591,11 @@ update-macos:
 	fi
 
 
-	# shellcheck - Shell script linter/analyzer
+	@# shellcheck - Shell script linter/analyzer
 	@if [ ! -f offline-packages/macos/shellcheck ]; then \
 		echo "  → shellcheck (Shell linter)..."; \
 		mkdir -p /tmp/shellcheck-download; \
-		curl -fL "https://github.com/koalaman/shellcheck/releases/download/v0.10.0/shellcheck-v0.10.0.darwin.aarch64.tar.xz" \
+		curl -fsSL "https://github.com/koalaman/shellcheck/releases/download/v0.10.0/shellcheck-v0.10.0.darwin.aarch64.tar.xz" \
 			| tar -xJ -C /tmp/shellcheck-download --strip-components=1; \
 		mv /tmp/shellcheck-download/shellcheck offline-packages/macos/; \
 		chmod +x offline-packages/macos/shellcheck; \
@@ -591,19 +604,19 @@ update-macos:
 		echo "  ✓ shellcheck already present"; \
 	fi
 
-	# fzf shell integration scripts (shared between macOS and Linux)
+	@# fzf shell integration scripts (shared between macOS and Linux)
 	@if [ ! -d offline-packages/macos/fzf-scripts ]; then \
 		echo "  → fzf shell integration scripts..."; \
 		mkdir -p offline-packages/macos/fzf-scripts; \
-		curl -fL "https://raw.githubusercontent.com/junegunn/fzf/v$(FZF_VERSION)/shell/key-bindings.bash" \
+		curl -fsSL "https://raw.githubusercontent.com/junegunn/fzf/v$(FZF_VERSION)/shell/key-bindings.bash" \
 			-o offline-packages/macos/fzf-scripts/key-bindings.bash; \
-		curl -fL "https://raw.githubusercontent.com/junegunn/fzf/v$(FZF_VERSION)/shell/completion.bash" \
+		curl -fsSL "https://raw.githubusercontent.com/junegunn/fzf/v$(FZF_VERSION)/shell/completion.bash" \
 			-o offline-packages/macos/fzf-scripts/completion.bash; \
-		curl -fL "https://raw.githubusercontent.com/junegunn/fzf/v$(FZF_VERSION)/shell/key-bindings.zsh" \
+		curl -fsSL "https://raw.githubusercontent.com/junegunn/fzf/v$(FZF_VERSION)/shell/key-bindings.zsh" \
 			-o offline-packages/macos/fzf-scripts/key-bindings.zsh; \
-		curl -fL "https://raw.githubusercontent.com/junegunn/fzf/v$(FZF_VERSION)/shell/completion.zsh" \
+		curl -fsSL "https://raw.githubusercontent.com/junegunn/fzf/v$(FZF_VERSION)/shell/completion.zsh" \
 			-o offline-packages/macos/fzf-scripts/completion.zsh; \
-		curl -fL "https://raw.githubusercontent.com/junegunn/fzf/v$(FZF_VERSION)/shell/key-bindings.fish" \
+		curl -fsSL "https://raw.githubusercontent.com/junegunn/fzf/v$(FZF_VERSION)/shell/key-bindings.fish" \
 			-o offline-packages/macos/fzf-scripts/key-bindings.fish; \
 	else \
 		echo "  ✓ fzf shell scripts already present"; \
@@ -614,7 +627,7 @@ update-fonts:
 	@mkdir -p fonts
 	@if [ ! -f fonts/JetBrainsMono.zip ] || [ $$(stat -f%z fonts/JetBrainsMono.zip 2>/dev/null || stat -c%s fonts/JetBrainsMono.zip 2>/dev/null) -lt 1000000 ]; then \
 		echo "  → JetBrainsMono Nerd Font..."; \
-		curl -fL "https://github.com/ryanoasis/nerd-fonts/releases/download/$(NERD_FONT_VERSION)/JetBrainsMono.zip" \
+		curl -fsSL "https://github.com/ryanoasis/nerd-fonts/releases/download/$(NERD_FONT_VERSION)/JetBrainsMono.zip" \
 			-o fonts/JetBrainsMono.zip; \
 	else \
 		echo "  ✓ JetBrainsMono Nerd Font already present"; \
@@ -627,7 +640,8 @@ verify:
 	echo "Core Linux binaries:"; \
 	if file offline-packages/linux/wezterm.AppImage 2>/dev/null | grep -q "executable"; then echo "  ✓ wezterm.AppImage"; else echo "  ✗ wezterm.AppImage - missing or invalid"; FAIL=1; fi; \
 	if file offline-packages/linux/tmux-3.4-static-x86_64 2>/dev/null | grep -q "executable"; then echo "  ✓ tmux-3.4-static-x86_64"; else echo "  ✗ tmux-3.4-static-x86_64 - missing or invalid"; FAIL=1; fi; \
-	if file offline-packages/linux/nvim-static-x86_64 2>/dev/null | grep -q "executable"; then echo "  ✓ nvim-static-x86_64"; else echo "  ✗ nvim-static-x86_64 - missing or invalid (run GitHub Actions build)"; FAIL=1; fi; \
+	if file offline-packages/linux/nvim-static-x86_64 2>/dev/null | grep -q "executable"; then echo "  ✓ nvim-static-x86_64"; else echo "  ✗ nvim-static-x86_64 - missing or invalid"; FAIL=1; fi; \
+	if [ -d offline-packages/linux/nvim-runtime ]; then echo "  ✓ nvim-runtime/"; else echo "  ✗ nvim-runtime/ - missing (re-run make update-linux to download)"; FAIL=1; fi; \
 	echo ""; \
 	echo "CLI tools:"; \
 	if file offline-packages/linux/fzf 2>/dev/null | grep -q "executable"; then echo "  ✓ fzf"; else echo "  ✗ fzf - missing or invalid"; FAIL=1; fi; \
@@ -679,13 +693,22 @@ package: version-file
 	@$(MAKE) --no-print-directory verify
 	@echo ""
 	@echo "Building tarball: airgap-dev-kit.tar.gz"
-	@# Build file list dynamically to handle optional directories
-	@FILES="install.sh VERSION offline-packages/"; \
-	if [ -d fonts ]; then FILES="$$FILES fonts/"; fi; \
-	if [ -d config ]; then FILES="$$FILES config/"; fi; \
-	tar --exclude='*.tar.gz' --exclude='.git' --exclude='.claude' --exclude='Makefile' \
-		--exclude='test-plugin-bundling.sh' --exclude='nvim-linux-x86_64' \
-		-czf airgap-dev-kit.tar.gz $$FILES
+	@# Ship the full kit so the air-gapped machine has Makefile, scripts, docs, etc.
+	@# Exclude only build artifacts and VCS/tool-specific dirs.
+	@tar --exclude='*.tar.gz' --exclude='*.zip' \
+		--exclude='.git' --exclude='.claude' --exclude='.devin' \
+		--exclude='.github' --exclude='test' \
+		--exclude='nvim-linux-x86_64' --exclude='nvim-linux64' \
+		--exclude='offline-packages/lazy-plugins.tar.gz' \
+		-czf airgap-dev-kit.tar.gz \
+		install.sh uninstall.sh Makefile VERSION \
+		README.md CHANGES.md CLAUDE.md \
+		STOW-BUNDLING.md INSTALLATION-TRACKING.md QUICK-START-FIXES.md TESTING.md \
+		check-neovim.sh install-mason-lsp.sh shell-setup-example.sh \
+		scripts/ docs/ \
+		offline-packages/ \
+		config/ \
+		$$( [ -d fonts ] && echo fonts/ )
 	@echo ""
 	@ls -lh airgap-dev-kit.tar.gz
 	@echo ""
@@ -702,10 +725,17 @@ package-with-config: verify version-file
 		mkdir -p config/.config; \
 		echo "# Add your dotfiles here for GNU Stow" > config/README.md; \
 	fi
-	@tar --exclude='*.tar.gz' --exclude='.git' --exclude='.claude' --exclude='Makefile' \
+	@tar --exclude='*.tar.gz' --exclude='*.zip' \
+		--exclude='.git' --exclude='.claude' --exclude='.devin' \
+		--exclude='.github' --exclude='test' \
+		--exclude='nvim-linux-x86_64' --exclude='nvim-linux64' \
+		--exclude='offline-packages/lazy-plugins.tar.gz' \
 		-czf airgap-dev-kit-full.tar.gz \
-		install.sh \
-		VERSION \
+		install.sh uninstall.sh Makefile VERSION \
+		README.md CHANGES.md CLAUDE.md \
+		STOW-BUNDLING.md INSTALLATION-TRACKING.md QUICK-START-FIXES.md TESTING.md \
+		check-neovim.sh install-mason-lsp.sh shell-setup-example.sh \
+		scripts/ docs/ \
 		offline-packages/ \
 		fonts/ \
 		config/
@@ -718,6 +748,10 @@ install:
 	@echo "Installing on current machine ($(OS_TYPE))..."
 	@chmod +x install.sh
 	@./install.sh
+
+check-updates:
+	@echo "Checking for newer tool releases..."
+	@bash scripts/check-updates.sh
 
 clean:
 	@echo "Removing downloaded binaries (keeping placeholders)..."
@@ -736,11 +770,31 @@ sync-nvim-config:
 		echo "Please set up your Neovim config first."; \
 		exit 1; \
 	fi
-	@mkdir -p config/.config/nvim
-	@cp -r ~/.config/nvim/* config/.config/nvim/
-	@echo "✓ Neovim config synced from ~/.config/nvim to config/.config/nvim"
+	@rm -rf config/nvim/.config/nvim
+	@mkdir -p config/nvim/.config
+	@cp -r ~/.config/nvim config/nvim/.config/nvim
+	@echo "✓ Neovim config synced from ~/.config/nvim to config/nvim/.config/nvim"
 	@echo ""
 	@echo "Files synced:"
-	@ls -lah config/.config/nvim/
+	@ls -lah config/nvim/.config/nvim/
 	@echo ""
-	@echo "Don't forget to commit: git add config/.config/nvim && git commit -m 'Update Neovim config'"
+	@echo "Don't forget to commit: git add config/nvim && git commit -m 'Update Neovim config'"
+
+# Sync the repo to a remote host for local testing.
+# Override with: make sync REMOTE=user@host DEST=/path/to/dir
+REMOTE ?= jstein@ai
+DEST   ?= ~/airgap-dev-kit
+sync:
+	@echo "Syncing repo to $(REMOTE):$(DEST)..."
+	@rsync --archive --compress --partial --delete \
+		--exclude='.git/' \
+		--exclude='*.tar.gz' \
+		--exclude='offline-packages/linux/*.AppImage' \
+		--exclude='offline-packages/linux/nvim-linux64/' \
+		--exclude='offline-packages/macos/*.zip' \
+		--exclude='offline-packages/macos/*.tar.gz' \
+		--exclude='.claude/' \
+		--exclude='.devin/' \
+		./ "$(REMOTE):$(DEST)"
+	@echo "✓ Synced to $(REMOTE):$(DEST)"
+	@echo "  SSH in and run: cd ~/airgap-dev-kit && ./install.sh"

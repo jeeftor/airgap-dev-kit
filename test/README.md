@@ -127,7 +127,7 @@ The `test-mason.Dockerfile` creates an Ubuntu 24.04 image with:
 See `docs/ADDING-PLUGINS-AND-LSPS.md` for details.
 
 **Quick version:**
-1. Edit `config/.config/nvim/lua/plugins/my-plugins.lua`
+1. Edit `config/nvim/.config/nvim/lua/plugins/my-plugins.lua`
 2. Add: `{ "author/plugin-name" }`
 3. Run: `make test-package`
 4. Done!

@@ -294,7 +294,7 @@ vim .github/workflows/build.yml
 # Add plugin: "lua-language-server"
 
 # Edit production config
-vim config/.config/nvim/lua/plugins/airgap-lsp.lua
+vim config/nvim/.config/nvim/lua/plugins/airgap-lsp.lua
 # Add plugin: "lua_ls"
 
 # Three files to keep in sync! 😱

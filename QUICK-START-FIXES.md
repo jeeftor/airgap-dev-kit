@@ -28,7 +28,7 @@ Edit `.github/workflows/update-binaries.yml` line 49:
 
 **Change from:**
 ```yaml
-cp -r $GITHUB_WORKSPACE/config/.config/nvim/* ~/.config/nvim/
+cp -r $GITHUB_WORKSPACE/config/nvim/.config/nvim/* ~/.config/nvim/
 ```
 
 **Change to:**
@@ -82,8 +82,8 @@ git push
 ### 2. Dotfile Structure Fixed 🔧
 - **Old (broken):**
   ```
-  config/.config/nvim/
-  config/.tmux.conf
+  config/nvim/.config/nvim/
+  config/tmux/.tmux.conf
   ```
 - **New (correct):**
   ```

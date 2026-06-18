@@ -77,8 +77,20 @@ INSTALL_LOCATIONS=()
 if [[ -f "/usr/local/bin/nvim" ]] || [[ -f "/usr/local/bin/fzf" ]]; then
   INSTALL_LOCATIONS+=("/usr/local/bin")
 fi
+if [[ -f "$HOME/.local/bin/nvim" ]] || [[ -f "$HOME/.local/bin/fzf" ]] || [[ -f "$HOME/.local/bin/starship" ]]; then
+  INSTALL_LOCATIONS+=("$HOME/.local/bin")
+fi
 if [[ -f "$HOME/bin/nvim" ]] || [[ -f "$HOME/bin/fzf" ]]; then
   INSTALL_LOCATIONS+=("$HOME/bin")
+fi
+
+# If still empty but we have a log with BIN_DIR, use that
+if [[ ${#INSTALL_LOCATIONS[@]} -eq 0 ]] && [[ "$USE_LOG" == true ]]; then
+  LOG_BIN_DIR=$(grep "^METADATA|BIN_DIR=" "$INSTALL_LOG" 2>/dev/null | head -1 | cut -d'=' -f2)
+  if [[ -n "$LOG_BIN_DIR" && -d "$LOG_BIN_DIR" ]]; then
+    INSTALL_LOCATIONS+=("$LOG_BIN_DIR")
+    echo "  Using BIN_DIR from installation log: $LOG_BIN_DIR"
+  fi
 fi
 
 if [[ ${#INSTALL_LOCATIONS[@]} -eq 0 ]]; then
@@ -212,6 +224,11 @@ if [[ $OS == "linux" ]]; then
   if [[ -d "$HOME/nvim-linux-x86_64" ]]; then
     rm -rf "$HOME/nvim-linux-x86_64"
     echo "  ✓ Removed ~/nvim-linux-x86_64"
+  fi
+  # Remove bundled runtime (installed by official tarball approach)
+  if [[ -d "$HOME/.local/share/nvim/runtime" ]]; then
+    rm -rf "$HOME/.local/share/nvim/runtime"
+    echo "  ✓ Removed ~/.local/share/nvim/runtime"
   fi
 fi
 

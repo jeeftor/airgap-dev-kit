@@ -100,7 +100,7 @@ tar -xzf lazyvim-plugins.tar.gz -C ~/.local/share/nvim/
 tar -xzf mason-packages.tar.gz -C ~/.local/share/nvim/mason/
 
 # Copy config
-cp -r config/.config/nvim ~/.config/
+cp -r config/nvim/.config/nvim ~/.config/
 
 # Launch Neovim
 nvim

@@ -166,7 +166,7 @@ jobs:
             tar -xzf mason-packages.tar.gz -C ~/.local/share/nvim/mason/
 
             # Copy config
-            cp -r config/.config/nvim ~/.config/
+            cp -r config/nvim/.config/nvim ~/.config/
             ```
 
             See MANIFEST.txt for list of included plugins.

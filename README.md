@@ -209,7 +209,7 @@ This provides a simple interface for managing your air-gap development environme
 make sync-nvim-config
 
 # Commit and push (triggers new build with your config)
-git add config/.config/nvim
+git add config/nvim/.config/nvim
 git commit -m "Update Neovim config"
 git push
 ```
