@@ -1050,6 +1050,7 @@ add_terminal_shell_rc() {
   local config_line="$2"
   local description="$3"
   local last_content_line
+  local tmp_file
 
   if [[ -f "$rc_file" ]] && config_exists "$rc_file" "$config_line"; then
     last_content_line=$(awk 'NF { line = $0 } END { print line }' "$rc_file")
@@ -1057,6 +1058,11 @@ add_terminal_shell_rc() {
       SHELL_CONFIG_ITEMS+=("$description")
       return 0
     fi
+
+    tmp_file=$(mktemp)
+    grep -Fvx -- "$config_line" "$rc_file" > "$tmp_file" || true
+    cat "$tmp_file" > "$rc_file"
+    rm -f "$tmp_file"
   fi
 
   # Try to write, handle permission issues
@@ -1195,15 +1201,6 @@ else
       fi
     fi
 
-    # Starship prompt
-    if command -v starship &>/dev/null || [[ -f "$BIN_DIR/starship" ]]; then
-      if [[ "$SHELL_TYPE" == "fish" ]]; then
-        add_terminal_shell_rc "$SHELL_RC" "starship init fish | source" "Starship prompt"
-      else
-        add_terminal_shell_rc "$SHELL_RC" "eval \"\$(starship init $SHELL_TYPE)\"" "Starship prompt"
-      fi
-    fi
-
     # VIMRUNTIME - needed when nvim is installed from the bundled standalone binary
     if [[ -d "$HOME/.local/share/nvim/runtime" ]]; then
       add_to_shell_rc "$SHELL_RC" "export VIMRUNTIME=\"\$HOME/.local/share/nvim/runtime\"" "VIMRUNTIME (Neovim runtime path)"
@@ -1275,6 +1272,16 @@ else
         add_to_shell_rc "$SHELL_RC" "alias ta='tmux attach -t'" "tmux attach alias"
         add_to_shell_rc "$SHELL_RC" "alias tl='tmux list-sessions'" "tmux list alias"
         add_to_shell_rc "$SHELL_RC" "alias tn='tmux new -s'" "tmux new session alias"
+      fi
+    fi
+
+    # Starship prompt must be last so it wins over legacy prompt setup and
+    # runs after shell integrations that add hooks or aliases.
+    if command -v starship &>/dev/null || [[ -f "$BIN_DIR/starship" ]]; then
+      if [[ "$SHELL_TYPE" == "fish" ]]; then
+        add_terminal_shell_rc "$SHELL_RC" "starship init fish | source" "Starship prompt"
+      else
+        add_terminal_shell_rc "$SHELL_RC" "eval \"\$(starship init $SHELL_TYPE)\"" "Starship prompt"
       fi
     fi
 
