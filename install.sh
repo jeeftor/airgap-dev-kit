@@ -648,10 +648,14 @@ if [[ $OS == "linux" ]]; then
     # Install Neovim runtime files (bundled alongside binary in official releases)
     if [[ -d offline-packages/linux/nvim-runtime ]]; then
       NVIM_RUNTIME_DEST="$HOME/.local/share/nvim/runtime"
+      NVIM_RUNTIME_SOURCE="offline-packages/linux/nvim-runtime"
+      if [[ -d "$NVIM_RUNTIME_SOURCE/runtime" && ! -d "$NVIM_RUNTIME_SOURCE/syntax" ]]; then
+        NVIM_RUNTIME_SOURCE="$NVIM_RUNTIME_SOURCE/runtime"
+      fi
       echo "  Installing Neovim runtime files..."
       mkdir -p "$(dirname "$NVIM_RUNTIME_DEST")"
       rm -rf "$NVIM_RUNTIME_DEST"
-      cp -r offline-packages/linux/nvim-runtime "$NVIM_RUNTIME_DEST"
+      cp -r "$NVIM_RUNTIME_SOURCE" "$NVIM_RUNTIME_DEST"
       log_install "DIRECTORY" "$NVIM_RUNTIME_DEST" "" ""
       echo "  ✓ Neovim runtime installed to $NVIM_RUNTIME_DEST"
     fi

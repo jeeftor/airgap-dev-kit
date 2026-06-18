@@ -86,14 +86,16 @@ update-linux:
 	fi
 
 	@# Neovim Linux (official release tarball - includes runtime files)
-	@if [ ! -f offline-packages/linux/nvim-static-x86_64 ] || [ $$(stat -f%z offline-packages/linux/nvim-static-x86_64 2>/dev/null || stat -c%s offline-packages/linux/nvim-static-x86_64 2>/dev/null) -lt 1000 ]; then \
+	@if [ ! -f offline-packages/linux/nvim-static-x86_64 ] || [ $$(stat -f%z offline-packages/linux/nvim-static-x86_64 2>/dev/null || stat -c%s offline-packages/linux/nvim-static-x86_64 2>/dev/null) -lt 1000 ] || [ ! -f offline-packages/linux/nvim-runtime/syntax/syntax.vim ]; then \
+		set -e; \
 		echo "  → Neovim Linux (official $(NVIM_VERSION))..."; \
+		rm -rf /tmp/nvim-dl offline-packages/linux/nvim-runtime; \
 		mkdir -p /tmp/nvim-dl offline-packages/linux/nvim-runtime; \
 		curl -fsSL "https://github.com/neovim/neovim/releases/download/$(NVIM_VERSION)/nvim-linux-x86_64.tar.gz" | \
 			tar -xz -C /tmp/nvim-dl --strip-components=1; \
 		cp /tmp/nvim-dl/bin/nvim offline-packages/linux/nvim-static-x86_64; \
 		chmod +x offline-packages/linux/nvim-static-x86_64; \
-		cp -r /tmp/nvim-dl/share/nvim/runtime/ offline-packages/linux/nvim-runtime/; \
+		cp -R /tmp/nvim-dl/share/nvim/runtime/. offline-packages/linux/nvim-runtime/; \
 		rm -rf /tmp/nvim-dl; \
 	else \
 		echo "  ✓ Neovim Linux binary already present"; \
