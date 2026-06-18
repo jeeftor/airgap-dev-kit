@@ -30,7 +30,7 @@ require("mason").setup({
   },
   -- Disable registry fetch for air-gap builds
   registries = {
-    github = "mason-org/mason-registry",
+    "github:mason-org/mason-registry",
   },
   max_concurrent_installers = 5,
 })
