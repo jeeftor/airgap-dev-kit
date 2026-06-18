@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
   id-token: write
   attestations: write
   artifact-metadata: write
@@ -25,6 +26,8 @@ jobs:
       - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           pattern: airgap-dev-kit-build-*
           merge-multiple: true
           path: artifacts
