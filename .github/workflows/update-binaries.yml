@@ -432,6 +432,7 @@ jobs:
         with:
           name: airgap-dev-kit-build-${{ github.run_number }}
           path: |
+            airgap-dev-kit-linux-x86_64.tar.gz
             airgap-dev-kit.tar.gz
             offline-packages/lazy-plugins.tar.gz
             checksums.txt
