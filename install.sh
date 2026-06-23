@@ -1272,6 +1272,8 @@ else
         add_to_shell_rc "$SHELL_RC" "alias ta='tmux attach -t'" "tmux attach alias"
         add_to_shell_rc "$SHELL_RC" "alias tl='tmux list-sessions'" "tmux list alias"
         add_to_shell_rc "$SHELL_RC" "alias tn='tmux new -s'" "tmux new session alias"
+        # ssh wrapper: name the tmux tab after the connected host.
+        add_to_shell_rc "$SHELL_RC" "[ -f \"\$HOME/.config/airgap-dev-kit/ssh-tmux.sh\" ] && source \"\$HOME/.config/airgap-dev-kit/ssh-tmux.sh\"" "ssh tmux window naming (host in tab)"
       fi
     fi
 

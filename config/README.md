@@ -23,6 +23,10 @@ config/
 ├── starship/          # Package: Starship prompt
 │   └── .config/
 │       └── starship.toml
+├── shell/             # Package: Shell helpers (sourced by ~/.bashrc / ~/.zshrc)
+│   └── .config/
+│       └── airgap-dev-kit/
+│           └── ssh-tmux.sh
 └── bash/              # Package: Bash configuration
     └── .bashrc
 ```
@@ -44,6 +48,8 @@ config/
 │   └── .tmux.conf
 ├── starship/          # Package: Starship prompt
 │   └── .config/starship.toml
+├── shell/             # Package: Shell helpers (ssh tmux window naming)
+│   └── .config/airgap-dev-kit/ssh-tmux.sh
 └── plugin-manifest.lua  # Build-time manifest (not a Stow package)
 ```
 

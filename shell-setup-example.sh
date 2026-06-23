@@ -108,6 +108,16 @@ fi
 # fi
 
 # ============================================
+# Tmux Tab Naming for SSH (recommended)
+# ============================================
+# The installer sources ~/.config/airgap-dev-kit/ssh-tmux.sh, which wraps ssh
+# so the active tmux tab shows the connected hostname (e.g. "1:web-prod-01")
+# instead of just "ssh". On disconnect it restores the previous tab name and
+# automatic-rename setting. No-op outside tmux.
+# To load it manually:
+# [ -f "$HOME/.config/airgap-dev-kit/ssh-tmux.sh" ] && source "$HOME/.config/airgap-dev-kit/ssh-tmux.sh"
+
+# ============================================
 # Additional Aliases
 # ============================================
 
