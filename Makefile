@@ -1,7 +1,7 @@
 .PHONY: help update verify package package-cli package-with-config docker-test test-cli-package test-update-tools check-updates check-updates-strict clean clean-all install sync-nvim-config version-file
 
 # Version variables - update these when new releases are available
-WEZTERM_VERSION := 20230712-072601-f4abf8fd
+WEZTERM_VERSION := 20240203-110809-5046fc22
 FZF_VERSION := 0.66.1
 TMUX_VERSION := 3.5a
 NERD_FONT_VERSION := v3.2.1
