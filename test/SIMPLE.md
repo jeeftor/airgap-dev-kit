@@ -94,7 +94,7 @@ return {
 1. Edit `config/nvim/.config/nvim/lua/plugins/airgap-lsp.lua`:
 ```lua
 {
-  "williamboman/mason-lspconfig.nvim",
+  "mason-org/mason-lspconfig.nvim",
   opts = {
     ensure_installed = {
       "lua_ls",

@@ -15,8 +15,8 @@ vim.opt.rtp:prepend(lazypath)
 
 -- Setup Mason only
 require("lazy").setup({
-  { "williamboman/mason.nvim" },
-  { "williamboman/mason-lspconfig.nvim" },
+  { "mason-org/mason.nvim" },
+  { "mason-org/mason-lspconfig.nvim" },
 }, {
   defaults = {
     lazy = false,

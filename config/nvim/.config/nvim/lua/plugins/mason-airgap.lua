@@ -4,7 +4,7 @@
 return {
   -- Mason configuration for offline LSP server management
   {
-    "williamboman/mason.nvim",
+    "mason-org/mason.nvim",
     opts = {
       -- For air-gap: disable network calls
       registries = {
@@ -19,74 +19,13 @@ return {
     },
   },
 
-  -- Mason LSP configuration
+  -- Mason-lspconfig bridge (ensure_installed belongs here, not in nvim-lspconfig)
+  -- Full LSP server list is in airgap-lsp.lua; gopls server settings are in go.lua
   {
-    "neovim/nvim-lspconfig",
+    "mason-org/mason-lspconfig.nvim",
     dependencies = {
-      "williamboman/mason-lspconfig.nvim",
-    },
-    opts = {
-      -- Ensure LSP servers are installed (from local Mason registry)
-      ensure_installed = {
-        "gopls",
-        -- Add more servers as needed:
-        -- "pyright",
-        -- "clangd", 
-        -- "rust_analyzer",
-        -- "lua_ls",
-        -- "bashls",
-      },
-      -- Configure servers with custom paths for air-gap
-      servers = {
-        gopls = {
-          -- Use gopls from our air-gap package if available
-          cmd = { "./offline-packages/linux/gopls" },
-          -- Fallback to Mason if our package doesn't have it
-          cmd = function()
-            if vim.fn.executable("./offline-packages/linux/gopls") == 1 then
-              return { "./offline-packages/linux/gopls" }
-            else
-              return { "gopls" }
-            end
-          end,
-          settings = {
-            gopls = {
-              gofumpt = true,
-              staticcheck = true,
-              analyses = {
-                unusedparams = true,
-                shadow = true,
-                unusedwrite = true,
-                useany = true,
-                fillreturns = true,
-                nonews = true,
-                noresultvalues = true,
-                undeclaredname = true,
-                fillstruct = true,
-              },
-              hints = {
-                assignVariableTypes = true,
-                compositeLiteralFields = true,
-                constantValues = true,
-                functionTypeParameters = true,
-                parameterNames = true,
-                rangeVariableTypes = true,
-              },
-              buildFlags = { "-tags", "integration" },
-              usePlaceholders = true,
-              completeUnimported = true,
-              deepCompletion = true,
-              ui = {
-                diagnostic = {
-                  staticcheck = true,
-                },
-              },
-              experimentalPostfixCompletions = true,
-              experimentalWorkspaceModule = true,
-            },
-          },
-        },
-      },
+      "mason-org/mason.nvim",
+      "neovim/nvim-lspconfig",
     },
   },
 

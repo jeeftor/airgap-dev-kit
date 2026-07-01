@@ -16,7 +16,9 @@ vim.api.nvim_create_autocmd("TextYankPost", {
 })
 
 -- Set up Go development configuration
-vim.api.nvim_create_autocmd("VeryLazy", {
+-- VeryLazy is a User event from lazy.nvim, not a native Neovim autocmd event
+vim.api.nvim_create_autocmd("User", {
+  pattern = "VeryLazy",
   group = vim.api.nvim_create_augroup("go_setup", { clear = true }),
   callback = function()
     require("config.go").setup()
