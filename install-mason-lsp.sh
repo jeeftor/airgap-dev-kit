@@ -104,7 +104,7 @@ vim.opt.runtimepath:prepend(vim.fn.stdpath('data') .. '/lazy/lazy.nvim')
 -- Setup lazy.nvim
 require('lazy').setup({
   {
-    'williamboman/mason.nvim',
+    'mason-org/mason.nvim',
     config = function()
       require('mason').setup({
         ui = {

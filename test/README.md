@@ -195,5 +195,5 @@ This tells LazyVim to use pre-installed plugins only.
 
 - LazyVim docs: https://www.lazyvim.org
 - lazy.nvim docs: https://lazy.folke.io
-- Mason docs: https://github.com/williamboman/mason.nvim
+- Mason docs: https://github.com/mason-org/mason.nvim
 - Mason package list: https://mason-registry.dev/registry/list

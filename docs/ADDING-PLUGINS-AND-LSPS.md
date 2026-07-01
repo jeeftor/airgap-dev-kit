@@ -100,7 +100,7 @@ Edit `config/nvim/.config/nvim/lua/plugins/airgap-lsp.lua`:
 return {
   -- LSP Servers (use lspconfig names)
   {
-    "williamboman/mason-lspconfig.nvim",
+    "mason-org/mason-lspconfig.nvim",
     opts = {
       ensure_installed = {
         "lua_ls",       -- Lua
@@ -119,7 +119,7 @@ return {
 
   -- Formatters/Linters (use Mason package names)
   {
-    "williamboman/mason.nvim",
+    "mason-org/mason.nvim",
     opts = {
       ensure_installed = {
         "stylua",     -- Lua formatter
@@ -253,13 +253,13 @@ return {
 
   -- Ensure tools are installed
   {
-    "williamboman/mason-lspconfig.nvim",
+    "mason-org/mason-lspconfig.nvim",
     opts = {
       ensure_installed = { "pyright" },
     },
   },
   {
-    "williamboman/mason.nvim",
+    "mason-org/mason.nvim",
     opts = {
       ensure_installed = { "black", "isort", "flake8" },
     },
@@ -292,7 +292,7 @@ return {
 -- config/nvim/.config/nvim/lua/plugins/rust.lua
 return {
   {
-    "williamboman/mason-lspconfig.nvim",
+    "mason-org/mason-lspconfig.nvim",
     opts = {
       ensure_installed = { "rust_analyzer" },
     },

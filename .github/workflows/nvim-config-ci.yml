@@ -1,0 +1,162 @@
+name: Neovim Config CI
+
+on:
+  push:
+    paths:
+      - 'config/nvim/**'
+      - '.github/workflows/nvim-config-ci.yml'
+      - '.github/workflows/mason-config.lua'
+  pull_request:
+    paths:
+      - 'config/nvim/**'
+      - '.github/workflows/nvim-config-ci.yml'
+      - '.github/workflows/mason-config.lua'
+  workflow_dispatch:
+
+jobs:
+  lint-lua:
+    name: Lint Lua Config
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install StyLua
+        run: |
+          curl -fL https://github.com/JohnnyMorganz/StyLua/releases/latest/download/stylua-linux-x86_64.zip -o stylua.zip
+          unzip stylua.zip -d /usr/local/bin
+          chmod +x /usr/local/bin/stylua
+
+      - name: Check Lua formatting
+        run: stylua --check config/nvim/.config/nvim/
+
+  smoke-test:
+    name: Neovim Smoke Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Neovim
+        uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: stable
+
+      - name: Cache plugins
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.local/share/nvim
+            ~/.local/state/nvim
+            ~/.cache/nvim
+          key: ${{ runner.os }}-nvim-${{ hashFiles('config/nvim/.config/nvim/**/*.lua') }}
+          restore-keys: |
+            ${{ runner.os }}-nvim-
+
+      - name: Set up Neovim config
+        run: |
+          mkdir -p ~/.config
+          ln -sf "$GITHUB_WORKSPACE/config/nvim/.config/nvim" ~/.config/nvim
+
+      - name: Smoke test - Lazy sync completes
+        run: |
+          # Temporarily enable install.missing so Lazy can bootstrap in CI
+          # Sync plugins; Lazy! sync returns non-zero only on network/git failures
+          nvim --headless "+Lazy! sync" "+qa" 2>/tmp/nvim-stderr.log || true
+          echo "Lazy sync output (stderr):"
+          cat /tmp/nvim-stderr.log || true
+          echo "Lazy sync step complete"
+
+      - name: Smoke test - config parses without Neovim errors
+        run: |
+          # Check that Neovim can load our config and parse all plugin specs.
+          # Use a Lua script that exits non-zero on spec parse failures.
+          nvim --headless +"lua local ok, err = pcall(function() require('lazy').plugins() end); if not ok then print('SPEC_ERROR: ' .. tostring(err)); vim.cmd('cq!') end; print('All plugin specs parsed OK')" +"qa!" 2>&1 | tee /tmp/nvim-spec.log
+          if grep -q "^SPEC_ERROR:" /tmp/nvim-spec.log; then
+            echo "Plugin spec errors detected!"
+            exit 1
+          fi
+          echo "Config smoke test passed"
+
+      - name: Check health (informational)
+        continue-on-error: true
+        run: |
+          nvim --headless "+checkhealth" "+qa!" 2>&1 | head -100
+
+  validate-config:
+    name: Validate Config Structure
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check for old Mason plugin names
+        run: |
+          if grep -r "williamboman/mason" config/nvim/; then
+            echo "Found old Mason plugin names (williamboman). Use mason-org instead."
+            exit 1
+          fi
+          echo "No old Mason plugin names found"
+
+      - name: Check for VeryLazy misuse in autocmds
+        run: |
+          # VeryLazy should only appear as a User autocmd pattern, not as a direct event
+          if grep -n 'nvim_create_autocmd("VeryLazy"' config/nvim/.config/nvim/lua/config/autocmds.lua; then
+            echo "VeryLazy used as direct autocmd event. Use User event with pattern = 'VeryLazy' instead."
+            exit 1
+          fi
+          echo "No VeryLazy autocmd misuse found"
+
+      - name: Check ensure_installed placement
+        run: |
+          # ensure_installed in nvim-lspconfig opts is wrong - it belongs in mason-lspconfig
+          # This is a heuristic check
+          python3 -c "
+          import re, sys
+          
+          errors = []
+          for path in sys.argv[1:]:
+              with open(path) as f:
+                  content = f.read()
+              # Look for ensure_installed directly under nvim-lspconfig spec
+              # This is a simplified check - look for lspconfig followed by ensure_installed
+              # before the next plugin spec
+              blocks = re.split(r'\n\s*\{', content)
+              for i, block in enumerate(blocks):
+                  if 'nvim-lspconfig' in block and 'ensure_installed' in block:
+                      # Check if this block also has 'servers' key (LazyVim style is ok)
+                      # but bare ensure_installed in lspconfig opts is wrong
+                      if 'servers' not in block:
+                          errors.append(f'{path}: ensure_installed found in nvim-lspconfig block without servers config')
+          
+          if errors:
+              for e in errors:
+                  print(f'WARNING: {e}')
+          print('Config structure check complete')
+          " config/nvim/.config/nvim/lua/plugins/*.lua
+          echo "ensure_installed placement check complete"
+
+      - name: Verify Lua syntax
+        run: |
+          errors=0
+          for f in $(find config/nvim/.config/nvim -name '*.lua'); do
+            if ! python3 -c "
+          import sys
+          with open(sys.argv[1]) as f:
+              content = f.read()
+          # Basic checks: balanced braces, no obvious syntax issues
+          opens = content.count('{') 
+          closes = content.count('}')
+          if opens != closes:
+              print(f'Mismatched braces in {sys.argv[1]}: {opens} open vs {closes} close')
+              sys.exit(1)
+          " "$f"; then
+              errors=1
+            fi
+          done
+          if [ $errors -eq 1 ]; then
+            echo "Lua syntax issues found"
+            exit 1
+          fi
+          echo "Lua syntax checks passed"

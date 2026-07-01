@@ -110,25 +110,25 @@ function M.setup()
     callback = function()
       -- Set up omnifunc for completion (from official docs)
       -- In Neovim v0.8.1+ this is auto-set, but we set it manually for compatibility
-      vim.api.nvim_buf_set_option(0, 'omnifunc', 'v:lua.vim.lsp.omnifunc')
-      
+      vim.api.nvim_buf_set_option(0, "omnifunc", "v:lua.vim.lsp.omnifunc")
+
       -- Set up local keymaps for Go files
       local opts = { buffer = true, silent = true }
-      
+
       -- Navigation
       vim.keymap.set("n", "gd", M.go_to_definition, opts)
       vim.keymap.set("n", "gD", vim.lsp.buf.declaration, opts)
-      
+
       -- Quick actions
       vim.keymap.set("n", "<leader>gt", M.go_test, opts)
       vim.keymap.set("n", "<leader>gr", M.go_run, opts)
       vim.keymap.set("n", "<leader>gb", M.go_build, opts)
       vim.keymap.set("n", "<leader>gg", M.go_generate, opts)
       vim.keymap.set("n", "<leader>gf", M.go_format, opts)
-      
+
       -- Module management
       vim.keymap.set("n", "<leader>gm", M.go_mod_tidy, opts)
-      
+
       -- LSP-specific keymaps (only if gopls is available)
       if M.has_gopls() then
         vim.keymap.set("n", "K", vim.lsp.buf.hover, opts)
@@ -141,7 +141,7 @@ function M.setup()
         vim.keymap.set("n", "]d", vim.diagnostic.goto_next, opts)
         vim.keymap.set("n", "<leader>e", vim.diagnostic.open_float, opts)
       end
-      
+
       -- Show Go status in status line if available
       if M.has_gopls() then
         vim.opt.statusline = vim.opt.statusline .. " %{GoStatus()}"

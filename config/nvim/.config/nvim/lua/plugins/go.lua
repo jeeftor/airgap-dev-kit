@@ -81,7 +81,7 @@ return {
           ["<leader>lB"] = { "<cmd>GoBuild<cr>", desc = "Build Go project" },
         },
       }
-      
+
       if opts.keys then
         opts.keys = vim.tbl_deep_extend("force", opts.keys, maps)
       else
@@ -100,7 +100,7 @@ return {
         callback = function()
           local params = vim.lsp.util.make_range_params()
           params.context = { only = { "source.organizeImports" } }
-          
+
           -- Request organize imports action
           local result = vim.lsp.buf_request_sync(0, "textDocument/codeAction", params, 3000)
           for cid, res in pairs(result or {}) do
@@ -111,7 +111,7 @@ return {
               end
             end
           end
-          
+
           -- Format the file after organizing imports
           vim.lsp.buf.format({ async = false })
         end,
