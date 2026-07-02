@@ -444,7 +444,7 @@ package: version-file
 		install.sh uninstall.sh Makefile VERSION \
 		README.md CHANGES.md CLAUDE.md \
 		STOW-BUNDLING.md INSTALLATION-TRACKING.md QUICK-START-FIXES.md TESTING.md \
-		check-neovim.sh install-mason-lsp.sh shell-setup-example.sh \
+		check-neovim.sh install-mason-lsp.sh \
 		scripts/ docs/ \
 		offline-packages/linux/ \
 		$$( [ -f offline-packages/lazy-plugins.tar.gz ] && echo offline-packages/lazy-plugins.tar.gz ) \
@@ -470,7 +470,7 @@ package-cli: version-file
 	@touch .package-cli-staging/airgap-dev-kit/.airgap-cli-only
 	@cp install.sh uninstall.sh Makefile VERSION README.md CHANGES.md CLAUDE.md \
 		STOW-BUNDLING.md INSTALLATION-TRACKING.md QUICK-START-FIXES.md TESTING.md \
-		check-neovim.sh install-mason-lsp.sh shell-setup-example.sh \
+		check-neovim.sh install-mason-lsp.sh \
 		.package-cli-staging/airgap-dev-kit/
 	@cp -R scripts docs config .package-cli-staging/airgap-dev-kit/
 	@cp -R offline-packages/linux .package-cli-staging/airgap-dev-kit/offline-packages/
@@ -513,7 +513,7 @@ package-with-config: verify version-file
 		install.sh uninstall.sh Makefile VERSION \
 		README.md CHANGES.md CLAUDE.md \
 		STOW-BUNDLING.md INSTALLATION-TRACKING.md QUICK-START-FIXES.md TESTING.md \
-		check-neovim.sh install-mason-lsp.sh shell-setup-example.sh \
+		check-neovim.sh install-mason-lsp.sh \
 		scripts/ docs/ \
 		offline-packages/linux/ \
 		$$( [ -f offline-packages/lazy-plugins.tar.gz ] && echo offline-packages/lazy-plugins.tar.gz ) \

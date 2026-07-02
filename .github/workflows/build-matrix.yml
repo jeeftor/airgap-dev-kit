@@ -164,7 +164,7 @@ jobs:
       - name: Create platform-specific package
         run: |
           mkdir -p staging-${{ matrix.platform }}/airgap-dev-kit/offline-packages
-          cp install.sh shell-setup-example.sh staging-${{ matrix.platform }}/airgap-dev-kit/
+          cp install.sh staging-${{ matrix.platform }}/airgap-dev-kit/
           if [[ -f VERSION ]]; then
             cp VERSION staging-${{ matrix.platform }}/airgap-dev-kit/
           fi

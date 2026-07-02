@@ -936,7 +936,7 @@ else
   echo "1. Tools installed to $BIN_DIR (already in PATH ✓)"
   echo ""
   echo "2. Optionally set up aliases in ~/.bashrc or ~/.zshrc"
-  echo "   See: shell-setup-example.sh"
+  echo "   Re-run with AIRGAP_DEV_KIT_CONFIGURE_SHELLS=1 to configure automatically."
 fi
 echo ""
 echo "3. Optional: Set up aliases in ~/.bashrc or ~/.zshrc:"
@@ -993,7 +993,6 @@ if [[ -z "$DISPLAY" ]]; then
   echo "   - Create splits: Ctrl+b % (vertical) or Ctrl+b \" (horizontal)"
   echo "   - Navigate panes: Ctrl+b <arrow keys>"
   echo "   - Detach: Ctrl+b d, Reattach: 'tmux attach'"
-  echo "   - See shell-setup-example.sh for more tips"
 fi
 echo ""
 
@@ -1116,7 +1115,7 @@ fi
 
 if [[ ${#DETECTED_SHELLS[@]} -eq 0 ]]; then
   echo "No shell configuration files found (.bashrc, .zshrc, config.fish)"
-  echo "You can manually add configurations later using shell-setup-example.sh as reference"
+  echo "You can re-run with AIRGAP_DEV_KIT_CONFIGURE_SHELLS=1 after creating one."
 else
   echo "Detected shell configuration files:"
   for shell_rc in "${DETECTED_SHELLS[@]}"; do
@@ -1138,7 +1137,7 @@ else
       if [[ ! $REPLY =~ ^[Yy]$ ]] && [[ -n $REPLY ]]; then
         echo ""
         echo "Skipped automatic shell configuration."
-        echo "See shell-setup-example.sh for manual setup instructions."
+        echo "Re-run with AIRGAP_DEV_KIT_CONFIGURE_SHELLS=1 to configure automatically."
         DETECTED_SHELLS=()
       fi
     fi
@@ -1146,7 +1145,7 @@ else
     if ! "$BIN_DIR"/gum confirm "Configure shells automatically?"; then
       echo ""
       echo "Skipped automatic shell configuration."
-      echo "See shell-setup-example.sh for manual setup instructions."
+      echo "Re-run with AIRGAP_DEV_KIT_CONFIGURE_SHELLS=1 to configure automatically."
       DETECTED_SHELLS=()
     fi
   elif [[ "${AIRGAP_DEV_KIT_CONFIGURE_SHELLS:-}" == "1" ]]; then
@@ -1155,7 +1154,7 @@ else
     if ! is_interactive; then
       echo ""
       echo "Skipped automatic shell configuration in non-interactive mode."
-      echo "See shell-setup-example.sh for manual setup instructions."
+      echo "Re-run with AIRGAP_DEV_KIT_CONFIGURE_SHELLS=1 to configure automatically."
       DETECTED_SHELLS=()
     fi
     if [[ ${#DETECTED_SHELLS[@]} -gt 0 ]]; then
@@ -1164,7 +1163,7 @@ else
       if [[ ! $REPLY =~ ^[Yy]$ ]] && [[ -n $REPLY ]]; then
         echo ""
         echo "Skipped automatic shell configuration."
-        echo "See shell-setup-example.sh for manual setup instructions."
+        echo "Re-run with AIRGAP_DEV_KIT_CONFIGURE_SHELLS=1 to configure automatically."
         DETECTED_SHELLS=()
       fi
     fi

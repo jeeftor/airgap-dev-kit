@@ -280,7 +280,7 @@ jobs:
           mkdir -p staging-linux/airgap-dev-kit/offline-packages
 
           # Copy common files
-          cp install.sh shell-setup-example.sh staging-linux/airgap-dev-kit/
+          cp install.sh staging-linux/airgap-dev-kit/
           if [[ -f VERSION ]]; then
             cp VERSION staging-linux/airgap-dev-kit/
           else
