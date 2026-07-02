@@ -1206,15 +1206,6 @@ else
       add_to_shell_rc "$SHELL_RC" "export VIMRUNTIME=\"\$HOME/.local/share/nvim/runtime\"" "VIMRUNTIME (Neovim runtime path)"
     fi
 
-    # Zoxide (smarter cd)
-    if [[ -f "$BIN_DIR/zoxide" ]]; then
-      if [[ "$SHELL_TYPE" == "fish" ]]; then
-        add_to_shell_rc "$SHELL_RC" "zoxide init fish | source" "Zoxide (z command)"
-      else
-        add_to_shell_rc "$SHELL_RC" "eval \"\$(zoxide init $SHELL_TYPE)\"" "Zoxide (z command)"
-      fi
-    fi
-
     # fzf shell integration (Ctrl+R history, Ctrl+T file finder, Alt+C cd)
     if [[ -d ~/.fzf/shell ]]; then
       # Set FZF defaults (without --height to avoid conflicts with key-bindings)
@@ -1274,6 +1265,16 @@ else
         add_to_shell_rc "$SHELL_RC" "alias tn='tmux new -s'" "tmux new session alias"
         # ssh wrapper: name the tmux tab after the connected host.
         add_to_shell_rc "$SHELL_RC" "[ -f \"\$HOME/.config/airgap-dev-kit/ssh-tmux.sh\" ] && source \"\$HOME/.config/airgap-dev-kit/ssh-tmux.sh\"" "ssh tmux window naming (host in tab)"
+      fi
+    fi
+
+    # Zoxide (smarter cd) - must be near the end of the RC file; zoxide's
+    # doctor warns if its init runs before other shell integrations.
+    if [[ -f "$BIN_DIR/zoxide" ]]; then
+      if [[ "$SHELL_TYPE" == "fish" ]]; then
+        add_terminal_shell_rc "$SHELL_RC" "zoxide init fish | source" "Zoxide (z command)"
+      else
+        add_terminal_shell_rc "$SHELL_RC" "eval \"\$(zoxide init $SHELL_TYPE)\"" "Zoxide (z command)"
       fi
     fi
 

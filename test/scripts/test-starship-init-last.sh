@@ -55,4 +55,33 @@ if [[ $(grep -Fc 'eval "$(starship init zsh)"' "$TMP_DIR/home/.zshrc") -ne 1 ]];
   exit 1
 fi
 
+# Zoxide init must be present exactly once and appear after fzf key bindings
+# but before Starship in .bashrc (zoxide doctor requires it near the end).
+# shellcheck disable=SC2016
+if [[ $(grep -Fc 'eval "$(zoxide init bash)"' "$TMP_DIR/home/.bashrc") -ne 1 ]]; then
+  echo "bash Zoxide init should be relocated, not duplicated" >&2
+  exit 1
+fi
+
+# shellcheck disable=SC2016
+zoxide_line=$(grep -nF 'eval "$(zoxide init bash)"' "$TMP_DIR/home/.bashrc" | head -1 | cut -d: -f1)
+# shellcheck disable=SC2016
+starship_line=$(grep -nF 'eval "$(starship init bash)"' "$TMP_DIR/home/.bashrc" | head -1 | cut -d: -f1)
+fzf_line=$(grep -nF 'source ~/.fzf/shell/key-bindings.bash' "$TMP_DIR/home/.bashrc" | head -1 | cut -d: -f1)
+
+if [[ -z "$zoxide_line" || -z "$starship_line" ]]; then
+  echo "Could not find zoxide or starship init lines" >&2
+  exit 1
+fi
+
+if [[ "$zoxide_line" -ge "$starship_line" ]]; then
+  echo "Zoxide init (line $zoxide_line) must come before Starship init (line $starship_line)" >&2
+  exit 1
+fi
+
+if [[ -n "$fzf_line" && "$fzf_line" -ge "$zoxide_line" ]]; then
+  echo "fzf key bindings (line $fzf_line) must come before Zoxide init (line $zoxide_line)" >&2
+  exit 1
+fi
+
 echo "Starship terminal init test passed"

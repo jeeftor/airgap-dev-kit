@@ -36,19 +36,19 @@ fi
 # Use 'rg' directly when you need it
 
 # ============================================
-# Starship Prompt
-# ============================================
-if command -v starship &>/dev/null; then
-  eval "$(starship init bash)"  # Change to 'zsh' if using zsh
-fi
-
-# ============================================
-# Zoxide - Smarter cd
+# Zoxide - Smarter cd (must come before Starship init)
 # ============================================
 if command -v zoxide &>/dev/null; then
   eval "$(zoxide init bash)"  # Change to 'zsh' if using zsh
   # Now use 'z <directory>' to jump around
   # Example: z projects  -> jumps to most-used directory matching "projects"
+fi
+
+# ============================================
+# Starship Prompt (must be last so it overrides any prior prompt setup)
+# ============================================
+if command -v starship &>/dev/null; then
+  eval "$(starship init bash)"  # Change to 'zsh' if using zsh
 fi
 
 # ============================================
