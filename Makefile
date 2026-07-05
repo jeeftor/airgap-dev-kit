@@ -21,7 +21,7 @@ GPING_VERSION := 1.20.4
 FD_VERSION := 10.4.2
 RG_VERSION := 15.1.0
 BAT_VERSION := 0.26.1
-STARSHIP_VERSION := 1.25.1
+STARSHIP_VERSION := 1.26.0
 
 help:
 	@echo "Air-Gap Dev Kit - Makefile Commands"
