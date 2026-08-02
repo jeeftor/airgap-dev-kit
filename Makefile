@@ -2,7 +2,7 @@
 
 # Version variables - update these when new releases are available
 WEZTERM_VERSION := 20240203-110809-5046fc22
-FZF_VERSION := 0.73.1
+FZF_VERSION := 0.74.2
 TMUX_VERSION := 3.5a
 NERD_FONT_VERSION := v3.4.0
 NVIM_VERSION := v0.12.3
