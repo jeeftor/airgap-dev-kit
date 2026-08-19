@@ -108,6 +108,16 @@ export PATH="$HOME/bin:$PATH"
 wezterm start -- tmux new-session nvim
 ```
 
+### WezTerm and tmux
+
+The full package installs a WezTerm configuration at `~/.config/wezterm/wezterm.lua`.
+It uses JetBrainsMono Nerd Font, retains native window resizing, and shows a tab bar
+when you open more than one WezTerm tab. It intentionally does not redefine pane
+shortcuts: tmux owns terminal splits, navigation, and resizing.
+
+- WezTerm defaults: `Ctrl+Shift+C` / `Ctrl+Shift+V` copy and paste, `Ctrl+Shift+T` opens a tab, and `Ctrl+Shift+W` closes one.
+- tmux: `Ctrl+b`, then `Ctrl+Arrow` resizes a pane; `Alt+Arrow` changes panes.
+
 **CLI-only package:**
 ```bash
 # 1. Transfer airgap-dev-kit-cli.tar.gz
@@ -300,6 +310,7 @@ cp offline-packages/linux/your-tool ~/bin/
 ~/
 ├── .config/
 │   ├── nvim/          # Neovim config (symlinked via Stow or copied)
+│   ├── wezterm/       # WezTerm GUI configuration
 │   └── starship.toml  # Prompt config
 ├── .tmux.conf         # Tmux config
 └── .local/share/
