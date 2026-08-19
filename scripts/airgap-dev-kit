@@ -310,7 +310,7 @@ show_status() {
         echo ""
         echo "Basic Installation Check:"
         
-        local tools=("wezterm" "tmux" "nvim" "fzf" "fd" "rg" "bat" "starship" "gdu" "usbtree" "glow" "mkcert")
+        local tools=("wezterm" "tmux" "nvim" "fzf" "fd" "rg" "bat" "starship" "gdu" "usbtree" "glow" "broot" "mkcert")
         
         for tool in "${tools[@]}"; do
             if command -v "$tool" >/dev/null 2>&1; then

@@ -160,6 +160,7 @@ tmux new-session nvim
 - **gdu** - Interactive disk usage analyzer with TUI
 - **usbtree** - Live USB device tree viewer
 - **glow** - Render Markdown docs in the terminal
+- **broot** - Interactive, fuzzy directory tree navigator
 - **mkcert** - Local HTTPS certificate generator (requires NSS tools on Linux)
 - **gopls** - Go language server for IDE features (autocomplete, diagnostics, goto definitions)
 - **delta** - Stunning git diff viewer with syntax highlighting
@@ -295,7 +296,7 @@ cp offline-packages/linux/your-tool ~/bin/
 /usr/local/bin/        # Binaries (requires sudo)
 ├── tmux, nvim, fzf, fd, rg, bat, starship
 ├── wezterm           # Full package only
-└── (optional: btop, lsd, zoxide, direnv, dust, delta, svu, gum, glow)
+└── (optional: btop, lsd, zoxide, direnv, dust, delta, svu, gum, glow, broot)
 ```
 
 **User-local install:**
@@ -303,7 +304,7 @@ cp offline-packages/linux/your-tool ~/bin/
 ~/.local/bin/          # Binaries (no sudo needed)
 ├── tmux, nvim, fzf, fd, rg, bat, starship
 ├── wezterm           # Full package only
-└── (optional: btop, lsd, zoxide, direnv, dust, delta, svu, gum, glow)
+└── (optional: btop, lsd, zoxide, direnv, dust, delta, svu, gum, glow, broot)
 ```
 
 **Configuration files (both install types):**
@@ -325,7 +326,7 @@ CLI-only installs do not create `~/.local/share/fonts/` from this kit and do not
 
 ### Internet Machine (for building)
 - `curl` - Download binaries
-- `tar`, `gzip` - Archive tools
+- `tar`, `gzip`, `unzip` - Archive tools
 - `make` - Build automation
 
 ### Air-Gapped Machine (for installing)

@@ -85,6 +85,7 @@ TOOLS=(
   "difftastic|DIFFTASTIC_VERSION|difftastic|Wilfred/difftastic|none"
   "gum|GUM_VERSION|gum|charmbracelet/gum|none"
   "glow|GLOW_VERSION|glow|charmbracelet/glow|none"
+  "broot|BROOT_VERSION|broot|Canop/broot|none"
   "dust|DUST_VERSION|dust|bootandy/dust|none"
   "gdu|GDU_VERSION|gdu|dundee/gdu|none"
   "usbtree|USBTREE_VERSION|usbtree|gnomeria/usbtree|none"
