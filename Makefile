@@ -522,7 +522,10 @@ package: version-file
 	@rm -f VERSION
 
 download-release:
-	@echo "Downloading the latest Linux x86_64 release..."
+	@release_tag=$$(curl -fsSL -o /dev/null -w '%{url_effective}' \
+		"https://github.com/jeeftor/airgap-dev-kit/releases/latest" | sed 's#.*/##'); \
+		test -n "$$release_tag"; \
+		echo "Downloading release $$release_tag (Linux x86_64)..."
 	@mkdir -p "$(RELEASE_DIR)"
 	@curl -fsSL "https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/checksums.txt" \
 		-o "$(RELEASE_DIR)/checksums.txt"
