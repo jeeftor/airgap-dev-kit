@@ -86,6 +86,7 @@ TOOLS=(
   "gum|GUM_VERSION|gum|charmbracelet/gum|none"
   "dust|DUST_VERSION|dust|bootandy/dust|none"
   "gdu|GDU_VERSION|gdu|dundee/gdu|none"
+  "usbtree|USBTREE_VERSION|usbtree|gnomeria/usbtree|none"
   "mkcert|MKCERT_VERSION|mkcert|FiloSottile/mkcert|none"
   "direnv|DIRENV_VERSION|direnv|direnv/direnv|none"
   "svu|SVU_VERSION|svu|caarlos0/svu|strip_v"

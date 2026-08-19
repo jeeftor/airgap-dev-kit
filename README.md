@@ -148,6 +148,7 @@ tmux new-session nvim
 - **direnv** - Automatic per-directory environment loader
 - **dust** - Fast, intuitive disk usage visualizer
 - **gdu** - Interactive disk usage analyzer with TUI
+- **usbtree** - Live USB device tree viewer
 - **mkcert** - Local HTTPS certificate generator (requires NSS tools on Linux)
 - **gopls** - Go language server for IDE features (autocomplete, diagnostics, goto definitions)
 - **delta** - Stunning git diff viewer with syntax highlighting

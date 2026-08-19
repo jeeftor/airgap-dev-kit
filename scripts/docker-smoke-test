@@ -73,6 +73,7 @@ btop --version
 direnv --version
 dust --version
 gdu --version
+usbtree --version
 mkcert --version
 svu --version
 test -x "$(command -v lua-language-server)"
