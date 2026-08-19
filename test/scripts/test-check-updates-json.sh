@@ -52,6 +52,7 @@ write_release ajeetdsouza__zoxide v0.9.9
 write_release dandavison__delta 0.19.2
 write_release Wilfred__difftastic 0.69.0
 write_release charmbracelet__gum v0.17.0
+write_release charmbracelet__glow v2.1.2
 write_release bootandy__dust v1.2.4
 write_release dundee__gdu v5.33.0
 write_release gnomeria__usbtree v0.1.1
