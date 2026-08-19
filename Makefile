@@ -1,4 +1,4 @@
-.PHONY: help update verify package package-cli package-with-config docker-test test-cli-package test-update-tools check-updates check-updates-strict clean clean-all install sync-nvim-config version-file
+.PHONY: help update verify package package-cli package-with-config download-release docker-test test-cli-package test-update-tools check-updates check-updates-strict clean clean-all install sync-nvim-config version-file
 
 # Version variables - update these when new releases are available
 WEZTERM_VERSION := 20240203-110809-5046fc22
@@ -26,6 +26,7 @@ FD_VERSION := 10.4.2
 RG_VERSION := 15.2.0
 BAT_VERSION := 0.26.1
 STARSHIP_VERSION := 1.26.0
+RELEASE_DIR ?= .
 
 help:
 	@echo "Air-Gap Dev Kit - Makefile Commands"
@@ -34,6 +35,7 @@ help:
 	@echo "make verify            - Verify all binaries are present and valid"
 	@echo "make package           - Create tarball for offline deployment"
 	@echo "make package-cli       - Create CLI-only tarball without GUI tools or fonts"
+	@echo "make download-release  - Download and verify the latest Linux release package"
 	@echo "make docker-test       - Package and smoke test install/remove in Docker"
 	@echo "make test-cli-package  - Test the CLI-only package and installer mode"
 	@echo "make test-update-tools - Test automated version-update planning"
@@ -518,6 +520,23 @@ package: version-file
 	@echo "  Extract: mkdir airgap-dev-kit && tar -xzf airgap-dev-kit.tar.gz -C airgap-dev-kit"
 	@echo "  Install: cd airgap-dev-kit && ./install.sh"
 	@rm -f VERSION
+
+download-release:
+	@echo "Downloading the latest Linux x86_64 release..."
+	@mkdir -p "$(RELEASE_DIR)"
+	@curl -fsSL "https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/checksums.txt" \
+		-o "$(RELEASE_DIR)/checksums.txt"
+	@curl -fsSL "https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/airgap-dev-kit-linux-x86_64.tar.gz" \
+		-o "$(RELEASE_DIR)/airgap-dev-kit-linux-x86_64.tar.gz"
+	@if command -v sha256sum >/dev/null 2>&1; then \
+		grep ' airgap-dev-kit-linux-x86_64.tar.gz$$' "$(RELEASE_DIR)/checksums.txt" | \
+			(cd "$(RELEASE_DIR)" && sha256sum -c -); \
+	else \
+		expected=$$(awk '/ airgap-dev-kit-linux-x86_64.tar.gz$$/ {print $$1}' "$(RELEASE_DIR)/checksums.txt"); \
+		actual=$$(shasum -a 256 "$(RELEASE_DIR)/airgap-dev-kit-linux-x86_64.tar.gz" | awk '{print $$1}'); \
+		test "$$expected" = "$$actual"; \
+	fi
+	@echo "✓ Release package ready: $(RELEASE_DIR)/airgap-dev-kit-linux-x86_64.tar.gz"
 
 package-cli: version-file
 	@echo "Creating CLI-only deployment package..."
