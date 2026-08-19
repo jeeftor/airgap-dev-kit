@@ -14,6 +14,7 @@ DIFFTASTIC_VERSION := 0.70.0
 GUM_VERSION := v0.17.0
 GLOW_VERSION := v2.1.2
 BROOT_VERSION := v1.58.0
+FASTFETCH_VERSION := 2.67.1
 DUST_VERSION := v1.2.4
 GDU_VERSION := v5.36.1
 USBTREE_VERSION := v0.1.1
@@ -54,7 +55,7 @@ status:
 	@ls -lh offline-packages/linux/{wezterm.AppImage,tmux-3.4-static-x86_64,nvim-static-x86_64} 2>/dev/null | awk '{print $$5 "\t" $$9}' || echo "  Some core binaries missing"
 	@echo ""
 	@echo "CLI tools:"
-	@ls -lh offline-packages/linux/{fzf,fd,rg,bat,starship,btop,lsd,zoxide,delta,difft,gum,glow,broot,dust,gdu,usbtree,mkcert,airgap-dev-kit,lazygit,jq,gping,svu,lua-language-server,shellcheck} 2>/dev/null | awk '{print $$5 "\t" $$9}' || echo "  Some tools missing"
+	@ls -lh offline-packages/linux/{fzf,fd,rg,bat,starship,btop,lsd,zoxide,delta,difft,gum,glow,broot,fastfetch,dust,gdu,usbtree,mkcert,airgap-dev-kit,lazygit,jq,gping,svu,lua-language-server,shellcheck} 2>/dev/null | awk '{print $$5 "\t" $$9}' || echo "  Some tools missing"
 	@echo ""
 	@echo "Fonts:"
 	@ls -lh fonts/JetBrainsMono.zip 2>/dev/null | awk '{print $$5 "\t" $$9}' || echo "  Font missing"
@@ -337,6 +338,19 @@ update-linux:
 		echo "  ✓ broot already present"; \
 	fi
 
+	@# fastfetch - system information tool
+	@if [ ! -f offline-packages/linux/fastfetch ] || [ $$(stat -f%z offline-packages/linux/fastfetch 2>/dev/null || stat -c%s offline-packages/linux/fastfetch 2>/dev/null) -lt 1000 ]; then \
+		echo "  → fastfetch (system information)..."; \
+		tmp_dir=$$(mktemp -d); \
+		curl -fsSL "https://github.com/fastfetch-cli/fastfetch/releases/download/$(FASTFETCH_VERSION)/fastfetch-linux-amd64-polyfilled.tar.gz" | \
+			tar -xz -C $$tmp_dir; \
+		mv $$tmp_dir/fastfetch-linux-amd64-polyfilled/usr/bin/fastfetch offline-packages/linux/fastfetch; \
+		chmod +x offline-packages/linux/fastfetch; \
+		rm -rf $$tmp_dir; \
+	else \
+		echo "  ✓ fastfetch already present"; \
+	fi
+
 	@# airgap-dev-kit - CLI wrapper command
 	@echo "  → airgap-dev-kit (CLI wrapper)..."; \
 	cp scripts/airgap-dev-kit offline-packages/linux/airgap-dev-kit; \
@@ -442,6 +456,7 @@ verify:
 	if file offline-packages/linux/usbtree 2>/dev/null | grep -q "executable"; then echo "  ✓ usbtree"; else echo "  ✗ usbtree - missing or invalid"; FAIL=1; fi; \
 	if file offline-packages/linux/glow 2>/dev/null | grep -q "executable"; then echo "  ✓ glow"; else echo "  ✗ glow - missing or invalid"; FAIL=1; fi; \
 	if file offline-packages/linux/broot 2>/dev/null | grep -q "executable"; then echo "  ✓ broot"; else echo "  ✗ broot - missing or invalid"; FAIL=1; fi; \
+	if file offline-packages/linux/fastfetch 2>/dev/null | grep -q "executable"; then echo "  ✓ fastfetch"; else echo "  ✗ fastfetch - missing or invalid"; FAIL=1; fi; \
 	if file offline-packages/linux/mkcert 2>/dev/null | grep -q "executable"; then echo "  ✓ mkcert"; else echo "  ✗ mkcert - missing or invalid"; FAIL=1; fi; \
 	if file offline-packages/linux/lazygit 2>/dev/null | grep -q "executable"; then echo "  ✓ lazygit"; else echo "  ✗ lazygit - missing or invalid"; FAIL=1; fi; \
 	if file offline-packages/linux/jq 2>/dev/null | grep -q "executable"; then echo "  ✓ jq"; else echo "  ✗ jq - missing or invalid"; FAIL=1; fi; \

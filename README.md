@@ -161,6 +161,7 @@ tmux new-session nvim
 - **usbtree** - Live USB device tree viewer
 - **glow** - Render Markdown docs in the terminal
 - **broot** - Interactive, fuzzy directory tree navigator
+- **fastfetch** - Fast system information summary
 - **mkcert** - Local HTTPS certificate generator (requires NSS tools on Linux)
 - **gopls** - Go language server for IDE features (autocomplete, diagnostics, goto definitions)
 - **delta** - Stunning git diff viewer with syntax highlighting
@@ -296,7 +297,7 @@ cp offline-packages/linux/your-tool ~/bin/
 /usr/local/bin/        # Binaries (requires sudo)
 ├── tmux, nvim, fzf, fd, rg, bat, starship
 ├── wezterm           # Full package only
-└── (optional: btop, lsd, zoxide, direnv, dust, delta, svu, gum, glow, broot)
+└── (optional: btop, lsd, zoxide, direnv, dust, delta, svu, gum, glow, broot, fastfetch)
 ```
 
 **User-local install:**
@@ -304,7 +305,7 @@ cp offline-packages/linux/your-tool ~/bin/
 ~/.local/bin/          # Binaries (no sudo needed)
 ├── tmux, nvim, fzf, fd, rg, bat, starship
 ├── wezterm           # Full package only
-└── (optional: btop, lsd, zoxide, direnv, dust, delta, svu, gum, glow, broot)
+└── (optional: btop, lsd, zoxide, direnv, dust, delta, svu, gum, glow, broot, fastfetch)
 ```
 
 **Configuration files (both install types):**

@@ -86,6 +86,7 @@ TOOLS=(
   "gum|GUM_VERSION|gum|charmbracelet/gum|none"
   "glow|GLOW_VERSION|glow|charmbracelet/glow|none"
   "broot|BROOT_VERSION|broot|Canop/broot|none"
+  "fastfetch|FASTFETCH_VERSION|fastfetch|fastfetch-cli/fastfetch|none"
   "dust|DUST_VERSION|dust|bootandy/dust|none"
   "gdu|GDU_VERSION|gdu|dundee/gdu|none"
   "usbtree|USBTREE_VERSION|usbtree|gnomeria/usbtree|none"

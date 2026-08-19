@@ -22,6 +22,9 @@ ZOX_VERSION := v0.9.9
 DELTA_VERSION := 0.19.2
 DIFFTASTIC_VERSION := 0.69.0
 GUM_VERSION := v0.17.0
+GLOW_VERSION := v2.1.2
+BROOT_VERSION := v1.58.0
+FASTFETCH_VERSION := 2.67.1
 DUST_VERSION := v1.2.4
 GDU_VERSION := v5.33.0
 USBTREE_VERSION := v0.1.1
@@ -54,6 +57,7 @@ write_release Wilfred__difftastic 0.69.0
 write_release charmbracelet__gum v0.17.0
 write_release charmbracelet__glow v2.1.2
 write_release Canop__broot v1.58.0
+write_release fastfetch-cli__fastfetch 2.67.1
 write_release bootandy__dust v1.2.4
 write_release dundee__gdu v5.33.0
 write_release gnomeria__usbtree v0.1.1

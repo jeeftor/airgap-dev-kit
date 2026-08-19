@@ -481,6 +481,7 @@ if [[ $OS == "linux" ]]; then
     "offline-packages/$OS/usbtree|usbtree|usbtree|--version"
     "offline-packages/$OS/glow|glow|glow (Markdown reader)|--version"
     "offline-packages/$OS/broot|broot|broot (directory navigator)|--version"
+    "offline-packages/$OS/fastfetch|fastfetch|fastfetch (system information)|--version"
     "offline-packages/$OS/mkcert|mkcert|mkcert|--version"
     "offline-packages/$OS/airgap-dev-kit|airgap-dev-kit|airgap-dev-kit|--version"
     "offline-packages/$OS/svu|svu|svu|--version"
