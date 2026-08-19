@@ -108,6 +108,16 @@ export PATH="$HOME/bin:$PATH"
 wezterm start -- tmux new-session nvim
 ```
 
+### WezTerm and tmux
+
+The full package installs a WezTerm configuration at `~/.config/wezterm/wezterm.lua`.
+It uses JetBrainsMono Nerd Font, retains native window resizing, and shows a tab bar
+when you open more than one WezTerm tab. It intentionally does not redefine pane
+shortcuts: tmux owns terminal splits, navigation, and resizing.
+
+- WezTerm defaults: `Ctrl+Shift+C` / `Ctrl+Shift+V` copy and paste, `Ctrl+Shift+T` opens a tab, and `Ctrl+Shift+W` closes one.
+- tmux: `Ctrl+b`, then `Ctrl+Arrow` resizes a pane; `Alt+Arrow` changes panes.
+
 **CLI-only package:**
 ```bash
 # 1. Transfer airgap-dev-kit-cli.tar.gz
@@ -148,6 +158,9 @@ tmux new-session nvim
 - **direnv** - Automatic per-directory environment loader
 - **dust** - Fast, intuitive disk usage visualizer
 - **gdu** - Interactive disk usage analyzer with TUI
+- **usbtree** - Live USB device tree viewer
+- **glow** - Render Markdown docs in the terminal
+- **broot** - Interactive, fuzzy directory tree navigator
 - **mkcert** - Local HTTPS certificate generator (requires NSS tools on Linux)
 - **gopls** - Go language server for IDE features (autocomplete, diagnostics, goto definitions)
 - **delta** - Stunning git diff viewer with syntax highlighting
@@ -283,7 +296,7 @@ cp offline-packages/linux/your-tool ~/bin/
 /usr/local/bin/        # Binaries (requires sudo)
 ├── tmux, nvim, fzf, fd, rg, bat, starship
 ├── wezterm           # Full package only
-└── (optional: btop, lsd, zoxide, direnv, dust, delta, svu, gum)
+└── (optional: btop, lsd, zoxide, direnv, dust, delta, svu, gum, glow, broot)
 ```
 
 **User-local install:**
@@ -291,7 +304,7 @@ cp offline-packages/linux/your-tool ~/bin/
 ~/.local/bin/          # Binaries (no sudo needed)
 ├── tmux, nvim, fzf, fd, rg, bat, starship
 ├── wezterm           # Full package only
-└── (optional: btop, lsd, zoxide, direnv, dust, delta, svu, gum)
+└── (optional: btop, lsd, zoxide, direnv, dust, delta, svu, gum, glow, broot)
 ```
 
 **Configuration files (both install types):**
@@ -299,6 +312,7 @@ cp offline-packages/linux/your-tool ~/bin/
 ~/
 ├── .config/
 │   ├── nvim/          # Neovim config (symlinked via Stow or copied)
+│   ├── wezterm/       # WezTerm GUI configuration
 │   └── starship.toml  # Prompt config
 ├── .tmux.conf         # Tmux config
 └── .local/share/
@@ -312,7 +326,7 @@ CLI-only installs do not create `~/.local/share/fonts/` from this kit and do not
 
 ### Internet Machine (for building)
 - `curl` - Download binaries
-- `tar`, `gzip` - Archive tools
+- `tar`, `gzip`, `unzip` - Archive tools
 - `make` - Build automation
 
 ### Air-Gapped Machine (for installing)

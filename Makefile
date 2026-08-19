@@ -12,8 +12,11 @@ ZOX_VERSION := v0.10.0
 DELTA_VERSION := 0.19.2
 DIFFTASTIC_VERSION := 0.70.0
 GUM_VERSION := v0.17.0
+GLOW_VERSION := v2.1.2
+BROOT_VERSION := v1.58.0
 DUST_VERSION := v1.2.4
 GDU_VERSION := v5.36.1
+USBTREE_VERSION := v0.1.1
 MKCERT_VERSION := v1.4.4
 DIRENV_VERSION := v2.37.1
 SVU_VERSION := 3.4.1
@@ -51,7 +54,7 @@ status:
 	@ls -lh offline-packages/linux/{wezterm.AppImage,tmux-3.4-static-x86_64,nvim-static-x86_64} 2>/dev/null | awk '{print $$5 "\t" $$9}' || echo "  Some core binaries missing"
 	@echo ""
 	@echo "CLI tools:"
-	@ls -lh offline-packages/linux/{fzf,fd,rg,bat,starship,btop,lsd,zoxide,delta,difft,gum,dust,gdu,mkcert,airgap-dev-kit,lazygit,jq,gping,svu,lua-language-server,shellcheck} 2>/dev/null | awk '{print $$5 "\t" $$9}' || echo "  Some tools missing"
+	@ls -lh offline-packages/linux/{fzf,fd,rg,bat,starship,btop,lsd,zoxide,delta,difft,gum,glow,broot,dust,gdu,usbtree,mkcert,airgap-dev-kit,lazygit,jq,gping,svu,lua-language-server,shellcheck} 2>/dev/null | awk '{print $$5 "\t" $$9}' || echo "  Some tools missing"
 	@echo ""
 	@echo "Fonts:"
 	@ls -lh fonts/JetBrainsMono.zip 2>/dev/null | awk '{print $$5 "\t" $$9}' || echo "  Font missing"
@@ -249,6 +252,19 @@ update-linux:
 		echo "  ✓ mkcert already present"; \
 	fi
 
+	@# usbtree - live USB device tree
+	@if [ ! -f offline-packages/linux/usbtree ] || [ $$(stat -f%z offline-packages/linux/usbtree 2>/dev/null || stat -c%s offline-packages/linux/usbtree 2>/dev/null) -lt 1000 ]; then \
+		echo "  → usbtree (live USB device tree)..."; \
+		mkdir -p /tmp/usbtree-download; \
+		curl -fsSL "https://github.com/gnomeria/usbtree/releases/download/$(USBTREE_VERSION)/usbtree_$$(echo $(USBTREE_VERSION) | sed 's/^v//')_linux-amd64.tar.gz" | \
+			tar -xz -C /tmp/usbtree-download; \
+		mv /tmp/usbtree-download/usbtree offline-packages/linux/usbtree; \
+		chmod +x offline-packages/linux/usbtree; \
+		rm -rf /tmp/usbtree-download; \
+	else \
+		echo "  ✓ usbtree already present"; \
+	fi
+
 	@# gping - ping with a graph
 	@if [ ! -f offline-packages/linux/gping ] || [ $$(stat -f%z offline-packages/linux/gping 2>/dev/null || stat -c%s offline-packages/linux/gping 2>/dev/null) -lt 1000 ]; then \
 		echo "  → gping (ping with graph)..."; \
@@ -294,6 +310,31 @@ update-linux:
 		chmod +x offline-packages/linux/gum; \
 	else \
 		echo "  ✓ gum already present"; \
+	fi
+
+	@# glow - Markdown reader
+	@if [ ! -f offline-packages/linux/glow ] || [ $$(stat -f%z offline-packages/linux/glow 2>/dev/null || stat -c%s offline-packages/linux/glow 2>/dev/null) -lt 1000 ]; then \
+		echo "  → glow (Markdown reader)..."; \
+		tmp_dir=$$(mktemp -d); \
+		curl -fsSL "https://github.com/charmbracelet/glow/releases/download/$(GLOW_VERSION)/glow_$$(echo $(GLOW_VERSION) | sed 's/^v//')_Linux_x86_64.tar.gz" | \
+			tar -xz -C $$tmp_dir; \
+		mv $$tmp_dir/glow_$$(echo $(GLOW_VERSION) | sed 's/^v//')_Linux_x86_64/glow offline-packages/linux/glow; \
+		chmod +x offline-packages/linux/glow; \
+		rm -rf $$tmp_dir; \
+	else \
+		echo "  ✓ glow already present"; \
+	fi
+
+	@# broot - interactive directory tree navigator
+	@if [ ! -f offline-packages/linux/broot ] || [ $$(stat -f%z offline-packages/linux/broot 2>/dev/null || stat -c%s offline-packages/linux/broot 2>/dev/null) -lt 1000 ]; then \
+		echo "  → broot (interactive directory navigator)..."; \
+		tmp_dir=$$(mktemp -d); \
+		curl -fsSL "https://github.com/Canop/broot/releases/download/$(BROOT_VERSION)/broot_$$(echo $(BROOT_VERSION) | sed 's/^v//').zip" -o $$tmp_dir/broot.zip; \
+		unzip -p $$tmp_dir/broot.zip x86_64-unknown-linux-musl/broot > offline-packages/linux/broot; \
+		chmod +x offline-packages/linux/broot; \
+		rm -rf $$tmp_dir; \
+	else \
+		echo "  ✓ broot already present"; \
 	fi
 
 	@# airgap-dev-kit - CLI wrapper command
@@ -398,6 +439,9 @@ verify:
 	if file offline-packages/linux/direnv 2>/dev/null | grep -q "executable"; then echo "  ✓ direnv"; else echo "  ✗ direnv - missing or invalid"; FAIL=1; fi; \
 	if file offline-packages/linux/dust 2>/dev/null | grep -q "executable"; then echo "  ✓ dust"; else echo "  ✗ dust - missing or invalid"; FAIL=1; fi; \
 	if file offline-packages/linux/gdu 2>/dev/null | grep -q "executable"; then echo "  ✓ gdu"; else echo "  ✗ gdu - missing or invalid"; FAIL=1; fi; \
+	if file offline-packages/linux/usbtree 2>/dev/null | grep -q "executable"; then echo "  ✓ usbtree"; else echo "  ✗ usbtree - missing or invalid"; FAIL=1; fi; \
+	if file offline-packages/linux/glow 2>/dev/null | grep -q "executable"; then echo "  ✓ glow"; else echo "  ✗ glow - missing or invalid"; FAIL=1; fi; \
+	if file offline-packages/linux/broot 2>/dev/null | grep -q "executable"; then echo "  ✓ broot"; else echo "  ✗ broot - missing or invalid"; FAIL=1; fi; \
 	if file offline-packages/linux/mkcert 2>/dev/null | grep -q "executable"; then echo "  ✓ mkcert"; else echo "  ✗ mkcert - missing or invalid"; FAIL=1; fi; \
 	if file offline-packages/linux/lazygit 2>/dev/null | grep -q "executable"; then echo "  ✓ lazygit"; else echo "  ✗ lazygit - missing or invalid"; FAIL=1; fi; \
 	if file offline-packages/linux/jq 2>/dev/null | grep -q "executable"; then echo "  ✓ jq"; else echo "  ✗ jq - missing or invalid"; FAIL=1; fi; \
