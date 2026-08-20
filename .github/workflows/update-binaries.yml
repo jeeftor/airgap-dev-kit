@@ -170,6 +170,8 @@ jobs:
           -- supplied. Package lookup is invalid until the registry is ready.
           registry.refresh()
 
+          local completed = 0
+          local failures = {}
           for _, pkg_name in ipairs(packages) do
             if not registry.has_package(pkg_name) then
               error("Mason registry is missing package: " .. pkg_name)
@@ -178,9 +180,19 @@ jobs:
             local pkg = registry.get_package(pkg_name)
             if not pkg:is_installed() then
               print(string.format("Installing %s...", pkg_name))
-              pkg:install()
+              local install_pkg = pkg
+              local install_name = pkg_name
+              install_pkg:once("closed", function()
+                if install_pkg:is_installed() then
+                  completed = completed + 1
+                else
+                  table.insert(failures, install_name)
+                end
+              end)
+              install_pkg:install()
             else
               print(string.format("✓ %s already installed", pkg_name))
+              completed = completed + 1
             end
           end
 
@@ -188,15 +200,13 @@ jobs:
           -- payload when a download or runtime dependency fails.
           print("\nWaiting for installations to complete...")
           local complete = vim.wait(300000, function()
-            for _, pkg_name in ipairs(packages) do
-              if not registry.is_installed(pkg_name) then
-                return false
-              end
-            end
-            return true
+            return completed + #failures == #packages
           end, 500)
           if not complete then
             error("Timed out while installing the selected Mason packages")
+          end
+          if #failures > 0 then
+            error("Mason failed to install: " .. table.concat(failures, ", "))
           end
 
           print("\n=== Installation Summary ===")
