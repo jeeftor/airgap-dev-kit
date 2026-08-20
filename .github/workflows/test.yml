@@ -18,6 +18,12 @@ jobs:
       - name: Verify existing Neovim state is backed up or preserved
         run: bash test/scripts/test-nvim-state-safety.sh
 
+      - name: Verify dry-run does not change user state
+        run: bash test/scripts/test-install-dry-run.sh
+
+      - name: Verify release downloads are checksum-gated
+        run: bash test/scripts/test-release-update.sh
+
   test-build-linux:
     name: Build & Verify Linux Package
     runs-on: ubuntu-latest

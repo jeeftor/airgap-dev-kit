@@ -522,24 +522,7 @@ package: version-file
 	@rm -f VERSION
 
 download-release:
-	@release_tag=$$(curl -fsSL -o /dev/null -w '%{url_effective}' \
-		"https://github.com/jeeftor/airgap-dev-kit/releases/latest" | sed 's#.*/##'); \
-		test -n "$$release_tag"; \
-		echo "Downloading release $$release_tag (Linux x86_64)..."
-	@mkdir -p "$(RELEASE_DIR)"
-	@curl -fsSL "https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/checksums.txt" \
-		-o "$(RELEASE_DIR)/checksums.txt"
-	@curl -fsSL "https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/airgap-dev-kit-linux-x86_64.tar.gz" \
-		-o "$(RELEASE_DIR)/airgap-dev-kit-linux-x86_64.tar.gz"
-	@if command -v sha256sum >/dev/null 2>&1; then \
-		grep ' airgap-dev-kit-linux-x86_64.tar.gz$$' "$(RELEASE_DIR)/checksums.txt" | \
-			(cd "$(RELEASE_DIR)" && sha256sum -c -); \
-	else \
-		expected=$$(awk '/ airgap-dev-kit-linux-x86_64.tar.gz$$/ {print $$1}' "$(RELEASE_DIR)/checksums.txt"); \
-		actual=$$(shasum -a 256 "$(RELEASE_DIR)/airgap-dev-kit-linux-x86_64.tar.gz" | awk '{print $$1}'); \
-		test "$$expected" = "$$actual"; \
-	fi
-	@echo "✓ Release package ready: $(RELEASE_DIR)/airgap-dev-kit-linux-x86_64.tar.gz"
+	@./scripts/release-update.sh download --dir "$(RELEASE_DIR)"
 
 package-cli: version-file
 	@echo "Creating CLI-only deployment package..."
@@ -611,6 +594,7 @@ docker-test: package
 
 test-cli-package:
 	@bash test/scripts/test-nvim-config-syntax.sh
+	@bash test/scripts/test-install-dry-run.sh
 	@bash test/scripts/test-cli-only-package.sh
 	@bash test/scripts/test-busy-binary-replace.sh
 	@bash test/scripts/test-config-idempotent.sh
@@ -618,6 +602,7 @@ test-cli-package:
 	@bash test/scripts/test-starship-init-last.sh
 
 test-update-tools:
+	@bash test/scripts/test-release-update.sh
 	@bash test/scripts/test-check-updates-json.sh
 	@bash test/scripts/test-close-superseded-update-prs.sh
 

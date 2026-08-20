@@ -151,7 +151,12 @@ Usage: $COMMAND_NAME <command> [options]
 
 Commands:
     version     Show kit version and installation info
-    update      Download/update all binaries (requires internet)
+    check-update    Check the latest published kit release (read-only)
+    download-release Download and checksum-verify the latest Linux release
+    apply-release   Verify, extract, and install a downloaded release
+    update [--yes]  Check, download, verify, and apply a published release
+    doctor          Diagnose kit, Neovim, and bundled LSP state (read-only)
+    refresh-sources Refresh maintainer source binaries with make update
     install     Install missing tools from offline packages
     remove      Completely uninstall the airgap-dev-kit
     status      Show installation status of all tools
@@ -159,7 +164,8 @@ Commands:
 
 Examples:
     $COMMAND_NAME version     # Show version info
-    $COMMAND_NAME update      # Download latest binaries (internet required)
+    $COMMAND_NAME update      # Safely update from a published release
+    $COMMAND_NAME doctor      # Check Neovim and LSP payload health
     $COMMAND_NAME install      # Install from offline packages
     $COMMAND_NAME status      # Check what's installed
     $COMMAND_NAME remove       # Uninstall everything
@@ -225,38 +231,69 @@ show_version() {
     fi
 }
 
-# Function to update binaries
-update_binaries() {
-    print_header "Updating Air-Gap Dev Kit Binaries"
-    
-    if [[ ! -f "$KIT_DIR/Makefile" ]]; then
-        print_error "Makefile not found. Are you in the correct directory?"
-        exit 1
+release_helper() {
+    local helper="$KIT_DIR/scripts/release-update.sh"
+    [[ -x "$helper" ]] || { print_error "Verified release updater is unavailable in $KIT_DIR"; exit 1; }
+    printf '%s\n' "$helper"
+}
+
+check_update() {
+    "$(release_helper)" check
+}
+
+download_release() {
+    "$(release_helper)" download "$@"
+}
+
+apply_release() {
+    "$(release_helper)" apply "$@"
+}
+
+update_release() {
+    local assume_yes=false temp_dir
+    [[ "${1:-}" == "--yes" ]] && assume_yes=true
+    if [[ "$assume_yes" != true && ! -t 0 ]]; then
+        print_error "Non-interactive updates require --yes."
+        exit 2
     fi
-    
-    if [[ "$GUM_AVAILABLE" == true ]]; then
-        if ! confirm_action "Download latest binaries? This requires internet connection."; then
-            print_warning "Update cancelled."
-            exit 0
-        fi
+    print_header "Verified Air-Gap Dev Kit Update"
+    check_update
+    if [[ "$assume_yes" != true ]] && ! confirm_action "Download, verify, and install the published release?"; then
+        print_warning "Update cancelled."
+        return 0
     fi
-    
-    show_progress "Downloading latest binaries" 2
-    
-    cd "$KIT_DIR"
-    
-    if command -v make >/dev/null 2>&1; then
-        if [[ "$GUM_AVAILABLE" == true ]]; then
-            make update | gum format --type markdown
-        else
-            make update
-        fi
-        print_status "Update completed!"
-        print_status "Run '$COMMAND_NAME install' to install the updated binaries."
-    else
-        print_error "make command not found. Please install make."
-        exit 1
+    temp_dir=$(mktemp -d "${TMPDIR:-/tmp}/airgap-dev-kit-release.XXXXXX")
+    trap 'rm -rf "$temp_dir"' RETURN
+    download_release --dir "$temp_dir"
+    apply_release --archive "$temp_dir/airgap-dev-kit-linux-x86_64.tar.gz" --checksums "$temp_dir/checksums.txt"
+    trap - RETURN
+}
+
+refresh_sources() {
+    print_header "Maintainer Source Refresh"
+    [[ -f "$KIT_DIR/Makefile" ]] || { print_error "Makefile not found."; exit 1; }
+    if ! confirm_action "Refresh individual upstream source binaries with make update?"; then
+        print_warning "Source refresh cancelled."
+        return 0
     fi
+    (cd "$KIT_DIR" && make update && make verify)
+    print_status "Source binaries refreshed and verified."
+}
+
+doctor() {
+    local mason_dir="${XDG_DATA_HOME:-$HOME/.local/share}/nvim/mason" failures=0
+    print_header "Air-Gap Dev Kit Doctor"
+    if [[ "$(uname -s)" == "Linux" ]]; then print_status "Linux host detected"; else print_error "Linux is required"; failures=$((failures + 1)); fi
+    if [[ -f "$KIT_DIR/VERSION" ]]; then print_status "Kit version: $KIT_VERSION"; else print_error "Kit VERSION file missing"; failures=$((failures + 1)); fi
+    if [[ -f "$KIT_DIR/config/plugin-manifest.lua" ]]; then print_status "Plugin manifest found"; else print_error "Plugin manifest missing"; failures=$((failures + 1)); fi
+    for lsp in gopls bash-language-server; do
+        if [[ -x "$mason_dir/bin/$lsp" ]]; then print_status "Mason $lsp available"; else print_error "Mason $lsp missing: $mason_dir/bin/$lsp"; failures=$((failures + 1)); fi
+    done
+    if [[ -x "$mason_dir/node/bin/node" ]]; then print_status "Bundled Mason Node runtime available"; else print_error "Bundled Mason Node runtime missing"; failures=$((failures + 1)); fi
+    if [[ -d "$HOME/.config/nvim" ]]; then print_status "Neovim config: $HOME/.config/nvim"; else print_warning "No Neovim config installed"; fi
+    if [[ -d "${XDG_STATE_HOME:-$HOME/.local/state}/airgap-dev-kit/transactions" ]]; then print_status "Installation transactions retained"; else print_warning "No installation transaction history"; fi
+    [[ -d "$HOME/.local/share/airgap-dev-kit/backups" ]] && print_warning "Neovim backups are available for recovery"
+    [[ $failures -eq 0 ]] || return 1
 }
 
 # Function to install from offline packages
@@ -328,8 +365,26 @@ case "${1:-help}" in
     version|--version|-v)
         show_version
         ;;
+    check-update)
+        check_update
+        ;;
+    download-release)
+        shift
+        download_release "$@"
+        ;;
+    apply-release)
+        shift
+        apply_release "$@"
+        ;;
     update)
-        update_binaries
+        shift
+        update_release "$@"
+        ;;
+    refresh-sources)
+        refresh_sources
+        ;;
+    doctor)
+        doctor
         ;;
     install)
         install_tools

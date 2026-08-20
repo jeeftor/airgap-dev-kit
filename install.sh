@@ -34,6 +34,8 @@ CLI_ONLY=false
 NVIM_MODE="ask"
 INSTALL_NVIM=true
 NVIM_RUNTIME_INSTALLED=false
+NVIM_BACKUP_ROOT=""
+NVIM_BACKUP_ACTIVE=false
 for arg in "$@"; do
   case $arg in
     --dry-run|-n)
@@ -136,6 +138,7 @@ prepare_nvim_install() {
   esac
 
   backup_root="$HOME/.local/share/airgap-dev-kit/backups/nvim-$(date +%Y%m%d-%H%M%S)"
+  NVIM_BACKUP_ROOT="$backup_root"
   mkdir -p "$backup_root"
   for path in "${nvim_paths[@]}"; do
     if [[ -e "$path" ]]; then
@@ -145,37 +148,106 @@ prepare_nvim_install() {
       log_install "CONFIG" "$path" "$backup_path" ""
     fi
   done
+  NVIM_BACKUP_ACTIVE=true
   echo "✓ Existing Neovim state backed up to $backup_root"
+}
+
+restore_nvim_backup_on_error() {
+  local status="$1" path backup_path
+  [[ "$NVIM_BACKUP_ACTIVE" == true && -n "$NVIM_BACKUP_ROOT" ]] || return 0
+  echo "Installation failed; restoring the pre-install Neovim state from $NVIM_BACKUP_ROOT" >&2
+  for path in "$HOME/.config/nvim" "$HOME/.local/share/nvim" "$HOME/.local/state/nvim" "$HOME/.cache/nvim"; do
+    backup_path="$NVIM_BACKUP_ROOT/${path#"$HOME/"}"
+    rm -rf "$path"
+    if [[ -e "$backup_path" ]]; then
+      mkdir -p "$(dirname "$path")"
+      mv "$backup_path" "$path"
+    fi
+  done
+  NVIM_BACKUP_ACTIVE=false
+  return "$status"
+}
+
+on_install_error() {
+  local status="$?"
+  trap - ERR
+  restore_nvim_backup_on_error "$status" || true
+  exit "$status"
+}
+
+trap on_install_error ERR
+
+replace_directory_atomically() {
+  local staged_path="$1"
+  local destination="$2"
+  local label="$3"
+  local previous
+  previous="${destination}.airgap-previous-$(date +%Y%m%d-%H%M%S)"
+  LAST_REPLACED_DIRECTORY_PREVIOUS=""
+
+  if [[ -e "$destination" ]]; then
+    mv "$destination" "$previous"
+  else
+    previous=""
+  fi
+
+  if ! mv "$staged_path" "$destination"; then
+    [[ -n "$previous" && -e "$previous" ]] && mv "$previous" "$destination"
+    echo "Error: could not activate staged $label; the previous payload was restored." >&2
+    return 1
+  fi
+
+  if [[ -n "$previous" ]]; then
+    LAST_REPLACED_DIRECTORY_PREVIOUS="$previous"
+    echo "  Previous $label retained at $previous"
+    log_install "DIRECTORY" "$destination" "$previous" ""
+  fi
 }
 
 install_nvim_archive() {
   local archive="$1"
   local payload_name="$2"
   local destination="$HOME/.local/share/nvim/$payload_name"
-  local stage
+  local parent stage previous_lock="" lock_destination="$HOME/.local/share/nvim/lazy-lock.json"
 
   if ! tar -tzf "$archive" | awk 'BEGIN { valid = 1 } /^\/|(^|\/)\.\.($|\/)/ { valid = 0 } END { exit !valid }'; then
     echo "Error: unsafe paths in $archive" >&2
     return 1
   fi
 
-  stage=$(mktemp -d "${TMPDIR:-/tmp}/airgap-dev-kit-nvim.XXXXXX")
+  parent=$(dirname "$destination")
+  mkdir -p "$parent"
+  stage=$(mktemp -d "$parent/.airgap-dev-kit-${payload_name}.XXXXXX")
   if ! tar -xzf "$archive" -C "$stage" || [[ ! -d "$stage/$payload_name" ]]; then
     rm -rf "$stage"
     echo "Error: $archive does not contain $payload_name/" >&2
     return 1
   fi
 
-  if [[ "$payload_name" == "mason" ]] && { [[ ! -x "$stage/mason/bin/gopls" ]] || [[ ! -x "$stage/mason/node/bin/node" ]]; }; then
+  if [[ "$payload_name" == "mason" ]] && { [[ ! -x "$stage/mason/bin/gopls" ]] || [[ ! -x "$stage/mason/bin/bash-language-server" ]] || [[ ! -x "$stage/mason/node/bin/node" ]]; }; then
     rm -rf "$stage"
-    echo "Error: $archive is missing the bundled gopls or Node runtime" >&2
+    echo "Error: $archive is missing bundled gopls, bash-language-server, or Node runtime" >&2
     return 1
   fi
 
-  rm -rf "$destination"
-  mv "$stage/$payload_name" "$destination"
+  if ! replace_directory_atomically "$stage/$payload_name" "$destination" "$payload_name"; then
+    rm -rf "$stage"
+    return 1
+  fi
   if [[ "$payload_name" == "lazy" && -f "$stage/lazy-lock.json" ]]; then
-    mv -f "$stage/lazy-lock.json" "$HOME/.local/share/nvim/lazy-lock.json"
+    if [[ -e "$lock_destination" ]]; then
+      previous_lock="${lock_destination}.airgap-previous-$(date +%Y%m%d-%H%M%S)"
+      mv "$lock_destination" "$previous_lock"
+    fi
+    if ! mv "$stage/lazy-lock.json" "$lock_destination"; then
+      rm -rf "$destination"
+      [[ -n "$LAST_REPLACED_DIRECTORY_PREVIOUS" && -e "$LAST_REPLACED_DIRECTORY_PREVIOUS" ]] && mv "$LAST_REPLACED_DIRECTORY_PREVIOUS" "$destination"
+      [[ -n "$previous_lock" && -e "$previous_lock" ]] && mv "$previous_lock" "$lock_destination"
+      echo "Error: could not activate lazy-lock.json; restore the retained lazy payload before retrying." >&2
+      rm -rf "$stage"
+      return 1
+    fi
+    [[ -n "$previous_lock" ]] && log_install "CONFIG" "$lock_destination" "$previous_lock" ""
   fi
   rm -rf "$stage"
 }
@@ -192,16 +264,25 @@ if [[ -f .airgap-cli-only ]]; then
   CLI_ONLY=true
 fi
 
-# Installation tracking file
-INSTALL_LOG="$HOME/.airgap-dev-kit-install.log"
+# Installation tracking is transaction-based. The old path remains a
+# compatibility copy for existing uninstallers and external automation.
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/airgap-dev-kit"
+TRANSACTIONS_DIR="$STATE_DIR/transactions"
+CURRENT_TRANSACTION_FILE="$STATE_DIR/current-transaction"
+LEGACY_INSTALL_LOG="$HOME/.airgap-dev-kit-install.log"
+INSTALL_ID="$(date +%Y%m%d-%H%M%S)-$$"
+INSTALL_LOG="$TRANSACTIONS_DIR/$INSTALL_ID.log"
 PREVIOUS_KIT_INSTALL=false
 PREVIOUS_KIT_VERSION="unknown"
 PREVIOUS_KIT_DIR="unknown"
 
 detect_previous_install() {
-  local type path backup timestamp
+  local type path backup timestamp previous_log="$LEGACY_INSTALL_LOG"
 
-  [[ -r "$INSTALL_LOG" ]] || return 0
+  if [[ -r "$CURRENT_TRANSACTION_FILE" ]]; then
+    previous_log=$(head -n 1 "$CURRENT_TRANSACTION_FILE")
+  fi
+  [[ -r "$previous_log" ]] || return 0
   while IFS='|' read -r type path backup timestamp; do
     [[ "$type" == "METADATA" ]] || continue
     case "$path" in
@@ -213,11 +294,12 @@ detect_previous_install() {
         PREVIOUS_KIT_DIR="${path#KIT_DIR=}"
         ;;
     esac
-  done < "$INSTALL_LOG"
+  done < "$previous_log"
 }
 
 # Initialize installation log
 init_install_log() {
+  mkdir -p "$TRANSACTIONS_DIR"
   cat > "$INSTALL_LOG" << EOF
 # Air-Gap Dev Kit Installation Log
 # Generated: $(date)
@@ -227,6 +309,15 @@ init_install_log() {
 # Types: BINARY, CONFIG, SYMLINK, DIRECTORY, SHELL_CONFIG
 EOF
   echo "# Installation started at $(date)" >> "$INSTALL_LOG"
+}
+
+finalize_install_log() {
+  local current_tmp
+  echo "# Installation completed at $(date)" >> "$INSTALL_LOG"
+  current_tmp=$(mktemp "$STATE_DIR/.current-transaction.XXXXXX")
+  printf '%s\n' "$INSTALL_LOG" > "$current_tmp"
+  mv -f "$current_tmp" "$CURRENT_TRANSACTION_FILE"
+  cp "$INSTALL_LOG" "$LEGACY_INSTALL_LOG"
 }
 
 # Log an installed item
@@ -371,13 +462,24 @@ else
   echo ""
 fi
 
-# Initialize installation tracking
-if [[ "$DRY_RUN" == false ]]; then
-  init_install_log
-  echo "Installation tracking: $INSTALL_LOG"
-else
-  echo "DRY RUN: Would create installation log at: $INSTALL_LOG"
+if [[ "$DRY_RUN" == true ]]; then
+  echo "DRY RUN PLAN (no files, binaries, configuration, or shell files will be changed)"
+  echo "  • Inspect and offer updates for bundled Linux tools"
+  if [[ "$INSTALL_NVIM" == true ]]; then
+    echo "  • Back up and replace Neovim only when --nvim-mode=replace is selected"
+    echo "  • Stage and validate the Neovim runtime, LazyVim payload, and Mason payload"
+  else
+    echo "  • Preserve existing Neovim configuration and state"
+  fi
+  echo "  • Install or update managed configuration files and optional fonts"
+  echo "  • Update shell configuration only if explicitly approved"
+  echo "Run without --dry-run to review the interactive selections and apply this plan."
+  exit 0
 fi
+
+# Initialize installation tracking
+init_install_log
+echo "Installation tracking: $INSTALL_LOG"
 echo ""
 
 # Determine install location - prompt user FIRST
@@ -474,18 +576,7 @@ log_install "DIRECTORY" "$BIN_DIR" "" ""
 
 echo ""
 
-if [[ "$DRY_RUN" == true ]]; then
-  echo "DRY RUN: Would create directory: $BIN_DIR"
-  if [[ "$CLI_ONLY" == true ]]; then
-    echo "DRY RUN: Would install bundled CLI tools from offline-packages/linux."
-    echo "DRY RUN: Would skip WezTerm, GUI fonts, and automatic shell configuration."
-    echo ""
-    echo "CLI-only dry run complete."
-    exit 0
-  fi
-else
-  $USE_SUDO mkdir -p "$BIN_DIR"
-fi
+$USE_SUDO mkdir -p "$BIN_DIR"
 
 # Install gum first (so we can use it for prompts)
 if [[ -f offline-packages/$OS/gum ]]; then
@@ -823,9 +914,15 @@ if [[ $OS == "linux" ]]; then
       fi
       echo "  Installing Neovim runtime files..."
       mkdir -p "$(dirname "$NVIM_RUNTIME_DEST")"
-      rm -rf "$NVIM_RUNTIME_DEST"
-      cp -r "$NVIM_RUNTIME_SOURCE" "$NVIM_RUNTIME_DEST"
-      log_install "DIRECTORY" "$NVIM_RUNTIME_DEST" "" ""
+      NVIM_RUNTIME_STAGE=$(mktemp -d "$(dirname "$NVIM_RUNTIME_DEST")/.airgap-dev-kit-runtime.XXXXXX")
+      if ! cp -R "$NVIM_RUNTIME_SOURCE" "$NVIM_RUNTIME_STAGE/runtime" \
+        || ! replace_directory_atomically "$NVIM_RUNTIME_STAGE/runtime" "$NVIM_RUNTIME_DEST" "Neovim runtime"; then
+        rm -rf "$NVIM_RUNTIME_STAGE"
+        echo "Error: Neovim runtime was not changed because staging failed." >&2
+        exit 1
+      fi
+      rm -rf "$NVIM_RUNTIME_STAGE"
+      log_install "DIRECTORY" "$NVIM_RUNTIME_DEST" "$LAST_REPLACED_DIRECTORY_PREVIOUS" ""
       NVIM_RUNTIME_INSTALLED=true
       echo "  ✓ Neovim runtime installed to $NVIM_RUNTIME_DEST"
     fi
@@ -1525,8 +1622,9 @@ else
   echo ""
 fi
 
-# Finalize log
-echo "# Installation completed at $(date)" >> "$INSTALL_LOG"
+# Finalize this transaction only after every installation step succeeded.
+NVIM_BACKUP_ACTIVE=false
+finalize_install_log
 
 # Final instructions - most prominent at the bottom
 if [[ ${#SHELL_CONFIG_ITEMS[@]} -gt 0 ]]; then

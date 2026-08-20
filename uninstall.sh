@@ -4,8 +4,15 @@
 
 set -e
 
-# Installation log file
+# Prefer the completed transaction selected by the installer. The legacy log is
+# retained for older installations that predate transaction tracking.
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/airgap-dev-kit"
+CURRENT_TRANSACTION_FILE="$STATE_DIR/current-transaction"
 INSTALL_LOG="$HOME/.airgap-dev-kit-install.log"
+if [[ -r "$CURRENT_TRANSACTION_FILE" ]]; then
+  current_log=$(head -n 1 "$CURRENT_TRANSACTION_FILE")
+  [[ -r "$current_log" ]] && INSTALL_LOG="$current_log"
+fi
 
 echo "=========================================="
 echo "Air-Gap Dev Kit - Uninstaller"
@@ -164,7 +171,11 @@ echo ""
 
 # Determine if we need sudo
 USE_SUDO=""
-if [[ " ${INSTALL_LOCATIONS[@]} " =~ " /usr/local/bin " ]]; then
+SYSTEM_INSTALL=false
+for location in "${INSTALL_LOCATIONS[@]}"; do
+  [[ "$location" == "/usr/local/bin" ]] && SYSTEM_INSTALL=true
+done
+if [[ "$SYSTEM_INSTALL" == true ]]; then
   if [[ $EUID -ne 0 ]]; then
     echo "System-wide installation detected. Requesting sudo privileges..."
     if sudo -v; then
@@ -207,7 +218,7 @@ if [[ "$USE_LOG" == true ]]; then
       else
         rm -f "$path"
       fi
-      echo "  ✓ Removed $(basename $path) from $(dirname $path)"
+      echo "  ✓ Removed $(basename "$path") from $(dirname "$path")"
       
       # Restore backup if requested
       if [[ -n "$backup" && -f "$backup" ]]; then
@@ -231,8 +242,9 @@ else
   done
 fi
 
-# Remove Neovim installation directories
-if [[ $OS == "linux" ]]; then
+# Older untracked installs used these broad locations. A tracked installation
+# must never recursively remove a user's whole Neovim tree.
+if [[ $OS == "linux" && "$USE_LOG" != true ]]; then
   if [[ -d "/opt/nvim-linux-x86_64" ]]; then
     $USE_SUDO rm -rf /opt/nvim-linux-x86_64
     echo "  ✓ Removed /opt/nvim-linux-x86_64"
@@ -292,8 +304,8 @@ if [[ "$USE_LOG" == true ]]; then
   done < <(grep "^CONFIG|" "$INSTALL_LOG")
 fi
 
-# Fallback: Remove common configs
-if [[ -d "$HOME/.config/nvim" ]]; then
+# Fallback: Remove common configs only when ownership is unknown.
+if [[ "$USE_LOG" != true && -d "$HOME/.config/nvim" ]]; then
   if can_use_gum_prompts; then
     if gum confirm "Remove Neovim config (~/.config/nvim/)?"; then
       rm -rf "$HOME/.config/nvim"
@@ -307,18 +319,18 @@ if [[ -d "$HOME/.config/nvim" ]]; then
   fi
 fi
 
-if [[ -f "$HOME/.tmux.conf" ]]; then
+if [[ "$USE_LOG" != true && -f "$HOME/.tmux.conf" ]]; then
   rm -f "$HOME/.tmux.conf"
   echo "  ✓ Removed ~/.tmux.conf"
 fi
 
-if [[ -f "$HOME/.config/starship.toml" ]]; then
+if [[ "$USE_LOG" != true && -f "$HOME/.config/starship.toml" ]]; then
   rm -f "$HOME/.config/starship.toml"
   echo "  ✓ Removed ~/.config/starship.toml"
 fi
 
 # Remove Neovim plugins and data
-if [[ -d "$HOME/.local/share/nvim" ]]; then
+if [[ "$USE_LOG" != true && -d "$HOME/.local/share/nvim" ]]; then
   if can_use_gum_prompts; then
     if gum confirm "Remove Neovim plugins and data (~/.local/share/nvim/)?"; then
       rm -rf "$HOME/.local/share/nvim"
@@ -377,7 +389,7 @@ for shell_file in "${SHELL_FILES[@]}"; do
       # Remove the comment line and the next line (the actual config)
       sed -i.tmp '/# Added by airgap-dev-kit installer/{N;d;}' "$shell_file"
       rm -f "${shell_file}.tmp"
-      echo "  ✓ Cleaned $(basename $shell_file) (backup: ${shell_file}.airgap-backup)"
+      echo "  ✓ Cleaned $(basename "$shell_file") (backup: ${shell_file}.airgap-backup)"
     fi
   fi
 done

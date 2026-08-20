@@ -43,8 +43,9 @@ mkdir -p "$TMP_DIR/mason/mason/bin"
 mkdir -p "$TMP_DIR/mason/mason/packages/gopls"
 mkdir -p "$TMP_DIR/mason/mason/node/bin"
 printf '%s\n' '#!/usr/bin/env sh' 'exit 0' > "$TMP_DIR/mason/mason/bin/gopls"
+printf '%s\n' '#!/usr/bin/env sh' 'exit 0' > "$TMP_DIR/mason/mason/bin/bash-language-server"
 printf '%s\n' '#!/usr/bin/env sh' 'exit 0' > "$TMP_DIR/mason/mason/node/bin/node"
-chmod +x "$TMP_DIR/mason/mason/bin/gopls" "$TMP_DIR/mason/mason/node/bin/node"
+chmod +x "$TMP_DIR/mason/mason/bin/gopls" "$TMP_DIR/mason/mason/bin/bash-language-server" "$TMP_DIR/mason/mason/node/bin/node"
 tar -czf "$TMP_DIR/package/offline-packages/mason-lsp.tar.gz" -C "$TMP_DIR/mason" mason
 
 (
@@ -59,6 +60,7 @@ test -f "$TMP_DIR/home/.local/share/nvim/lazy/lazy.nvim/README"
 test -f "$TMP_DIR/home/.local/share/nvim/lazy-lock.json"
 test ! -e "$TMP_DIR/home/.local/share/nvim/lazy/old-plugin"
 test -x "$TMP_DIR/home/.local/share/nvim/mason/bin/gopls"
+test -x "$TMP_DIR/home/.local/share/nvim/mason/bin/bash-language-server"
 test -x "$TMP_DIR/home/.local/share/nvim/mason/node/bin/node"
 
 backup_root=$(find "$TMP_DIR/home/.local/share/airgap-dev-kit/backups" -maxdepth 1 -mindepth 1 -type d | head -1)
@@ -67,6 +69,12 @@ test -f "$backup_root/.config/nvim/lua/plugins/old.lua"
 test -f "$backup_root/.local/share/nvim/lazy/old-plugin/marker"
 test -f "$backup_root/.local/state/nvim/marker"
 test -f "$backup_root/.cache/nvim/marker"
+
+current_transaction="$TMP_DIR/home/.local/state/airgap-dev-kit/current-transaction"
+test -f "$current_transaction"
+transaction_log=$(cat "$current_transaction")
+test -f "$transaction_log"
+test -f "$TMP_DIR/home/.airgap-dev-kit-install.log"
 
 mkdir -p "$TMP_DIR/preserve-home/.config/nvim"
 printf '%s\n' 'preserve me' > "$TMP_DIR/preserve-home/.config/nvim/init.lua"

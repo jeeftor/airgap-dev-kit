@@ -383,10 +383,7 @@ jobs:
             ./install.sh
             ```
 
-            **One-liner (curl + extract + install):**
-            ```bash
-            curl -L https://github.com/jeeftor/airgap-dev-kit/releases/download/build-${{ github.run_number }}-${{ github.run_id }}/airgap-dev-kit-linux-x86_64.tar.gz | tar -xz && cd airgap-dev-kit && ./install.sh
-            ```
+            Verify `checksums.txt` before extracting. Do not pipe a release archive directly into `tar` or the installer.
 
             ## 🔒 Air-Gap Installation
 

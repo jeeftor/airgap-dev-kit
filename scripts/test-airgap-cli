@@ -18,12 +18,12 @@ TESTS_FAILED=0
 # Test functions
 test_passed() {
     echo -e "${GREEN}✓ PASS${NC} $1"
-    ((TESTS_PASSED++))
+    ((TESTS_PASSED += 1))
 }
 
 test_failed() {
     echo -e "${RED}✗ FAIL${NC} $1"
-    ((TESTS_FAILED++))
+    ((TESTS_FAILED += 1))
 }
 
 test_info() {
@@ -37,6 +37,11 @@ test_warning() {
 # Get script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 AIRGAP_CLI="$SCRIPT_DIR/airgap-dev-kit"
+TEST_BIN="$(mktemp -d)"
+trap 'rm -rf "$TEST_BIN"' EXIT
+printf '%s\n' '#!/bin/sh' 'if [ "$1" = "-s" ]; then echo Linux; else echo Linux; fi' > "$TEST_BIN/uname"
+chmod +x "$TEST_BIN/uname"
+export PATH="$TEST_BIN:$PATH"
 
 # Test 1: Script exists and is executable
 test_info "Test 1: Checking if airgap-dev-kit script exists and is executable..."
@@ -106,7 +111,7 @@ required_functions=("print_status" "print_warning" "print_error" "print_header" 
 missing_functions=()
 
 for func in "${required_functions[@]}"; do
-    if ! grep -q "^[[:space:]]*$func[[:space:]]*(" "$AIRGAP_CLI"; then
+    if ! grep -q "^[[:space:]]*${func}[[:space:]]*(" "$AIRGAP_CLI"; then
         missing_functions+=("$func")
     fi
 done

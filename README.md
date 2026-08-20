@@ -16,36 +16,18 @@ A complete, offline-ready terminal development environment for Linux, designed f
 
 `airgap-dev-kit.tar.gz` is the default full Linux package alias. For servers, CI workers, and air-gapped boxes accessed over SSH, use `airgap-dev-kit-cli.tar.gz`.
 
-### Full Linux Package (One-Liner)
+### Verified Install
 
-**Using curl:**
-```bash
-curl -L https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/airgap-dev-kit-linux-x86_64.tar.gz | tar -xz && cd airgap-dev-kit && ./install.sh
-```
-
-**Using wget:**
-```bash
-wget -qO- https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/airgap-dev-kit-linux-x86_64.tar.gz | tar -xz && cd airgap-dev-kit && ./install.sh
-```
-
-### CLI-Only Linux Package (One-Liner)
-
-```bash
-curl -L https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/airgap-dev-kit-cli.tar.gz | tar -xz && cd airgap-dev-kit && ./install.sh
-```
-
-The CLI-only package automatically runs in CLI-only mode. It skips WezTerm, skips font installation, disables GUI prompts, and asks before patching detected shell RC files for Starship, zoxide, fzf, and PATH. Set `AIRGAP_DEV_KIT_CONFIGURE_SHELLS=0` to skip shell RC edits, or `AIRGAP_DEV_KIT_CONFIGURE_SHELLS=1` to force shell setup in non-interactive installs.
-
-### Traditional Install (with verification)
+Do not pipe a release archive directly into `tar` or the installer. Download the archive and its checksum first, verify them, then extract. The kit's `make download-release` target resolves one release, downloads both assets to temporary names, validates SHA-256, and only then writes them to the destination directory.
 
 **Full Linux x86_64:**
 ```bash
-# Download latest release
-wget https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/airgap-dev-kit-linux-x86_64.tar.gz
-wget https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/checksums.txt
+# Download and verify one resolved GitHub release
+make download-release RELEASE_DIR="$HOME/Downloads/airgap-dev-kit"
+cd "$HOME/Downloads/airgap-dev-kit"
 
-# Verify the selected package
-grep ' airgap-dev-kit-linux-x86_64.tar.gz$' checksums.txt | sha256sum -c -
+# Optional provenance verification on the connected machine
+gh attestation verify airgap-dev-kit-linux-x86_64.tar.gz --repo jeeftor/airgap-dev-kit
 
 # Extract and install
 tar -xzf airgap-dev-kit-linux-x86_64.tar.gz
@@ -55,15 +37,12 @@ cd airgap-dev-kit
 
 **CLI-only Linux x86_64:**
 ```bash
-wget https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/airgap-dev-kit-cli.tar.gz
-wget https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/checksums.txt
-
-grep ' airgap-dev-kit-cli.tar.gz$' checksums.txt | sha256sum -c -
-
-tar -xzf airgap-dev-kit-cli.tar.gz
-cd airgap-dev-kit
-./install.sh
+# Use the full package unless you intentionally need the headless build.
+# Download the CLI release and checksums, verify its matching SHA-256 entry,
+# then extract and run ./install.sh. The .airgap-cli-only marker enables this mode.
 ```
+
+The CLI-only package automatically runs in CLI-only mode. It skips WezTerm, skips font installation, disables GUI prompts, and asks before patching detected shell RC files for Starship, zoxide, fzf, and PATH. Set `AIRGAP_DEV_KIT_CONFIGURE_SHELLS=0` to skip shell RC edits, or `AIRGAP_DEV_KIT_CONFIGURE_SHELLS=1` to force shell setup in non-interactive installs.
 
 ### Build From Source
 
@@ -92,13 +71,17 @@ make package-cli
 
 **Full package:**
 ```bash
-# 1. Transfer airgap-dev-kit.tar.gz or airgap-dev-kit-linux-x86_64.tar.gz
+# 1. On the connected machine, use the verified-install process above.
+#    Transfer the verified archive AND checksums.txt on write-protected media.
 
-# 2. Extract
+# 2. On the air-gapped machine, re-check the archive after transfer.
+grep ' airgap-dev-kit-linux-x86_64.tar.gz$' checksums.txt | sha256sum -c -
+
+# 3. Extract
 tar -xzf airgap-dev-kit.tar.gz
 cd airgap-dev-kit
 
-# 3. Install
+# 4. Install
 ./install.sh
 
 # 4. Add to PATH (add to ~/.bashrc or ~/.zshrc)
