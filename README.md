@@ -166,7 +166,7 @@ tmux new-session nvim
 - **gopls** - Go language server for IDE features (autocomplete, diagnostics, goto definitions)
 - **delta** - Stunning git diff viewer with syntax highlighting
 - **svu** - Semantic version utility for release management
-- **stow** - GNU Stow for dotfile symlink management (bundled)
+- **stow** - GNU Stow for dotfile symlink management (used when already installed)
 - **gum** - Charm Bracelet TUI toolkit for pretty prompts (bundled)
 
 ### Language Support

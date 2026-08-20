@@ -5,9 +5,20 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
-rg -q 'Y\) Back up the complete Neovim state and install this kit' "$ROOT_DIR/install.sh"
-rg -q 'n\) Preserve the existing Neovim state and skip this kit' "$ROOT_DIR/install.sh"
-rg -q 'Choose how to handle your existing Neovim setup:' "$ROOT_DIR/install.sh"
+assert_contains() {
+  local pattern="$1"
+  local file="$2"
+
+  if command -v rg >/dev/null 2>&1; then
+    rg -q "$pattern" "$file"
+  else
+    grep -Eq "$pattern" "$file"
+  fi
+}
+
+assert_contains 'Y\) Back up the complete Neovim state and install this kit' "$ROOT_DIR/install.sh"
+assert_contains 'n\) Preserve the existing Neovim state and skip this kit' "$ROOT_DIR/install.sh"
+assert_contains 'Choose how to handle your existing Neovim setup:' "$ROOT_DIR/install.sh"
 
 mkdir -p "$TMP_DIR/package/offline-packages/linux"
 mkdir -p "$TMP_DIR/package/config"
@@ -66,9 +77,9 @@ printf '%s\n' 'METADATA|KIT_VERSION=0.9.0||' > "$TMP_DIR/preserve-home/.airgap-d
     AIRGAP_DEV_KIT_CONFIGURE_SHELLS=0 ./install.sh
 ) > "$TMP_DIR/preserve.out" 2>&1
 
-rg -q 'preserving it and skipping kit Neovim setup' "$TMP_DIR/preserve.out"
+assert_contains 'preserving it and skipping kit Neovim setup' "$TMP_DIR/preserve.out"
 grep -q 'preserve me' "$TMP_DIR/preserve-home/.config/nvim/init.lua"
 test ! -e "$TMP_DIR/preserve-home/.local/share/nvim/lazy"
-rg -q 'Detected a previous Air-Gap Dev Kit installation \(version: 0.9.0\)' "$TMP_DIR/preserve.out"
+assert_contains 'Detected a previous Air-Gap Dev Kit installation \(version: 0.9.0\)' "$TMP_DIR/preserve.out"
 
 echo "Neovim state backup and atomic payload installation test passed"

@@ -26,19 +26,19 @@ jobs:
         uses: actions/checkout@v4
       
       - name: Download Linux binaries
-        run: make update-linux
+        run: make update
       
       - name: Verify binaries downloaded
         run: |
           echo "Checking for required binaries..."
-          test -f offline-packages/linux/nvim-linux64.tar.gz || { echo "✗ Neovim missing"; exit 1; }
-          test -f offline-packages/linux/tmux || { echo "✗ tmux missing"; exit 1; }
+          test -f offline-packages/linux/nvim-static-x86_64 || { echo "✗ Neovim missing"; exit 1; }
+          test -d offline-packages/linux/nvim-runtime || { echo "✗ Neovim runtime missing"; exit 1; }
+          test -f offline-packages/linux/tmux-3.4-static-x86_64 || { echo "✗ tmux missing"; exit 1; }
           test -f offline-packages/linux/fzf || { echo "✗ fzf missing"; exit 1; }
           test -f offline-packages/linux/fd || { echo "✗ fd missing"; exit 1; }
           test -f offline-packages/linux/rg || { echo "✗ ripgrep missing"; exit 1; }
           test -f offline-packages/linux/bat || { echo "✗ bat missing"; exit 1; }
           test -f offline-packages/linux/starship || { echo "✗ starship missing"; exit 1; }
-          test -f offline-packages/linux/stow || { echo "✗ stow missing"; exit 1; }
           test -f offline-packages/linux/gum || { echo "✗ gum missing"; exit 1; }
           test -f offline-packages/linux/lazygit || { echo "✗ lazygit missing"; exit 1; }
           test -f offline-packages/linux/zoxide || { echo "✗ zoxide missing"; exit 1; }
@@ -55,14 +55,14 @@ jobs:
       
       - name: Verify package created
         run: |
-          test -f airgap-dev-kit-full.tar.gz || { echo "✗ Package not created"; exit 1; }
+          test -f airgap-dev-kit.tar.gz || { echo "✗ Package not created"; exit 1; }
           echo "✓ Package created successfully"
       
       - name: Upload package as artifact
         uses: actions/upload-artifact@v4
         with:
           name: airgap-dev-kit-linux
-          path: airgap-dev-kit-full.tar.gz
+          path: airgap-dev-kit.tar.gz
           retention-days: 7
 
   test-install-ubuntu:
@@ -151,8 +151,8 @@ jobs:
           nvim --version
           echo "✓ Works on Ubuntu 20.04"
 
-  test-stow-bundled:
-    name: Test Bundled Stow
+  test-config-copy-fallback:
+    name: Test Config Copy Fallback
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -160,23 +160,17 @@ jobs:
       
       - name: Download binaries
         run: make update-linux
-      
-      - name: Remove system stow
+
+      - name: Ensure Stow is unavailable
         run: sudo apt-get remove -y stow || true
-      
-      - name: Verify stow not in PATH
-        run: |
-          ! command -v stow || { echo "✗ Stow still in PATH"; exit 1; }
-          echo "✓ System stow removed"
-      
-      - name: Install (should use bundled stow)
+
+      - name: Install without Stow
         run: echo -e "2\nn\n" | ./install.sh
-      
-      - name: Verify bundled stow installed
+
+      - name: Verify direct-copy configuration install
         run: |
-          test -f ~/.local/bin/stow || { echo "✗ Bundled stow not installed"; exit 1; }
-          ~/.local/bin/stow --version
-          echo "✓ Bundled stow works"
+          test -f ~/.config/nvim/init.lua || { echo "✗ Neovim config not copied"; exit 1; }
+          echo "✓ Config copy fallback works"
 
   test-tracking-log:
     name: Test Installation Tracking
@@ -256,13 +250,13 @@ jobs:
       
       - name: Build complete package
         run: |
-          make update-linux
+          make update
           make package
       
       - name: Extract package to temp location
         run: |
           mkdir /tmp/test-install
-          tar -xzf airgap-dev-kit-full.tar.gz -C /tmp/test-install
+          tar -xzf airgap-dev-kit.tar.gz -C /tmp/test-install
       
       - name: Test installation from package
         run: |
