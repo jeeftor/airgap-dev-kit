@@ -255,8 +255,8 @@ jobs:
       
       - name: Extract package to temp location
         run: |
-          mkdir /tmp/test-install
-          tar -xzf airgap-dev-kit.tar.gz -C /tmp/test-install
+          mkdir -p /tmp/test-install/airgap-dev-kit
+          tar -xzf airgap-dev-kit.tar.gz -C /tmp/test-install/airgap-dev-kit
       
       - name: Test installation from package
         run: |
