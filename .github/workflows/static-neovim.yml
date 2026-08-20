@@ -19,7 +19,7 @@ jobs:
 
       - name: Cache static Neovim binary
         id: cache-neovim
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: artifacts
           key: static-neovim-x86_64-stable  # Change the key to invalidate cache when needed (e.g., for new Neovim versions)
@@ -33,7 +33,7 @@ jobs:
           cp build/bin/nvim ../artifacts/nvim-static-x86_64
 
       - name: Upload static Neovim artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: static-neovim
           path: artifacts/nvim-static-x86_64
@@ -44,7 +44,7 @@ jobs:
     needs: build-static-neovim  # This job depends on the build job
     steps:
       - name: Download static Neovim artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: static-neovim
           path: ./nvim-binary

@@ -34,10 +34,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup cache for binaries
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             offline-packages/
@@ -51,7 +51,7 @@ jobs:
         run: make update-linux
 
       - name: Install Go for gopls
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version: '1.23.1'
 
@@ -192,7 +192,7 @@ jobs:
           cat checksums-${{ matrix.platform }}.txt
 
       - name: Upload platform artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: airgap-dev-kit-${{ matrix.platform }}-${{ matrix.arch }}-${{ github.run_number }}
           path: |
@@ -208,10 +208,10 @@ jobs:
     
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: airgap-dev-kit-*-${{ github.run_number }}
           merge-multiple: true
@@ -226,7 +226,7 @@ jobs:
           ls -lh airgap-dev-kit-cli.tar.gz
 
       - name: Create Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: build-${{ github.run_number }}-${{ github.run_id }}
           name: Air-Gap Dev Kit - Build ${{ github.run_number }}
