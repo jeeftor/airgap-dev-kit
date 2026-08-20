@@ -2,12 +2,22 @@ name: Test Air-Gap Dev Kit
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ master, develop ]
   pull_request:
-    branches: [ main ]
+    branches: [ master ]
   workflow_dispatch:  # Allow manual trigger
 
 jobs:
+  test-nvim-installer-safety:
+    name: Test Neovim State Safety
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Verify existing Neovim state is backed up or preserved
+        run: bash test/scripts/test-nvim-state-safety.sh
+
   test-build-linux:
     name: Build & Verify Linux Package
     runs-on: ubuntu-latest
@@ -69,7 +79,7 @@ jobs:
       - name: Test user-local installation
         run: |
           # Choose option 2 (user-local) and skip shell config prompts
-          echo -e "2\nn\n" | ./install.sh || true
+          echo -e "2\nn\n" | ./install.sh
       
       - name: Verify binaries installed
         run: |
@@ -132,7 +142,7 @@ jobs:
         run: make update-linux
       
       - name: Test installation
-        run: echo -e "2\nn\n" | ./install.sh || true
+        run: echo -e "2\nn\n" | ./install.sh
       
       - name: Verify installation
         run: |
@@ -160,7 +170,7 @@ jobs:
           echo "✓ System stow removed"
       
       - name: Install (should use bundled stow)
-        run: echo -e "2\nn\n" | ./install.sh || true
+        run: echo -e "2\nn\n" | ./install.sh
       
       - name: Verify bundled stow installed
         run: |
@@ -179,7 +189,7 @@ jobs:
         run: make update-linux
       
       - name: Install
-        run: echo -e "2\nn\n" | ./install.sh || true
+        run: echo -e "2\nn\n" | ./install.sh
       
       - name: Verify log created
         run: |
@@ -212,7 +222,7 @@ jobs:
         run: make update-linux
       
       - name: First install
-        run: echo -e "2\ny\n" | ./install.sh || true
+        run: echo -e "2\ny\n" | ./install.sh
       
       - name: Count shell config entries (first install)
         run: |
@@ -221,7 +231,7 @@ jobs:
           echo "$count1" > /tmp/count1.txt
       
       - name: Second install
-        run: echo -e "2\ny\n" | ./install.sh || true
+        run: echo -e "2\ny\n" | ./install.sh
       
       - name: Count shell config entries (second install)
         run: |
@@ -257,7 +267,7 @@ jobs:
       - name: Test installation from package
         run: |
           cd /tmp/test-install/airgap-dev-kit
-          echo -e "2\nn\n" | ./install.sh || true
+          echo -e "2\nn\n" | ./install.sh
       
       - name: Verify installation worked
         run: |

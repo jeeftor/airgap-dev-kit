@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
 
-mapfile -t lua_files < <(find config/nvim/.config/nvim -type f -name '*.lua' | sort)
+mapfile -t lua_files < <(find config/nvim/.config/nvim -type f -name '*.lua' ! -name '._*' | sort)
 
 if [[ "${#lua_files[@]}" -eq 0 ]]; then
   echo "No Neovim Lua config files found" >&2

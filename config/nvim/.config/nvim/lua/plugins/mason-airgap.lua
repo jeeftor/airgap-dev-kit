@@ -6,17 +6,20 @@ return {
   {
     "mason-org/mason.nvim",
     opts = {
-      -- For air-gap: disable network calls
-      registries = {
-        github = {
-          download_url_template = "file:///path/to/mason-registry/%s",
-        },
+      -- The bundled payload includes the builder's registry cache. Do not try
+      -- to refresh it on an air-gapped target.
+      registry_cache = {
+        refresh = false,
       },
-      -- Use local registry for air-gap
+      PATH = "prepend",
       max_concurrent_installers = 5,
-      -- Disable automatic updates for air-gap stability
-      automatic_installation = false,
     },
+    init = function()
+      local node_bin = vim.fn.stdpath("data") .. "/mason/node/bin"
+      if vim.fn.isdirectory(node_bin) == 1 then
+        vim.env.PATH = node_bin .. ":" .. vim.env.PATH
+      end
+    end,
   },
 
   -- Mason-lspconfig bridge (ensure_installed belongs here, not in nvim-lspconfig)
@@ -33,26 +36,17 @@ return {
   {
     "LazyVim/LazyVim",
     opts = function(_, opts)
-      -- Add air-gap Mason commands
-      vim.api.nvim_create_user_command("MasonAirGapInstall", function()
-        -- Install from our packaged Mason registry
-        require("mason-registry").install_all()
-      end, { desc = "Install LSP servers from air-gap package" })
-
       vim.api.nvim_create_user_command("MasonAirGapStatus", function()
-        -- Show status of air-gap LSP servers
-        local servers = { "gopls" }
-        for _, server in ipairs(servers) do
-          local path = "./offline-packages/linux/" .. server
-          if vim.fn.executable(path) == 1 then
-            print("✓ " .. server .. " (air-gap package)")
-          elseif vim.fn.executable(server) == 1 then
-            print("✓ " .. server .. " (system)")
+        local packages = { "gopls", "bash-language-server", "lua-language-server" }
+        local root = vim.fn.stdpath("data") .. "/mason/packages/"
+        for _, package in ipairs(packages) do
+          if vim.fn.isdirectory(root .. package) == 1 then
+            print("✓ " .. package .. " (bundled)")
           else
-            print("✗ " .. server .. " (not found)")
+            print("✗ " .. package .. " (missing from bundled payload)")
           end
         end
-      end, { desc = "Show air-gap LSP server status" })
+      end, { desc = "Show bundled air-gap Mason package status" })
     end,
   },
 }

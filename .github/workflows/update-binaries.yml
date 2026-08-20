@@ -228,7 +228,20 @@ jobs:
 
           NVIM_APPNAME=nvim-mason-test $NVIM --headless -c "luafile /tmp/mason-lsp-install.lua" -c "qa"
 
-          # Verify installations
+          # Bundle a pinned Node runtime for JavaScript-based LSP servers such
+          # as bash-language-server and pyright. Mason packages alone still
+          # need node at runtime.
+          NODE_VERSION="v22.23.2"
+          NODE_TARBALL="node-${NODE_VERSION}-linux-x64.tar.xz"
+          NODE_URL="https://nodejs.org/dist/${NODE_VERSION}/${NODE_TARBALL}"
+          curl -fsSLO "$NODE_URL"
+          curl -fsSLO "https://nodejs.org/dist/${NODE_VERSION}/SHASUMS256.txt"
+          grep " ${NODE_TARBALL}$" SHASUMS256.txt | sha256sum -c -
+          mkdir -p "$HOME/.local/share/nvim-mason-test/mason/node"
+          tar -xJf "$NODE_TARBALL" --strip-components=1 -C "$HOME/.local/share/nvim-mason-test/mason/node"
+
+          # Verify installations and their runtime prerequisites before the
+          # payload is allowed into a release.
           echo ""
           echo "=========================================="
           echo "Verifying Mason LSP installations..."
@@ -244,8 +257,13 @@ jobs:
               echo "  ✓ $pkg"
             done
 
-            # Only package if we have at least 10 packages (out of 17 expected)
-            if [[ $INSTALLED_COUNT -ge 10 ]]; then
+            MASON_BIN_DIR="$HOME/.local/share/nvim-mason-test/mason/bin"
+            if [[ $INSTALLED_COUNT -eq 17 ]] \
+              && [[ -x "$MASON_BIN_DIR/gopls" ]] \
+              && [[ -x "$MASON_BIN_DIR/bash-language-server" ]] \
+              && [[ -x "$HOME/.local/share/nvim-mason-test/mason/node/bin/node" ]]; then
+              "$MASON_BIN_DIR/gopls" version
+              PATH="$HOME/.local/share/nvim-mason-test/mason/node/bin:$PATH" "$MASON_BIN_DIR/bash-language-server" --version
               echo ""
               echo "=========================================="
               echo "✓ SUCCESS: $INSTALLED_COUNT packages installed"
@@ -261,14 +279,12 @@ jobs:
             else
               echo ""
               echo "=========================================="
-              echo "⚠ WARNING: Only $INSTALLED_COUNT packages installed (expected 17)"
-              echo "Not packaging Mason LSP servers yet"
-              echo "This is experimental - existing LazyVim plugins are unaffected"
-              echo "=========================================="
+              echo "✗ Mason payload is incomplete or missing a required runtime"
+              exit 1
             fi
           else
-            echo "⚠ WARNING: Mason packages directory not found"
-            echo "This is experimental - existing LazyVim plugins are unaffected"
+            echo "✗ Mason packages directory not found"
+            exit 1
           fi
 
       - name: Verify binaries
