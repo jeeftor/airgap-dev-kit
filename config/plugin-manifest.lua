@@ -57,8 +57,7 @@ return {
       "rust-analyzer",            -- Rust (lspconfig: rust_analyzer)
       "typescript-language-server", -- TypeScript/JavaScript (lspconfig: ts_ls)
 
-      -- Requires compilers (install separately if needed):
-      -- "gopls",                 -- Go (needs Go compiler)
+      "gopls",                   -- Go
       -- "clangd",                -- C/C++ (needs C++ compiler)
 
       -- Add more LSP servers here:

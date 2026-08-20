@@ -6,6 +6,16 @@ on:
       - main
       - master
   workflow_dispatch:
+    inputs:
+      bump:
+        description: Semantic version increment
+        required: true
+        default: patch
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
 
 jobs:
   auto-tag:
@@ -37,11 +47,19 @@ jobs:
           chmod +x svu
           sudo mv svu /usr/local/bin/svu
 
-      - name: Compute next patch version
+      - name: Compute next version
         id: next_tag
         run: |
           git fetch --tags --force
-          NEXT_TAG=$(svu next patch)
+          BUMP="${{ inputs.bump }}"
+          if [[ -z "$BUMP" ]]; then
+            BUMP=patch
+            if git log -1 --format=%B | grep -qE '^[[:alpha:]]+(\([^)]+\))?!:'; then
+              BUMP=major
+            fi
+          fi
+          echo "Computing $BUMP release version"
+          NEXT_TAG=$(svu next "$BUMP")
           if [[ -z "$NEXT_TAG" ]]; then
             echo "SVU did not return a tag" >&2
             exit 1

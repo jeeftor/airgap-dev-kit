@@ -142,7 +142,6 @@ jobs:
           require("lazy").setup({
             {
               "mason-org/mason.nvim",
-              build = ":MasonUpdate",
             },
           })
           INIT_EOF
@@ -158,75 +157,67 @@ jobs:
           require("mason").setup()
           local registry = require("mason-registry")
 
-          local packages = {
-            "lua-language-server", "pyright", "typescript-language-server",
-            "bash-language-server", "json-lsp",
-            "yaml-language-server", "gopls", "rust-analyzer", "clangd",
-            "stylua", "black", "prettier", "shfmt",
-            "shellcheck", "eslint_d", "flake8"
-          }
-
-          print("\n=== Starting Mason LSP installations ===")
-          registry:refresh()
-
-          local installed_count = 0
-          for _, pkg_name in ipairs(packages) do
-            local ok, pkg = pcall(registry.get_package, pkg_name)
-            if ok then
-              if not pkg:is_installed() then
-                print(string.format("[%d/%d] Installing %s...", installed_count + 1, #packages, pkg_name))
-                pkg:install():once("closed", function()
-                  installed_count = installed_count + 1
-                  print(string.format("  ✓ %s installed", pkg_name))
-                end)
-              else
-                print(string.format("  ✓ %s already installed", pkg_name))
-                installed_count = installed_count + 1
-              end
-            else
-              print(string.format("  ✗ Failed to get package: %s", pkg_name))
+          local manifest = dofile(vim.env.MASON_MANIFEST)
+          local packages = {}
+          for _, group in ipairs({ "lsp_servers", "formatters", "linters" }) do
+            for _, package_name in ipairs(manifest.mason[group] or {}) do
+              table.insert(packages, package_name)
             end
           end
 
-          -- Wait for all installations to complete (max 5 minutes)
+          print("\n=== Starting Mason LSP installations ===")
+          -- Mason documents refresh() as a blocking call when no callback is
+          -- supplied. Package lookup is invalid until the registry is ready.
+          registry.refresh()
+
+          local completed = 0
+          local failures = {}
+          for _, pkg_name in ipairs(packages) do
+            if not registry.has_package(pkg_name) then
+              error("Mason registry is missing package: " .. pkg_name)
+            end
+
+            local pkg = registry.get_package(pkg_name)
+            if not pkg:is_installed() then
+              print(string.format("Installing %s...", pkg_name))
+              local install_pkg = pkg
+              local install_name = pkg_name
+              install_pkg:once("closed", function()
+                if install_pkg:is_installed() then
+                  completed = completed + 1
+                else
+                  table.insert(failures, install_name)
+                end
+              end)
+              install_pkg:install()
+            else
+              print(string.format("✓ %s already installed", pkg_name))
+              completed = completed + 1
+            end
+          end
+
+          -- Package installation is asynchronous. Do not package a partial
+          -- payload when a download or runtime dependency fails.
           print("\nWaiting for installations to complete...")
-          local max_wait = 300
-          for i = 1, max_wait do
-            local current_installed = #registry:get_installed_packages()
-            if current_installed >= #packages then
-              print(string.format("\n✓ All %d packages installed!", current_installed))
-              break
-            end
-            if i % 10 == 0 then
-              print(string.format("  Progress: %d/%d packages installed...", current_installed, #packages))
-            end
-            vim.wait(1000)
+          local complete = vim.wait(300000, function()
+            return completed + #failures == #packages
+          end, 500)
+          if not complete then
+            error("Timed out while installing the selected Mason packages")
+          end
+          if #failures > 0 then
+            error("Mason failed to install: " .. table.concat(failures, ", "))
           end
 
           print("\n=== Installation Summary ===")
-          local installed_packages = registry:get_installed_packages()
-          print(string.format("Total installed: %d/%d", #installed_packages, #packages))
-          for _, pkg in ipairs(installed_packages) do
-            print("  ✓ " .. pkg.name)
-          end
-
-          local missing = {}
+          print(string.format("Total installed: %d/%d", #packages, #packages))
           for _, pkg_name in ipairs(packages) do
-            local ok, pkg = pcall(registry.get_package, pkg_name)
-            if ok and not pkg:is_installed() then
-              table.insert(missing, pkg_name)
-            end
-          end
-
-          if #missing > 0 then
-            print("\n⚠ Missing packages:")
-            for _, name in ipairs(missing) do
-              print("  ✗ " .. name)
-            end
+            print("  ✓ " .. pkg_name)
           end
           LSP_EOF
 
-          NVIM_APPNAME=nvim-mason-test $NVIM --headless -c "luafile /tmp/mason-lsp-install.lua" -c "qa"
+          MASON_MANIFEST="$GITHUB_WORKSPACE/config/plugin-manifest.lua" \
+            NVIM_APPNAME=nvim-mason-test $NVIM --headless -c "luafile /tmp/mason-lsp-install.lua" -c "qa"
 
           # Bundle a pinned Node runtime for JavaScript-based LSP servers such
           # as bash-language-server and pyright. Mason packages alone still
@@ -258,8 +249,7 @@ jobs:
             done
 
             MASON_BIN_DIR="$HOME/.local/share/nvim-mason-test/mason/bin"
-            if [[ $INSTALLED_COUNT -eq 17 ]] \
-              && [[ -x "$MASON_BIN_DIR/gopls" ]] \
+            if [[ -x "$MASON_BIN_DIR/gopls" ]] \
               && [[ -x "$MASON_BIN_DIR/bash-language-server" ]] \
               && [[ -x "$HOME/.local/share/nvim-mason-test/mason/node/bin/node" ]]; then
               "$MASON_BIN_DIR/gopls" version
