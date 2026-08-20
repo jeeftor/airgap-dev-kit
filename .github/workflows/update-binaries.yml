@@ -24,6 +24,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
+      - name: Restore upstream package cache
+        id: cache-packages
+        uses: actions/cache@v6
+        with:
+          path: |
+            offline-packages/linux/
+            fonts/JetBrainsMono.zip
+          key: release-packages-v1-${{ runner.os }}-${{ hashFiles('Makefile') }}
+
       - name: Download Linux binaries
         run: make update-linux
 
@@ -32,6 +41,15 @@ jobs:
 
       - name: Generate version metadata
         run: make version-file
+
+      - name: Restore LazyVim plugin cache
+        id: cache-lazy
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.local/share/nvim/lazy
+            ~/.local/state/nvim
+          key: release-lazy-v1-${{ runner.os }}-${{ hashFiles('config/nvim/.config/nvim/**/*.lua', 'config/nvim/.config/nvim/lazy-lock.json') }}
 
       - name: Bundle Neovim plugins
         run: |
@@ -70,8 +88,13 @@ jobs:
           echo "Installing Neovim plugins with lazy.nvim..."
           echo "This may take 2-3 minutes for all plugins and Treesitter parsers..."
 
-          # Single sync - Install LazyVim plugins only (no Mason yet)
-          $NVIM --headless "+Lazy! sync" +qa
+          # A cache hit is keyed by every plugin spec and the lockfile. The
+          # tarball below is still recreated from the cached plugin directory.
+          if [[ "${{ steps.cache-lazy.outputs.cache-hit }}" != "true" ]]; then
+            $NVIM --headless "+Lazy! sync" +qa
+          else
+            echo "Using cached LazyVim plugins"
+          fi
 
           # Restore air-gap setting
           sed -i 's/missing = true/missing = false/' ~/.config/nvim/lua/config/lazy.lua
@@ -108,6 +131,14 @@ jobs:
 
           echo "✓ LazyVim plugins bundled to offline-packages/lazy-plugins.tar.gz"
           ls -lh $GITHUB_WORKSPACE/offline-packages/lazy-plugins.tar.gz
+
+      - name: Restore Mason LSP cache
+        id: cache-mason
+        if: github.event_name != 'schedule'
+        uses: actions/cache@v6
+        with:
+          path: ~/.local/share/nvim-mason-test/
+          key: release-mason-v1-${{ runner.os }}-${{ hashFiles('config/plugin-manifest.lua') }}
 
       - name: Install LSP servers with vanilla Neovim + Mason (experimental)
         run: |
@@ -146,8 +177,12 @@ jobs:
           })
           INIT_EOF
 
-          echo "Installing Mason plugin..."
-          NVIM_APPNAME=nvim-mason-test $NVIM --headless "+Lazy! sync" +qa
+          if [[ "${{ steps.cache-mason.outputs.cache-hit }}" != "true" ]]; then
+            echo "Installing Mason plugin..."
+            NVIM_APPNAME=nvim-mason-test $NVIM --headless "+Lazy! sync" +qa
+          else
+            echo "Using cached Mason plugin and LSP payload"
+          fi
 
           echo "Installing LSP servers, formatters, and linters..."
           cat > /tmp/mason-lsp-install.lua <<'LSP_EOF'
@@ -225,11 +260,16 @@ jobs:
           NODE_VERSION="v22.23.2"
           NODE_TARBALL="node-${NODE_VERSION}-linux-x64.tar.xz"
           NODE_URL="https://nodejs.org/dist/${NODE_VERSION}/${NODE_TARBALL}"
-          curl -fsSLO "$NODE_URL"
-          curl -fsSLO "https://nodejs.org/dist/${NODE_VERSION}/SHASUMS256.txt"
-          grep " ${NODE_TARBALL}$" SHASUMS256.txt | sha256sum -c -
-          mkdir -p "$HOME/.local/share/nvim-mason-test/mason/node"
-          tar -xJf "$NODE_TARBALL" --strip-components=1 -C "$HOME/.local/share/nvim-mason-test/mason/node"
+          NODE_DIR="$HOME/.local/share/nvim-mason-test/mason/node"
+          if [[ ! -x "$NODE_DIR/bin/node" ]]; then
+            curl -fsSLO "$NODE_URL"
+            curl -fsSLO "https://nodejs.org/dist/${NODE_VERSION}/SHASUMS256.txt"
+            grep " ${NODE_TARBALL}$" SHASUMS256.txt | sha256sum -c -
+            mkdir -p "$NODE_DIR"
+            tar -xJf "$NODE_TARBALL" --strip-components=1 -C "$NODE_DIR"
+          else
+            echo "Using cached Node runtime for JavaScript LSP servers"
+          fi
 
           # Verify installations and their runtime prerequisites before the
           # payload is allowed into a release.

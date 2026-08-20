@@ -36,16 +36,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Setup cache for binaries
+      - name: Restore upstream package cache
+        id: cache-packages
         uses: actions/cache@v6
         with:
           path: |
-            offline-packages/
-            ~/.local/share/nvim/mason/
-          key: ${{ matrix.platform }}-${{ matrix.arch }}-${{ hashFiles('Makefile', '.github/workflows/mason-config.lua') }}
-          restore-keys: |
-            ${{ matrix.platform }}-${{ matrix.arch }}-
-            ${{ matrix.platform }}-
+            offline-packages/${{ matrix.binary_dir }}/
+            fonts/JetBrainsMono.zip
+          key: packages-v1-${{ matrix.platform }}-${{ matrix.arch }}-${{ hashFiles('Makefile') }}
 
       - name: Download platform binaries
         run: make update-linux
@@ -54,6 +52,8 @@ jobs:
         uses: actions/setup-go@v7
         with:
           go-version: '1.23.1'
+          # This repository is not a Go module; gopls is installed by Mason.
+          cache: false
 
       - name: Install Neovim for Mason
         uses: rhysd/action-setup-vim@v1
@@ -66,7 +66,18 @@ jobs:
           mkdir -p ~/.config/nvim
           cp .github/workflows/mason-config.lua ~/.config/nvim/init.lua
 
+      - name: Restore Neovim and Mason cache
+        id: cache-mason
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.local/share/nvim/lazy
+            ~/.local/share/nvim/mason
+            ~/.local/state/nvim
+          key: mason-v1-${{ matrix.platform }}-${{ matrix.arch }}-${{ hashFiles('.github/workflows/mason-config.lua', 'config/nvim/.config/nvim/**/*.lua', 'config/nvim/.config/nvim/lazy-lock.json') }}
+
       - name: Install LSP servers via Mason
+        if: steps.cache-mason.outputs.cache-hit != 'true'
         run: |
           echo "Installing LSP servers using Mason..."
 
@@ -139,7 +150,8 @@ jobs:
           # Temporarily enable plugin installation for GitHub Actions build
           sed -i 's/missing = false/missing = true/' ~/.config/nvim/lua/config/lazy.lua
           
-          # Install plugins using lazy.nvim (headless mode)
+          # The Mason cache contains only the bootstrap plugins. Sync the
+          # full LazyVim configuration before bundling its release payload.
           echo "Installing Neovim plugins with lazy.nvim..."
           $NVIM --headless "+Lazy! sync" +qa
           $NVIM --headless "+Lazy! sync" +qa

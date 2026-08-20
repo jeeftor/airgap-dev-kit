@@ -50,15 +50,13 @@ jobs:
           version: stable
 
       - name: Cache plugins
+        id: cache-nvim
         uses: actions/cache@v6
         with:
           path: |
-            ~/.local/share/nvim
+            ~/.local/share/nvim/lazy
             ~/.local/state/nvim
-            ~/.cache/nvim
-          key: ${{ runner.os }}-nvim-${{ hashFiles('config/nvim/.config/nvim/**/*.lua') }}
-          restore-keys: |
-            ${{ runner.os }}-nvim-
+          key: nvim-plugins-v1-${{ runner.os }}-${{ hashFiles('config/nvim/.config/nvim/**/*.lua', 'config/nvim/.config/nvim/lazy-lock.json') }}
 
       - name: Set up Neovim config
         run: |
@@ -66,6 +64,7 @@ jobs:
           ln -sf "$GITHUB_WORKSPACE/config/nvim/.config/nvim" ~/.config/nvim
 
       - name: Smoke test - Lazy sync completes
+        if: steps.cache-nvim.outputs.cache-hit != 'true'
         run: |
           # Temporarily enable install.missing so Lazy can bootstrap in CI
           # Sync plugins; Lazy! sync returns non-zero only on network/git failures
