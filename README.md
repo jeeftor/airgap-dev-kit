@@ -166,7 +166,7 @@ tmux new-session nvim
 - **gopls** - Go language server for IDE features (autocomplete, diagnostics, goto definitions)
 - **delta** - Stunning git diff viewer with syntax highlighting
 - **svu** - Semantic version utility for release management
-- **stow** - GNU Stow for dotfile symlink management (bundled)
+- **stow** - GNU Stow for dotfile symlink management (used when already installed)
 - **gum** - Charm Bracelet TUI toolkit for pretty prompts (bundled)
 
 ### Language Support
@@ -285,10 +285,13 @@ cp offline-packages/linux/your-tool ~/bin/
 2. **Checks OS** - Exits early outside Linux
 3. **Installs binaries** - Copies to chosen location with version checking
 4. **Extracts Neovim** - Unpacks and installs text editor
-5. **Installs plugins** - Extracts pre-downloaded Neovim plugins
-6. **Configures dotfiles** - Uses GNU Stow (if available) or direct copy
-7. **Installs fonts** - JetBrainsMono Nerd Font for icons in the full package only
-8. **Configures shell** - Optionally adds PATH and tool initialization to shell RC files; CLI-only packages prompt before patching interactive shells
+5. **Protects existing Neovim state** - Backs up `~/.config/nvim`, Neovim data, state, and cache before replacement; non-interactive installs preserve existing state unless you pass `--nvim-mode=replace`
+6. **Installs plugins and LSPs atomically** - Activates staged LazyVim/Mason payloads, including the bundled Node runtime required by JavaScript-based language servers
+7. **Configures dotfiles** - Uses GNU Stow (if available) or direct copy
+8. **Installs fonts** - JetBrainsMono Nerd Font for icons in the full package only
+9. **Configures shell** - Optionally adds PATH and tool initialization to shell RC files; CLI-only packages prompt before patching interactive shells
+
+For an unattended replacement of a previous Neovim setup, run `./install.sh --nvim-mode=replace`. The prior state is retained under `~/.local/share/airgap-dev-kit/backups/`; use `--nvim-mode=preserve` to skip the kit's Neovim components explicitly.
 
 ### Directory Structure After Install
 

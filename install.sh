@@ -31,6 +31,9 @@ fi
 # Parse command line arguments
 DRY_RUN=false
 CLI_ONLY=false
+NVIM_MODE="ask"
+INSTALL_NVIM=true
+NVIM_RUNTIME_INSTALLED=false
 for arg in "$@"; do
   case $arg in
     --dry-run|-n)
@@ -41,17 +44,141 @@ for arg in "$@"; do
       CLI_ONLY=true
       shift
       ;;
+    --nvim-mode=replace)
+      NVIM_MODE="replace"
+      ;;
+    --nvim-mode=preserve)
+      NVIM_MODE="preserve"
+      ;;
     --help|-h)
       echo "Usage: $0 [OPTIONS]"
       echo ""
       echo "Options:"
       echo "  --dry-run, -n    Show what would be installed without actually installing"
       echo "  --cli-only       Install CLI tools only; skip GUI tools, fonts, and prompts"
+      echo "  --nvim-mode=MODE Neovim state handling: replace (backup then install) or preserve"
       echo "  --help, -h       Show this help message"
       exit 0
       ;;
   esac
 done
+
+prepare_nvim_install() {
+  local nvim_paths=(
+    "$HOME/.config/nvim"
+    "$HOME/.local/share/nvim"
+    "$HOME/.local/state/nvim"
+    "$HOME/.cache/nvim"
+  )
+  local path backup_root backup_path choice gum_binary
+  local state_exists=false
+
+  for path in "${nvim_paths[@]}"; do
+    if [[ -e "$path" ]]; then
+      state_exists=true
+      break
+    fi
+  done
+
+  if [[ "$state_exists" == false ]]; then
+    return 0
+  fi
+
+  if [[ "$DRY_RUN" == true ]]; then
+    echo "DRY RUN: Existing Neovim state detected; would require --nvim-mode=replace or preserve it."
+    return 0
+  fi
+
+  case "$NVIM_MODE" in
+    replace)
+      ;;
+    preserve)
+      INSTALL_NVIM=false
+      echo "Existing Neovim state preserved; skipping Neovim binary, config, plugins, and LSP payloads."
+      return 0
+      ;;
+    ask)
+      if ! is_interactive; then
+        INSTALL_NVIM=false
+        echo "Existing Neovim state detected in a non-interactive install; preserving it and skipping kit Neovim setup."
+        echo "Re-run with --nvim-mode=replace to back it up and install the kit's Neovim profile."
+        return 0
+      fi
+      if [[ "$PREVIOUS_KIT_INSTALL" == true ]]; then
+        echo "Updating a tracked Air-Gap Dev Kit installation from $PREVIOUS_KIT_VERSION."
+      else
+        echo "Existing untracked Neovim configuration, plugins, or state was found."
+      fi
+      if can_use_gum_prompts; then
+        gum_binary="$BIN_DIR/gum"
+        [[ -x "$gum_binary" ]] || gum_binary=$(command -v gum)
+        if ! choice=$("$gum_binary" choose \
+          --header "Choose how to handle your existing Neovim setup:" \
+          "Back up and replace with Air-Gap Dev Kit (recommended)" \
+          "Preserve my existing Neovim setup"); then
+          choice="Preserve my existing Neovim setup"
+        fi
+      else
+        echo "  Y) Back up the complete Neovim state and install this kit"
+        echo "  n) Preserve the existing Neovim state and skip this kit's Neovim setup"
+        read -r -p "Choose [Y/n]: " choice
+      fi
+      if [[ "$choice" == "Preserve my existing Neovim setup" || "$choice" =~ ^[Nn]$ ]]; then
+        INSTALL_NVIM=false
+        echo "Existing Neovim state preserved; skipping kit Neovim setup."
+        return 0
+      fi
+      ;;
+    *)
+      echo "Error: unsupported --nvim-mode value: $NVIM_MODE" >&2
+      exit 2
+      ;;
+  esac
+
+  backup_root="$HOME/.local/share/airgap-dev-kit/backups/nvim-$(date +%Y%m%d-%H%M%S)"
+  mkdir -p "$backup_root"
+  for path in "${nvim_paths[@]}"; do
+    if [[ -e "$path" ]]; then
+      backup_path="$backup_root/${path#"$HOME/"}"
+      mkdir -p "$(dirname "$backup_path")"
+      mv "$path" "$backup_path"
+      log_install "CONFIG" "$path" "$backup_path" ""
+    fi
+  done
+  echo "✓ Existing Neovim state backed up to $backup_root"
+}
+
+install_nvim_archive() {
+  local archive="$1"
+  local payload_name="$2"
+  local destination="$HOME/.local/share/nvim/$payload_name"
+  local stage
+
+  if ! tar -tzf "$archive" | awk 'BEGIN { valid = 1 } /^\/|(^|\/)\.\.($|\/)/ { valid = 0 } END { exit !valid }'; then
+    echo "Error: unsafe paths in $archive" >&2
+    return 1
+  fi
+
+  stage=$(mktemp -d "${TMPDIR:-/tmp}/airgap-dev-kit-nvim.XXXXXX")
+  if ! tar -xzf "$archive" -C "$stage" || [[ ! -d "$stage/$payload_name" ]]; then
+    rm -rf "$stage"
+    echo "Error: $archive does not contain $payload_name/" >&2
+    return 1
+  fi
+
+  if [[ "$payload_name" == "mason" ]] && { [[ ! -x "$stage/mason/bin/gopls" ]] || [[ ! -x "$stage/mason/node/bin/node" ]]; }; then
+    rm -rf "$stage"
+    echo "Error: $archive is missing the bundled gopls or Node runtime" >&2
+    return 1
+  fi
+
+  rm -rf "$destination"
+  mv "$stage/$payload_name" "$destination"
+  if [[ "$payload_name" == "lazy" && -f "$stage/lazy-lock.json" ]]; then
+    mv -f "$stage/lazy-lock.json" "$HOME/.local/share/nvim/lazy-lock.json"
+  fi
+  rm -rf "$stage"
+}
 
 # Determine kit version (from VERSION file if bundled, otherwise git)
 KIT_VERSION="unknown"
@@ -67,6 +194,27 @@ fi
 
 # Installation tracking file
 INSTALL_LOG="$HOME/.airgap-dev-kit-install.log"
+PREVIOUS_KIT_INSTALL=false
+PREVIOUS_KIT_VERSION="unknown"
+PREVIOUS_KIT_DIR="unknown"
+
+detect_previous_install() {
+  local type path backup timestamp
+
+  [[ -r "$INSTALL_LOG" ]] || return 0
+  while IFS='|' read -r type path backup timestamp; do
+    [[ "$type" == "METADATA" ]] || continue
+    case "$path" in
+      KIT_VERSION=*)
+        PREVIOUS_KIT_VERSION="${path#KIT_VERSION=}"
+        PREVIOUS_KIT_INSTALL=true
+        ;;
+      KIT_DIR=*)
+        PREVIOUS_KIT_DIR="${path#KIT_DIR=}"
+        ;;
+    esac
+  done < "$INSTALL_LOG"
+}
 
 # Initialize installation log
 init_install_log() {
@@ -209,6 +357,19 @@ if [[ "$CLI_ONLY" == true ]]; then
 fi
 echo "=========================================="
 echo ""
+
+detect_previous_install
+if [[ "$PREVIOUS_KIT_INSTALL" == true ]]; then
+  echo "Detected a previous Air-Gap Dev Kit installation (version: $PREVIOUS_KIT_VERSION)."
+  if [[ "$PREVIOUS_KIT_DIR" != "unknown" ]]; then
+    echo "Previous kit directory: $PREVIOUS_KIT_DIR"
+  fi
+  echo "This run will update that installation; existing Neovim state is handled separately."
+  echo ""
+else
+  echo "No prior Air-Gap Dev Kit installation was detected."
+  echo ""
+fi
 
 # Initialize installation tracking
 if [[ "$DRY_RUN" == false ]]; then
@@ -627,7 +788,9 @@ if [[ $OS == "linux" ]]; then
 
   # Install Neovim binary and runtime
   echo ""
-  echo "Installing Neovim..."
+  prepare_nvim_install
+  if [[ "$INSTALL_NVIM" == true ]]; then
+    echo "Installing Neovim..."
   if [[ -f offline-packages/linux/nvim-static-x86_64 ]]; then
     # Check if nvim already exists
     if [[ -f "$BIN_DIR/nvim" ]]; then
@@ -663,10 +826,12 @@ if [[ $OS == "linux" ]]; then
       rm -rf "$NVIM_RUNTIME_DEST"
       cp -r "$NVIM_RUNTIME_SOURCE" "$NVIM_RUNTIME_DEST"
       log_install "DIRECTORY" "$NVIM_RUNTIME_DEST" "" ""
+      NVIM_RUNTIME_INSTALLED=true
       echo "  ✓ Neovim runtime installed to $NVIM_RUNTIME_DEST"
     fi
   else
     echo "Warning: Neovim binary not found in offline-packages/linux/"
+  fi
   fi
 
   # Install fzf shell integration scripts
@@ -680,10 +845,10 @@ if [[ $OS == "linux" ]]; then
 fi
 
 # Install Neovim plugins and LSP servers (if bundled)
-if [[ -f offline-packages/lazy-plugins.tar.gz ]]; then
+if [[ "$INSTALL_NVIM" == true && -f offline-packages/lazy-plugins.tar.gz ]]; then
   echo "Installing Neovim plugins and LSP servers..."
   mkdir -p ~/.local/share/nvim
-  tar -xzf offline-packages/lazy-plugins.tar.gz -C ~/.local/share/nvim/
+  install_nvim_archive offline-packages/lazy-plugins.tar.gz lazy
   log_install "DIRECTORY" "$HOME/.local/share/nvim/lazy" "" ""
   if [[ -d ~/.local/share/nvim/mason ]]; then
     log_install "DIRECTORY" "$HOME/.local/share/nvim/mason" "" ""
@@ -693,10 +858,10 @@ if [[ -f offline-packages/lazy-plugins.tar.gz ]]; then
   fi
 fi
 
-if [[ -f offline-packages/mason-lsp.tar.gz ]]; then
+if [[ "$INSTALL_NVIM" == true && -f offline-packages/mason-lsp.tar.gz ]]; then
   echo "Installing Mason LSP servers..."
   mkdir -p ~/.local/share/nvim
-  tar -xzf offline-packages/mason-lsp.tar.gz -C ~/.local/share/nvim/
+  install_nvim_archive offline-packages/mason-lsp.tar.gz mason
   log_install "DIRECTORY" "$HOME/.local/share/nvim/mason" "" ""
   echo "✓ Mason LSP servers installed"
 fi
@@ -741,6 +906,10 @@ else
       stowed=0
       for pkg_path in "${packages[@]}"; do
         package_name=$(basename "$pkg_path")
+        if [[ "$package_name" == "nvim" && "$INSTALL_NVIM" != true ]]; then
+          echo "  ⊘ Skipping nvim configuration (preserved existing state)"
+          continue
+        fi
         echo "  → Stowing package: $package_name"
         # Capture stow output; detect conflicts
         if stow_out=$($STOW_CMD -t ~ "$pkg_path" 2>&1); then
@@ -791,6 +960,10 @@ else
       # Copy each package's contents into $HOME, preserving relative paths.
       for pkg_path in "${packages[@]}"; do
         package_name=$(basename "$pkg_path")
+        if [[ "$package_name" == "nvim" && "$INSTALL_NVIM" != true ]]; then
+          echo "  ⊘ Skipping nvim configuration (preserved existing state)"
+          continue
+        fi
         echo "  → Copying package: $package_name"
         # Walk every entry inside the package (including hidden ones like .config, .tmux.conf)
         while IFS= read -r -d '' entry; do
@@ -819,7 +992,7 @@ else
             }
             log_install "CONFIG" "$dest" "" ""
           fi
-        done < <(find "$pkg_path" -mindepth 1 -print0)
+        done < <(find "$pkg_path" -mindepth 1 ! -name '._*' -print0)
       done
     fi
   fi
@@ -1205,7 +1378,7 @@ else
     fi
 
     # VIMRUNTIME - needed when nvim is installed from the bundled standalone binary
-    if [[ -d "$HOME/.local/share/nvim/runtime" ]]; then
+    if [[ "$NVIM_RUNTIME_INSTALLED" == true ]]; then
       add_to_shell_rc "$SHELL_RC" "export VIMRUNTIME=\"\$HOME/.local/share/nvim/runtime\"" "VIMRUNTIME (Neovim runtime path)"
     fi
 

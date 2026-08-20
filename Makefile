@@ -498,7 +498,7 @@ package: version-file
 	@# Ship the full kit so the air-gapped machine has Makefile, scripts, docs, etc.
 	@# Exclude only build artifacts and VCS/tool-specific dirs.
 	@COPYFILE_DISABLE=1 tar --no-xattrs \
-		--exclude='.git' --exclude='.claude' --exclude='.devin' \
+		--exclude='.git' --exclude='.claude' --exclude='.devin' --exclude='._*' \
 		--exclude='.github' --exclude='test' \
 		--exclude='nvim-linux-x86_64' --exclude='nvim-linux64' \
 		-czf airgap-dev-kit.tar.gz \
@@ -563,7 +563,7 @@ package-cli: version-file
 	fi
 	@rm -f .package-cli-staging/airgap-dev-kit/offline-packages/linux/wezterm.AppImage
 	@COPYFILE_DISABLE=1 tar --no-xattrs \
-		--exclude='.git' --exclude='.claude' --exclude='.devin' \
+		--exclude='.git' --exclude='.claude' --exclude='.devin' --exclude='._*' \
 		--exclude='.github' --exclude='test' \
 		--exclude='fonts' \
 		--exclude='offline-packages/linux/wezterm.AppImage' \
@@ -587,7 +587,7 @@ package-with-config: verify version-file
 		echo "# Add your dotfiles here for GNU Stow" > config/README.md; \
 	fi
 	@COPYFILE_DISABLE=1 tar --no-xattrs \
-		--exclude='.git' --exclude='.claude' --exclude='.devin' \
+		--exclude='.git' --exclude='.claude' --exclude='.devin' --exclude='._*' \
 		--exclude='.github' --exclude='test' \
 		--exclude='nvim-linux-x86_64' --exclude='nvim-linux64' \
 		-czf airgap-dev-kit-full.tar.gz \
@@ -614,6 +614,7 @@ test-cli-package:
 	@bash test/scripts/test-cli-only-package.sh
 	@bash test/scripts/test-busy-binary-replace.sh
 	@bash test/scripts/test-config-idempotent.sh
+	@bash test/scripts/test-nvim-state-safety.sh
 	@bash test/scripts/test-starship-init-last.sh
 
 test-update-tools:

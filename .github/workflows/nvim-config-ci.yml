@@ -4,12 +4,18 @@ on:
   push:
     paths:
       - 'config/nvim/**'
+      - 'install.sh'
+      - 'test/scripts/test-nvim-state-safety.sh'
       - '.github/workflows/nvim-config-ci.yml'
+      - '.github/workflows/update-binaries.yml'
       - '.github/workflows/mason-config.lua'
   pull_request:
     paths:
       - 'config/nvim/**'
+      - 'install.sh'
+      - 'test/scripts/test-nvim-state-safety.sh'
       - '.github/workflows/nvim-config-ci.yml'
+      - '.github/workflows/update-binaries.yml'
       - '.github/workflows/mason-config.lua'
   workflow_dispatch:
 
@@ -63,7 +69,7 @@ jobs:
         run: |
           # Temporarily enable install.missing so Lazy can bootstrap in CI
           # Sync plugins; Lazy! sync returns non-zero only on network/git failures
-          nvim --headless "+Lazy! sync" "+qa" 2>/tmp/nvim-stderr.log || true
+          nvim --headless "+Lazy! sync" "+qa" 2>/tmp/nvim-stderr.log
           echo "Lazy sync output (stderr):"
           cat /tmp/nvim-stderr.log || true
           echo "Lazy sync step complete"
