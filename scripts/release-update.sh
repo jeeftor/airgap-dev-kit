@@ -31,7 +31,22 @@ sha256_file() {
 }
 
 release_json() {
-  curl -fsSL "$API_URL/repos/$REPO/releases/latest"
+  curl -fsSL "$API_URL/repos/$REPO/releases" | python3 -c '
+import json, re, sys
+
+semver = re.compile(r"^v?[0-9]+\.[0-9]+\.[0-9]+(?:[-.][0-9A-Za-z.]+)?$")
+for release in json.load(sys.stdin):
+    assets = {asset.get("name") for asset in release.get("assets", [])}
+    if (
+        not release.get("draft")
+        and semver.match(release.get("tag_name", ""))
+        and {"airgap-dev-kit-linux-x86_64.tar.gz", "checksums.txt"} <= assets
+    ):
+        print(json.dumps(release))
+        break
+else:
+    raise SystemExit(1)
+'
 }
 
 release_fields() {
@@ -55,8 +70,9 @@ require_semver_tag() {
 }
 
 command_check() {
-  local latest current
-  latest=$(release_json | python3 -c 'import json,sys; print(json.load(sys.stdin).get("tag_name", "unknown"))')
+  local latest current release
+  release=$(release_json) || die "No published SemVer release with the Linux kit and checksums was found"
+  latest=$(printf '%s\n' "$release" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("tag_name", "unknown"))')
   require_semver_tag "$latest"
   current=$(installed_version)
   echo "Installed: $current"
@@ -74,8 +90,9 @@ command_download() {
   done
   command -v curl >/dev/null 2>&1 || die "curl is required"
   command -v python3 >/dev/null 2>&1 || die "python3 is required"
-  local fields tag asset_url checksums_url temp_dir expected actual
-  fields=$(release_json | release_fields)
+  local fields tag asset_url checksums_url temp_dir expected actual release
+  release=$(release_json) || die "No published SemVer release with the Linux kit and checksums was found"
+  fields=$(printf '%s\n' "$release" | release_fields)
   tag=$(printf '%s\n' "$fields" | sed -n '1p')
   asset_url=$(printf '%s\n' "$fields" | sed -n '2p')
   checksums_url=$(printf '%s\n' "$fields" | sed -n '3p')

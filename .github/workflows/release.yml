@@ -71,8 +71,12 @@ jobs:
           sed -i 's/missing = true/missing = false/' ~/.config/nvim/lua/config/lazy.lua
           test -d ~/.local/share/nvim/lazy
           cd ~/.local/share/nvim
-          cp ~/.config/nvim/lazy-lock.json .
-          tar -czf "$GITHUB_WORKSPACE/offline-packages/lazy-plugins.tar.gz" lazy lazy-lock.json
+          if [[ -f ~/.config/nvim/lazy-lock.json ]]; then
+            cp ~/.config/nvim/lazy-lock.json .
+            tar -czf "$GITHUB_WORKSPACE/offline-packages/lazy-plugins.tar.gz" lazy lazy-lock.json
+          else
+            tar -czf "$GITHUB_WORKSPACE/offline-packages/lazy-plugins.tar.gz" lazy
+          fi
 
       - name: Bundle pinned Mason LSP payload
         run: |

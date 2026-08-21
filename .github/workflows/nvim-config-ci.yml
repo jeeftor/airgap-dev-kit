@@ -2,6 +2,7 @@ name: Neovim Config CI
 
 on:
   push:
+    branches: [ master ]
     paths:
       - 'config/nvim/**'
       - 'install.sh'
