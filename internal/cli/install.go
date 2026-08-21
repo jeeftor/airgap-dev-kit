@@ -164,54 +164,64 @@ const shellBlockStart = "# >>> airgap dev kit >>>"
 const shellBlockEnd = "# <<< airgap dev kit <<<"
 
 func configureShells(home string, record *installRecord) error {
-	rcs := []struct{ path, shell string }{{filepath.Join(home, ".bashrc"), "bash"}, {filepath.Join(home, ".zshrc"), "zsh"}}
+	shellFile := filepath.Join(home, ".config", "airgap-dev-kit", "shell.sh")
+	if err := writeAirgapShellFile(shellFile); err != nil {
+		return err
+	}
+	record.Paths = append(record.Paths, shellFile)
+	rcs := []string{filepath.Join(home, ".bashrc"), filepath.Join(home, ".zshrc")}
 	found := false
 	for _, rc := range rcs {
-		if _, err := os.Stat(rc.path); err == nil {
+		if _, err := os.Stat(rc); err == nil {
 			found = true
-			if err := writeShellBlock(rc.path, rc.shell); err != nil {
+			if err := writeShellBlock(rc, shellFile); err != nil {
 				return err
 			}
-			record.ShellRCs = append(record.ShellRCs, rc.path)
+			record.ShellRCs = append(record.ShellRCs, rc)
 		}
 	}
 	if found {
 		return nil
 	}
-	shell := "bash"
-	path := rcs[0].path
+	path := rcs[0]
 	if filepath.Base(os.Getenv("SHELL")) == "zsh" {
-		shell, path = "zsh", rcs[1].path
+		path = rcs[1]
 	}
-	if err := writeShellBlock(path, shell); err != nil {
+	if err := writeShellBlock(path, shellFile); err != nil {
 		return err
 	}
 	record.ShellRCs = append(record.ShellRCs, path)
 	return nil
 }
 
-func writeShellBlock(path, shell string) error {
+func writeShellBlock(path, shellFile string) error {
 	raw, err := os.ReadFile(path)
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
 	content := removeShellBlock(string(raw))
-	block := shellBlockStart + "\n" +
+	block := shellBlockStart + "\n. \"" + shellFile + "\"\n" + shellBlockEnd + "\n"
+	if content != "" && !strings.HasSuffix(content, "\n") {
+		content += "\n"
+	}
+	return writeAtomic(path, []byte(content+"\n"+block), 0644)
+}
+
+func writeAirgapShellFile(path string) error {
+	content := "# Managed by airgap. Source this file; do not edit the RC block.\n" +
 		"export PATH=\"$HOME/.local/bin:$PATH\"\n" +
 		"export EDITOR=nvim\n" +
 		"alias vim=nvim\n" +
 		"alias vi=nvim\n" +
 		"[ -x \"$HOME/.local/bin/lsd\" ] && alias ls='lsd' && alias ll='lsd -la'\n" +
 		"[ -x \"$HOME/.local/bin/bat\" ] && alias cat='bat --paging=never'\n" +
-		"[ -f \"$HOME/.fzf/shell/key-bindings." + shell + "\" ] && . \"$HOME/.fzf/shell/key-bindings." + shell + "\"\n" +
-		"[ -f \"$HOME/.fzf/shell/completion." + shell + "\" ] && . \"$HOME/.fzf/shell/completion." + shell + "\"\n" +
-		"command -v zoxide >/dev/null 2>&1 && eval \"$(zoxide init " + shell + ")\"\n" +
-		"command -v starship >/dev/null 2>&1 && eval \"$(starship init " + shell + ")\"\n" +
-		shellBlockEnd + "\n"
-	if content != "" && !strings.HasSuffix(content, "\n") {
-		content += "\n"
-	}
-	return writeAtomic(path, []byte(content+"\n"+block), 0644)
+		"if [ -n \"${ZSH_VERSION:-}\" ]; then _airgap_shell=zsh; else _airgap_shell=bash; fi\n" +
+		"[ -f \"$HOME/.fzf/shell/key-bindings.${_airgap_shell}\" ] && . \"$HOME/.fzf/shell/key-bindings.${_airgap_shell}\"\n" +
+		"[ -f \"$HOME/.fzf/shell/completion.${_airgap_shell}\" ] && . \"$HOME/.fzf/shell/completion.${_airgap_shell}\"\n" +
+		"command -v zoxide >/dev/null 2>&1 && eval \"$(zoxide init \"${_airgap_shell}\")\"\n" +
+		"command -v starship >/dev/null 2>&1 && eval \"$(starship init \"${_airgap_shell}\")\"\n" +
+		"unset _airgap_shell\n"
+	return writeAtomic(path, []byte(content), 0644)
 }
 
 func removeShellBlock(content string) string {

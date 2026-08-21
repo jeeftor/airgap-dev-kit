@@ -72,8 +72,12 @@ func TestNativeInstallSetsBundledNeovimRuntime(t *testing.T) {
 		t.Fatalf("Neovim config was not installed: %v", err)
 	}
 	bashrc, err := os.ReadFile(filepath.Join(home, ".bashrc"))
-	if err != nil || !strings.Contains(string(bashrc), shellBlockStart) {
+	shellFile := filepath.Join(home, ".config", "airgap-dev-kit", "shell.sh")
+	if err != nil || !strings.Contains(string(bashrc), shellBlockStart) || !strings.Contains(string(bashrc), shellFile) {
 		t.Fatalf("Bash startup block was not installed: %v\n%s", err, bashrc)
+	}
+	if shellContent, err := os.ReadFile(shellFile); err != nil || !strings.Contains(string(shellContent), "zoxide init") {
+		t.Fatalf("managed shell source was not installed: %v\n%s", err, shellContent)
 	}
 	userFile := filepath.Join(home, ".config", "nvim", "after-install.lua")
 	if err := os.WriteFile(userFile, []byte("-- user file\n"), 0644); err != nil {
@@ -93,6 +97,9 @@ func TestNativeInstallSetsBundledNeovimRuntime(t *testing.T) {
 	bashrc, err = os.ReadFile(filepath.Join(home, ".bashrc"))
 	if err != nil || strings.Contains(string(bashrc), shellBlockStart) || !strings.Contains(string(bashrc), "# personal shell setup") {
 		t.Fatalf("uninstall did not safely remove the Bash startup block: %v\n%s", err, bashrc)
+	}
+	if _, err := os.Stat(shellFile); !os.IsNotExist(err) {
+		t.Fatalf("uninstall did not remove the managed shell source: %v", err)
 	}
 }
 

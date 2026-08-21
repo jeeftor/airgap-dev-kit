@@ -42,7 +42,7 @@ cd airgap-dev-kit
 # then extract and run ./airgap install. The .airgap-cli-only marker enables this mode.
 ```
 
-The CLI-only package skips WezTerm and fonts. `airgap install` appends one idempotent, clearly marked block to detected Bash/Zsh startup files for PATH, fzf, zoxide, and Starship; use `--configure-shell=false` to opt out.
+The CLI-only package skips WezTerm and fonts. `airgap install` creates `~/.config/airgap-dev-kit/shell.sh` and appends one idempotent, clearly marked `source` block to detected Bash/Zsh startup files; use `--configure-shell=false` to opt out.
 
 ### Build From Source
 
@@ -270,7 +270,7 @@ fi
 2. **Makes Neovim self-contained** - The `nvim` launcher sets `VIMRUNTIME` to the bundled runtime before starting Neovim
 3. **Protects existing Neovim state** - Preserves it by default, or backs up the complete profile before `--nvim-mode=replace`
 4. **Activates offline LazyVim and Mason** - Extracts the matching bundled plugin and LSP payloads
-5. **Configures Bash/Zsh safely** - Appends one removable, idempotent Airgap block for PATH and bundled shell integrations; use `--configure-shell=false` to opt out
+5. **Configures Bash/Zsh safely** - Writes one managed shell source file and appends a removable, idempotent `source` block; use `--configure-shell=false` to opt out
 
 For an unattended replacement of a previous Neovim setup, run `./airgap install --yes --nvim-mode=replace`. The prior state is retained under `~/.local/share/airgap-dev-kit/backups/`; use `--nvim-mode=preserve` to skip the kit's Neovim components explicitly.
 
