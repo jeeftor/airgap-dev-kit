@@ -11,7 +11,43 @@ concurrency:
   group: test-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+env:
+  LINUX_PAYLOAD_ARTIFACT: linux-payload-${{ github.run_id }}
+
 jobs:
+  prepare-linux-payload:
+    name: Prepare shared Linux payload
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      # The Makefile contains every upstream version and URL used by `make update`.
+      # A new input set therefore gets a distinct cache; the per-run artifact below
+      # is the immutable payload consumed by the independent test jobs.
+      - name: Restore downloaded payload cache
+        id: payload-cache
+        uses: actions/cache@v6
+        with:
+          path: |
+            offline-packages/linux
+            fonts/JetBrainsMono.zip
+          key: linux-payload-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Makefile') }}
+
+      - name: Download or validate Linux payload
+        run: make update
+
+      - name: Upload immutable payload for this workflow run
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ env.LINUX_PAYLOAD_ARTIFACT }}
+          path: |
+            offline-packages/linux
+            fonts/JetBrainsMono.zip
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
   test-airgap-v2:
     name: Test airgap v2 command and package
     runs-on: ubuntu-latest
@@ -54,9 +90,16 @@ jobs:
   test-build-linux:
     name: Build & Verify Linux Package
     runs-on: ubuntu-latest
+    needs: prepare-linux-payload
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+
+      - name: Download shared Linux payload
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ env.LINUX_PAYLOAD_ARTIFACT }}
+          path: .
 
       - name: Set up Go for the embedded lifecycle binary
         uses: actions/setup-go@v7
@@ -64,9 +107,6 @@ jobs:
           go-version-file: go.mod
           cache: true
           cache-dependency-path: go.sum
-      
-      - name: Download Linux binaries
-        run: make update
       
       - name: Verify binaries downloaded
         run: |
@@ -118,13 +158,16 @@ jobs:
   test-install-ubuntu:
     name: Test Installation (Ubuntu Latest)
     runs-on: ubuntu-latest
-    needs: test-build-linux
+    needs: [prepare-linux-payload, test-build-linux]
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
-      
-      - name: Download binaries
-        run: make update-linux
+
+      - name: Download shared Linux payload
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ env.LINUX_PAYLOAD_ARTIFACT }}
+          path: .
       
       - name: Test user-local installation
         run: |
@@ -184,7 +227,7 @@ jobs:
     name: Test Installation (Ubuntu 20.04)
     runs-on: ubuntu-latest
     container: ubuntu:20.04
-    needs: test-build-linux
+    needs: [prepare-linux-payload, test-build-linux]
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -195,8 +238,11 @@ jobs:
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
             ca-certificates curl make tar gzip xz-utils unzip
       
-      - name: Download binaries
-        run: make update-linux
+      - name: Download shared Linux payload
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ env.LINUX_PAYLOAD_ARTIFACT }}
+          path: .
       
       - name: Test installation
         run: echo -e "2\nn\n" | ./install.sh
@@ -213,12 +259,16 @@ jobs:
   test-config-copy-fallback:
     name: Test Config Copy Fallback
     runs-on: ubuntu-latest
+    needs: prepare-linux-payload
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
-      
-      - name: Download binaries
-        run: make update-linux
+
+      - name: Download shared Linux payload
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ env.LINUX_PAYLOAD_ARTIFACT }}
+          path: .
 
       - name: Ensure Stow is unavailable
         run: sudo apt-get remove -y stow || true
@@ -234,12 +284,16 @@ jobs:
   test-tracking-log:
     name: Test Installation Tracking
     runs-on: ubuntu-latest
+    needs: prepare-linux-payload
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
-      
-      - name: Download binaries
-        run: make update-linux
+
+      - name: Download shared Linux payload
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ env.LINUX_PAYLOAD_ARTIFACT }}
+          path: .
       
       - name: Install
         run: echo -e "2\nn\n" | ./install.sh
@@ -267,12 +321,16 @@ jobs:
   test-reinstall-no-duplicates:
     name: Test Reinstall (No Duplicates)
     runs-on: ubuntu-latest
+    needs: prepare-linux-payload
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
-      
-      - name: Download binaries
-        run: make update-linux
+
+      - name: Download shared Linux payload
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ env.LINUX_PAYLOAD_ARTIFACT }}
+          path: .
       
       - name: First install
         run: echo -e "2\ny\n" | ./install.sh
@@ -303,14 +361,19 @@ jobs:
   test-offline-package:
     name: Test Offline Package
     runs-on: ubuntu-latest
+    needs: prepare-linux-payload
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
-      
+
+      - name: Download shared Linux payload
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ env.LINUX_PAYLOAD_ARTIFACT }}
+          path: .
+
       - name: Build complete package
-        run: |
-          make update
-          make package
+        run: make package
       
       - name: Extract package to temp location
         run: |
@@ -335,12 +398,16 @@ jobs:
   test-dry-run:
     name: Test Dry Run Mode
     runs-on: ubuntu-latest
+    needs: prepare-linux-payload
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
-      
-      - name: Download binaries
-        run: make update-linux
+
+      - name: Download shared Linux payload
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ env.LINUX_PAYLOAD_ARTIFACT }}
+          path: .
       
       - name: Test dry run
         run: |

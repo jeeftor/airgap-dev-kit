@@ -6,6 +6,9 @@ on:
       - master
     tags:
       - 'v*'
+  schedule:
+    # Refresh the default-branch payload caches before GitHub's idle expiry.
+    - cron: '17 6 * * 1'
 
 permissions:
   contents: write

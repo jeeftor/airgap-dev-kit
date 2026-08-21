@@ -61,7 +61,10 @@ jobs:
             ~/.local/share/nvim
             ~/.local/state/nvim
             ~/.cache/nvim
-          key: ${{ runner.os }}-nvim-${{ hashFiles('config/nvim/.config/nvim/**/*.lua') }}
+          # Include the lockfile and every tracked Neovim config input. Lazy
+          # still syncs on every run; this only prevents stale plugin state
+          # from being restored after the desired dependency set changes.
+          key: ${{ runner.os }}-nvim-${{ hashFiles('config/nvim/.config/nvim/**') }}
           restore-keys: |
             ${{ runner.os }}-nvim-
 
