@@ -95,7 +95,7 @@ jobs:
       
       - name: Verify package created
         run: |
-          test -f airgap-dev-kit.tar.gz || { echo "✗ Package not created"; exit 1; }
+          test -f airgap-dev-kit-linux-x86_64.tar.gz || { echo "✗ Package not created"; exit 1; }
           echo "✓ Package created successfully"
 
       - name: Smoke test extracted v2 archive
@@ -112,7 +112,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: airgap-dev-kit-linux
-          path: airgap-dev-kit.tar.gz
+          path: airgap-dev-kit-linux-x86_64.tar.gz
           retention-days: 7
 
   test-install-ubuntu:

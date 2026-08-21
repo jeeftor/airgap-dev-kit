@@ -41,7 +41,7 @@ if [ -d offline-packages/linux/nvim-runtime ]; then ok nvim-runtime/; else bad "
 
 printf '\n'
 heading "CLI tools"
-for tool in fzf fd rg bat starship btop lsd zoxide delta difft direnv dust gdu usbtree glow broot fastfetch mkcert lazygit jq gping lua-language-server shellcheck airgap-dev-kit svu; do
+for tool in fzf fd rg bat starship btop lsd zoxide delta difft direnv dust gdu usbtree glow broot fastfetch mkcert lazygit jq gping lua-language-server shellcheck svu; do
   check_executable "offline-packages/linux/$tool" "$tool"
 done
 warn "gopls and other LSPs are installed via Mason (not verified here)"
@@ -51,9 +51,6 @@ heading "Fonts"
 if file fonts/JetBrainsMono.zip 2>/dev/null | grep -q 'Zip\|archive'; then ok JetBrainsMono.zip; else bad "JetBrainsMono.zip - missing or invalid"; fi
 
 printf '\n'
-heading "Install script"
-if [ -x install.sh ]; then ok "install.sh executable"; else bad "install.sh not executable (run: chmod +x install.sh)"; fi
-
 printf '\n'
 if [ "$failures" -gt 0 ]; then
   if [ -n "$GUM" ]; then "$GUM" style --foreground 196 --bold "✗ Verification failed: $failures item(s) need attention."; else echo "✗ Verification failed. Please address the missing binaries above."; fi

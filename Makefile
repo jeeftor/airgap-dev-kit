@@ -62,7 +62,7 @@ status:
 	@ls -lh offline-packages/linux/{wezterm.AppImage,tmux-3.4-static-x86_64,nvim-static-x86_64} 2>/dev/null | awk '{print $$5 "\t" $$9}' || echo "  Some core binaries missing"
 	@echo ""
 	@echo "CLI tools:"
-	@ls -lh offline-packages/linux/{fzf,fd,rg,bat,starship,btop,lsd,zoxide,delta,difft,gum,glow,broot,fastfetch,dust,gdu,usbtree,mkcert,airgap-dev-kit,lazygit,jq,gping,svu,lua-language-server,shellcheck} 2>/dev/null | awk '{print $$5 "\t" $$9}' || echo "  Some tools missing"
+	@ls -lh offline-packages/linux/{fzf,fd,rg,bat,starship,btop,lsd,zoxide,delta,difft,gum,glow,broot,fastfetch,dust,gdu,usbtree,mkcert,lazygit,jq,gping,svu,lua-language-server,shellcheck} 2>/dev/null | awk '{print $$5 "\t" $$9}' || echo "  Some tools missing"
 	@echo ""
 	@echo "Fonts:"
 	@ls -lh fonts/JetBrainsMono.zip 2>/dev/null | awk '{print $$5 "\t" $$9}' || echo "  Font missing"
