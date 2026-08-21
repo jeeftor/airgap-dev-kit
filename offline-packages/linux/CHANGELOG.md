@@ -7,6 +7,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2026-07-04
+
+### Added
+
+- `import` now supports fetching entries from `atuin`.
+- `import` now auto-detects database files.
+- `import` now skips directories matching `$_ZO_EXCLUDE_DIRS`.
+- POSIX: support for non-Cygwin Windows environments (e.g. Busybox).
+- Fish: Space-Tab completions now display and run the selected command.
+- Bash/POSIX/Zsh: `z` now honors `$CDPATH`.
+- Bash: don't add to the database when history is disabled (`set +o history`).
+- Nushell: export commands so the init script can be imported with `use`.
+- Support for RISC-V (riscv64) Linux.
+
+### Changed
+
+- `import` now takes a subcommand instead of the `--from` flag.
+
+### Fixed
+
+- Bash/POSIX/Zsh: `z` now handles relative paths through symlinked directories.
+- Bash/Fish/POSIX/Zsh: `_ZO_RESOLVE_SYMLINKS` now works on Windows.
+- Bash: handle `$PROMPT_COMMAND` values ending in a semicolon.
+- PowerShell: navigate to home directory with `z` on drives that don't define `HOME`.
+- PowerShell: use fully qualified names when invoking cmdlets.
+- Zsh: skip doctor diagnostics in non-interactive shells.
+- Zsh: avoid inserting a trailing space when cancelling interactive Space-Tab completions.
+- Bash: avoid blanking the prompt when cancelling interactive Space-Tab completions.
+- Bash/Fish/Zsh: avoid drawing a new line when Space-Tab completion finds no matches.
+- Tcsh: preserve any existing `precmd` alias instead of overwriting it.
+- Nushell: complete only directories for `z`, instead of all files.
+
 ## [0.9.9] - 2026-01-31
 
 ### Added
