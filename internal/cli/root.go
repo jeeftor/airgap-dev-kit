@@ -27,7 +27,7 @@ func New(version, commit string) *cobra.Command {
 	root.PersistentFlags().StringVar(&output, "output", "text", "Output format: text or json")
 	_ = viper.BindPFlag("output", root.PersistentFlags().Lookup("output"))
 	root.SetHelpFunc(func(command *cobra.Command, _ []string) { _ = writeHelp(command) })
-	root.AddCommand(versionCmd(version, commit), statusCmd(&output), doctorCmd(&output))
+	root.AddCommand(versionCmd(version, commit), statusCmd(&output), doctorCmd(&output, version, commit))
 	root.AddCommand(legacyCmd("install", "Install a kit from an offline payload", "install.sh"))
 	root.AddCommand(legacyCmd("uninstall", "Uninstall only tracked kit paths", "uninstall.sh"))
 	root.AddCommand(cleanCmd())
@@ -45,46 +45,17 @@ func versionCmd(version, commit string) *cobra.Command {
 
 func statusCmd(output *string) *cobra.Command {
 	return &cobra.Command{Use: "status", Short: "Show kit location and supported target", RunE: func(cmd *cobra.Command, _ []string) error {
-		root, err := kitRoot()
+		root, found := discoveredKitRoot()
+		kitDir := "not found"
+		if found {
+			kitDir = root
+		}
+		executable, err := os.Executable()
 		if err != nil {
 			return err
 		}
-		return jsonOrText(cmd, map[string]string{"kit_dir": root, "target": runtime.GOOS + "/" + runtime.GOARCH}, fmt.Sprintf("Kit directory: %s\nTarget: %s/%s\n", root, runtime.GOOS, runtime.GOARCH))
+		return jsonOrText(cmd, map[string]any{"kit_dir": root, "kit_available": found, "executable": executable, "target": runtime.GOOS + "/" + runtime.GOARCH}, fmt.Sprintf("Executable: %s\nKit directory: %s\nKit available: %t\nTarget: %s/%s\n", executable, kitDir, found, runtime.GOOS, runtime.GOARCH))
 	}}
-}
-
-func doctorCmd(output *string) *cobra.Command {
-	var strict, verify bool
-	c := &cobra.Command{Use: "doctor", Short: "Diagnose an installed kit without network access", RunE: func(cmd *cobra.Command, _ []string) error {
-		root, err := kitRoot()
-		if err != nil {
-			return err
-		}
-		_, versionErr := os.Stat(filepath.Join(root, "VERSION"))
-		_, payloadErr := os.Stat(filepath.Join(root, "offline-packages", "linux", "amd64"))
-		// v2 packages use amd64; existing packages are reported, not rejected.
-		legacy := false
-		if os.IsNotExist(payloadErr) {
-			_, payloadErr = os.Stat(filepath.Join(root, "offline-packages", "linux"))
-			legacy = payloadErr == nil
-		}
-		ok := versionErr == nil && payloadErr == nil
-		data := map[string]any{"kit_dir": root, "version_file": versionErr == nil, "payload_present": payloadErr == nil, "legacy_payload_layout": legacy}
-		text := fmt.Sprintf("Kit directory: %s\nVERSION: %t\nPayload: %t\n", root, versionErr == nil, payloadErr == nil)
-		if err := jsonOrText(cmd, data, text); err != nil {
-			return err
-		}
-		if strict && !ok {
-			return fmt.Errorf("doctor found missing required kit files")
-		}
-		if verify && !ok {
-			return fmt.Errorf("cannot verify incomplete payload")
-		}
-		return nil
-	}}
-	c.Flags().BoolVar(&strict, "strict", false, "Fail if a required kit file is missing")
-	c.Flags().BoolVar(&verify, "verify", false, "Verify local kit prerequisites")
-	return c
 }
 
 func legacyCmd(name, short, script string) *cobra.Command {
@@ -148,6 +119,11 @@ func cleanCmd() *cobra.Command {
 				return err
 			}
 		}
+		if len(matches) == 0 {
+			fmt.Fprintln(cmd.OutOrStdout(), "No interrupted release downloads found.")
+		} else if !dryRun {
+			fmt.Fprintf(cmd.OutOrStdout(), "Removed %d interrupted release download(s).\n", len(matches))
+		}
 		return nil
 	}}
 	c.Flags().BoolVar(&dryRun, "dry-run", false, "Print files that would be removed")
@@ -178,20 +154,40 @@ func aliasCmd() *cobra.Command {
 }
 
 func kitRoot() (string, error) {
-	exe, err := os.Executable()
-	if err != nil {
-		return "", err
-	}
-	root := filepath.Dir(filepath.Dir(exe))
-	if _, err := os.Stat(filepath.Join(root, "install.sh")); err == nil {
+	if root, ok := discoveredKitRoot(); ok {
 		return root, nil
 	}
-	if cwd, err := os.Getwd(); err == nil {
-		if _, err := os.Stat(filepath.Join(cwd, "install.sh")); err == nil {
-			return cwd, nil
+	return "", fmt.Errorf("cannot find kit root; run from an extracted kit or set AIRGAP_KIT_DIR")
+}
+
+func discoveredKitRoot() (string, bool) {
+	if root := os.Getenv("AIRGAP_KIT_DIR"); isKitRoot(root) {
+		return root, true
+	}
+	exe, err := os.Executable()
+	if err == nil {
+		root := filepath.Dir(filepath.Dir(exe))
+		if isKitRoot(root) {
+			return root, true
 		}
 	}
-	return "", fmt.Errorf("cannot find kit root; run from an extracted kit")
+	if cwd, err := os.Getwd(); err == nil {
+		if isKitRoot(cwd) {
+			return cwd, true
+		}
+	}
+	if state, err := loadUpdateState(); err == nil && isKitRoot(state.KitDir) {
+		return state.KitDir, true
+	}
+	return "", false
+}
+
+func isKitRoot(root string) bool {
+	if root == "" {
+		return false
+	}
+	info, err := os.Stat(filepath.Join(root, "install.sh"))
+	return err == nil && !info.IsDir()
 }
 
 func jsonOrText(cmd *cobra.Command, value any, text string) error {

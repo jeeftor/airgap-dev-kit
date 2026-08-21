@@ -17,6 +17,9 @@ var (
 	titleStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("212")).Bold(true)
 	okStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("42"))
 	warnStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("214"))
+	failStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Bold(true)
+	pathStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("51"))
+	fileStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("111"))
 	dimStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
 )
 
