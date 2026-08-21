@@ -49,9 +49,15 @@ installed_version() {
   [[ -f "$root/VERSION" ]] && head -n 1 "$root/VERSION" || echo "unknown"
 }
 
+require_semver_tag() {
+  local tag="$1"
+  [[ "$tag" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.]+)?$ ]] || die "Latest GitHub release is $tag, not a SemVer v2 release. Publish a vX.Y.Z release before downloading."
+}
+
 command_check() {
   local latest current
   latest=$(release_json | python3 -c 'import json,sys; print(json.load(sys.stdin).get("tag_name", "unknown"))')
+  require_semver_tag "$latest"
   current=$(installed_version)
   echo "Installed: $current"
   echo "Latest:    $latest"
@@ -74,6 +80,7 @@ command_download() {
   asset_url=$(printf '%s\n' "$fields" | sed -n '2p')
   checksums_url=$(printf '%s\n' "$fields" | sed -n '3p')
   [[ -n "$tag" && -n "$asset_url" && -n "$checksums_url" ]] || die "Release does not publish $ASSET and checksums.txt"
+  require_semver_tag "$tag"
   mkdir -p "$DOWNLOAD_DIR"
   temp_dir=$(mktemp -d "$DOWNLOAD_DIR/.airgap-release.XXXXXX")
   trap 'rm -rf "$temp_dir"' RETURN
