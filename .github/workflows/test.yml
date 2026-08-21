@@ -203,9 +203,10 @@ jobs:
       
       - name: Verify installation
         run: |
-          test -x ~/.local/bin/nvim
-          test -x ~/.local/bin/rg
-          export PATH="$HOME/.local/bin:$PATH"
+          # GitHub Actions containers run this job as root; the legacy installer
+          # therefore intentionally selects its system-wide destination.
+          test -x /usr/local/bin/nvim
+          test -x /usr/local/bin/rg
           rg --version
           echo "✓ Legacy installer completes on Ubuntu 20.04"
 
