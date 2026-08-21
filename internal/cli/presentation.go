@@ -21,6 +21,31 @@ var (
 	pathStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("51"))
 	fileStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("111"))
 	dimStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
+
+	installerFrameStyle = lipgloss.NewStyle().
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(lipgloss.Color("63")).
+				Padding(1, 2)
+	installerTitleStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("213")).
+				Bold(true)
+	installerActiveStepStyle = lipgloss.NewStyle().
+					Foreground(lipgloss.Color("51")).
+					Bold(true)
+	installerStepStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
+	installerSelectedStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("231")).
+				Background(lipgloss.Color("57")).
+				Bold(true).
+				Padding(0, 1)
+	installerOptionStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("252")).
+				Padding(0, 1)
+	installerSafetyStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("214")).
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(lipgloss.Color("214")).
+				Padding(0, 1)
 )
 
 func colorEnabled(cmd *cobra.Command) bool {
@@ -54,7 +79,7 @@ func writeHelp(cmd *cobra.Command) error {
 		if _, err := fmt.Fprintln(out, styled(cmd, accentStyle, "Installer options")); err != nil {
 			return err
 		}
-		_, err := fmt.Fprintln(out, "  --yes, -y             Confirm a non-interactive install\n  --dry-run, -n          Preview without changing files\n  --nvim-mode MODE       preserve or replace the Neovim profile\n  --cli-only             Skip GUI payloads")
+		_, err := fmt.Fprintln(out, "  --yes, -y             Confirm a non-interactive install\n  --dry-run, -n          Preview without changing files\n  --nvim-mode MODE       preserve or replace the Neovim profile\n  --cli-only             Skip GUI payloads\n  --configure-shell BOOL Add or skip managed Bash/Zsh integration")
 		return err
 	}
 	if _, err := fmt.Fprintln(out, styled(cmd, accentStyle, "Commands")); err != nil {
@@ -75,8 +100,12 @@ func writeHelp(cmd *cobra.Command) error {
 }
 
 type installModel struct {
-	accepted bool
-	canceled bool
+	options      installOptions
+	existingNvim bool
+	step         int
+	choice       int
+	accepted     bool
+	canceled     bool
 }
 
 func (m installModel) Init() tea.Cmd { return nil }
@@ -84,9 +113,27 @@ func (m installModel) Init() tea.Cmd { return nil }
 func (m installModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	if key, ok := message.(tea.KeyMsg); ok {
 		switch key.String() {
-		case "enter", "y":
-			m.accepted = true
-			return m, tea.Quit
+		case "up", "k":
+			if m.choice > 0 {
+				m.choice--
+			}
+		case "down", "j":
+			if m.choice < len(m.choices())-1 {
+				m.choice++
+			}
+		case "enter":
+			if m.step == 3 {
+				m.accepted = true
+				return m, tea.Quit
+			}
+			m.applyChoice()
+			m.step++
+			m.choice = m.selectedChoice()
+		case "b", "left":
+			if m.step > 0 {
+				m.step--
+				m.choice = m.selectedChoice()
+			}
 		case "q", "n", "esc", "ctrl+c":
 			m.canceled = true
 			return m, tea.Quit
@@ -96,9 +143,130 @@ func (m installModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m installModel) View() string {
-	return "\n" + titleStyle.Render("Airgap offline install") + "\n\n" +
-		"This uses only the extracted kit payload. No network access is required.\n\n" +
-		okStyle.Render("Enter") + " install    " + warnStyle.Render("q") + " cancel\n"
+	var b strings.Builder
+	b.WriteString(installerTitleStyle.Render("✦ Airgap Setup") + "  " + dimStyle.Render("offline kit installer") + "\n")
+	b.WriteString(m.stepper() + "\n\n")
+	if m.step == 3 {
+		b.WriteString(accentStyle.Render("Ready to apply this plan") + "\n\n")
+		profile := "Full kit"
+		if m.options.CLIOnly {
+			profile = "CLI-only kit · GUI payloads skipped"
+		}
+		b.WriteString(okStyle.Render("●") + " Package  " + profile + "\n")
+		nvim := "Install bundled Neovim and LazyVim"
+		if m.existingNvim && m.options.NvimMode == "preserve" {
+			nvim = "Preserve the existing Neovim profile"
+		} else if m.existingNvim {
+			nvim = "Back up and replace the Neovim profile"
+		}
+		b.WriteString(okStyle.Render("●") + " Neovim   " + nvim + "\n")
+		shell := "Do not change shell startup files"
+		if m.options.ConfigureShell {
+			shell = "Add the managed Bash/Zsh integration"
+		}
+		b.WriteString(okStyle.Render("●") + " Shell     " + shell + "\n")
+		if m.existingNvim && m.options.NvimMode == "replace" {
+			b.WriteString("\n" + installerSafetyStyle.Render("Backup first: your complete Neovim profile will be moved to ~/.local/share/airgap-dev-kit/backups/.") + "\n")
+		}
+		b.WriteString("\n" + dimStyle.Render("Nothing has changed yet.") + "\n\n")
+		b.WriteString(okStyle.Render("Enter") + " install    " + warnStyle.Render("b") + " back    " + warnStyle.Render("q") + " cancel")
+		return "\n" + installerFrameStyle.Render(b.String()) + "\n"
+	}
+	b.WriteString(accentStyle.Render(m.question()) + "\n")
+	if m.step == 1 && m.existingNvim {
+		b.WriteString(installerSafetyStyle.Render("Existing Neovim, LazyVim, Mason, state, and cache were found. Your files stay untouched unless you choose backup and replace.") + "\n\n")
+	}
+	if m.step == 2 {
+		b.WriteString(dimStyle.Render("This adds one removable Airgap block to Bash/Zsh. It enables PATH, FZF keys/completion, zoxide, and Starship.") + "\n\n")
+	}
+	for index, choice := range m.choices() {
+		marker := "  "
+		style := installerOptionStyle
+		if index == m.choice {
+			marker = "› "
+			style = installerSelectedStyle
+		}
+		b.WriteString(style.Render(marker+choice) + "\n")
+	}
+	b.WriteString("\n" + dimStyle.Render("↑/k and ↓/j choose  ·  Enter continue  ·  b back  ·  q cancel"))
+	return "\n" + installerFrameStyle.Render(b.String()) + "\n"
+}
+
+func (m installModel) stepper() string {
+	steps := []string{"Package", "Neovim", "Shell", "Review"}
+	parts := make([]string, 0, len(steps))
+	for index, step := range steps {
+		style := installerStepStyle
+		icon := "○"
+		if index < m.step {
+			style = okStyle
+			icon = "✓"
+		} else if index == m.step {
+			style = installerActiveStepStyle
+			icon = "●"
+		}
+		parts = append(parts, style.Render(icon+" "+step))
+	}
+	return strings.Join(parts, installerStepStyle.Render("  ─  "))
+}
+
+func (m installModel) question() string {
+	switch m.step {
+	case 0:
+		return "Choose package profile"
+	case 1:
+		return "Choose Neovim configuration handling"
+	default:
+		return "Configure shell integration?"
+	}
+}
+
+func (m installModel) choices() []string {
+	switch m.step {
+	case 0:
+		return []string{"Full kit — include all available payloads", "CLI-only kit — skip GUI payloads"}
+	case 1:
+		if m.existingNvim {
+			return []string{"Preserve existing profile — do not change Neovim or LazyVim", "Back up and replace — save the complete profile, then install a fresh kit"}
+		}
+		return []string{"Install the bundled Neovim and LazyVim profile"}
+	default:
+		return []string{"Yes — add the managed Bash/Zsh integration", "No — leave shell startup files unchanged"}
+	}
+}
+
+func (m *installModel) applyChoice() {
+	switch m.step {
+	case 0:
+		m.options.CLIOnly = m.choice == 1
+	case 1:
+		if m.existingNvim {
+			m.options.NvimMode = "preserve"
+			if m.choice == 1 {
+				m.options.NvimMode = "replace"
+			}
+		}
+	case 2:
+		m.options.ConfigureShell = m.choice == 0
+	}
+}
+
+func (m installModel) selectedChoice() int {
+	switch m.step {
+	case 0:
+		if m.options.CLIOnly {
+			return 1
+		}
+	case 1:
+		if m.existingNvim && m.options.NvimMode == "replace" {
+			return 1
+		}
+	case 2:
+		if !m.options.ConfigureShell {
+			return 1
+		}
+	}
+	return 0
 }
 
 func wantsTUI(args []string) bool {
@@ -113,17 +281,19 @@ func wantsTUI(args []string) bool {
 	return true
 }
 
-func confirmInstall(cmd *cobra.Command) (bool, error) {
-	program := tea.NewProgram(installModel{}, tea.WithInput(cmd.InOrStdin()), tea.WithOutput(cmd.OutOrStdout()))
-	model, err := program.Run()
+func planInstall(cmd *cobra.Command, options installOptions, existingNvim bool) (installOptions, bool, error) {
+	model := installModel{options: options, existingNvim: existingNvim}
+	model.choice = model.selectedChoice()
+	program := tea.NewProgram(model, tea.WithInput(cmd.InOrStdin()), tea.WithOutput(cmd.OutOrStdout()))
+	resultModel, err := program.Run()
 	if err != nil {
-		return false, fmt.Errorf("run install interface: %w", err)
+		return options, false, fmt.Errorf("run install interface: %w", err)
 	}
-	result, ok := model.(installModel)
+	result, ok := resultModel.(installModel)
 	if !ok {
-		return false, fmt.Errorf("unexpected install interface result")
+		return options, false, fmt.Errorf("unexpected install interface result")
 	}
-	return result.accepted && !result.canceled, nil
+	return result.options, result.accepted && !result.canceled, nil
 }
 
 func renderText(cmd *cobra.Command, value string) string {

@@ -42,7 +42,7 @@ cd airgap-dev-kit
 # then extract and run ./airgap install. The .airgap-cli-only marker enables this mode.
 ```
 
-The CLI-only package skips WezTerm and fonts. `airgap install` creates `~/.config/airgap-dev-kit/shell.sh` and appends one idempotent, clearly marked `source` block to detected Bash/Zsh startup files; use `--configure-shell=false` to opt out.
+The CLI-only package skips WezTerm and fonts. `./airgap install` creates `~/.config/airgap-dev-kit/shell.sh` and appends one idempotent, clearly marked `source` block to detected Bash/Zsh startup files; use `--configure-shell=false` to opt out.
 
 ### Build From Source
 
@@ -223,16 +223,20 @@ make clean             # Remove binaries (keep placeholders)
 
 ## 🚀 airgap-dev-kit CLI
 
-After extraction, use the unified `airgap` command:
+For the first command after extraction, always use the kit-local launcher
+`./airgap`. Do not use bare `airgap` until installation completes and you have
+started a new shell: an older installed `airgap` earlier in `PATH` may be a
+different release and cannot operate on the extracted kit.
 
 ```bash
-airgap version             # Show kit version and installation info
-airgap update check        # Check signed kit releases (on a connected machine)
-airgap install             # Install the extracted offline payload
-airgap status              # Show kit status
-airgap uninstall --yes     # Remove only paths tracked by airgap
-airgap --help              # Show help and available commands
+./airgap version             # Show this extracted kit's version
+./airgap doctor              # Validate this extracted kit before installing
+./airgap install             # Install the extracted offline payload
+./airgap status              # Show this extracted kit's status
 ```
+
+After installation, restart your shell. `airgap update`, `airgap status`, and
+`airgap uninstall --yes` then use the installed command in `~/.local/bin`.
 
 This provides a simple interface for managing your air-gap development environment without needing to remember individual make commands or script locations.
 
@@ -264,7 +268,7 @@ fi
 
 ## 📋 Installation Details
 
-### What `airgap install` Does
+### What `./airgap install` Does
 
 1. **Installs user-local binaries** - Copies the extracted payload to `~/.local/bin` without network access
 2. **Makes Neovim self-contained** - The `nvim` launcher sets `VIMRUNTIME` to the bundled runtime before starting Neovim

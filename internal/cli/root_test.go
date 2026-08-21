@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 func TestRootHelpIsUsefulWithoutColor(t *testing.T) {
@@ -23,6 +25,53 @@ func TestRootHelpIsUsefulWithoutColor(t *testing.T) {
 			t.Fatalf("help is missing %q: %s", expected, output.String())
 		}
 	}
+}
+
+func TestInstallPlannerSelectsRecoverableReplaceAndNoShellChanges(t *testing.T) {
+	model := installModel{
+		options:      installOptions{ConfigureShell: true, NvimMode: "preserve"},
+		existingNvim: true,
+	}
+
+	model = updateInstallPlanner(t, model, "enter") // Full kit.
+	model = updateInstallPlanner(t, model, "down")
+	model = updateInstallPlanner(t, model, "enter") // Back up and replace.
+	model = updateInstallPlanner(t, model, "down")
+	model = updateInstallPlanner(t, model, "enter") // Do not change shell files.
+
+	if model.step != 3 || model.options.NvimMode != "replace" || model.options.ConfigureShell {
+		t.Fatalf("unexpected install plan: %#v", model)
+	}
+	view := model.View()
+	if !strings.Contains(view, "Back up and replace") || !strings.Contains(view, "Do not change shell startup files") {
+		t.Fatalf("review does not describe selected plan: %s", view)
+	}
+}
+
+func TestInstallPlannerPreservesExistingNeovimByDefault(t *testing.T) {
+	model := installModel{
+		options:      installOptions{ConfigureShell: true, NvimMode: "preserve"},
+		existingNvim: true,
+	}
+	model = updateInstallPlanner(t, model, "enter")
+	model = updateInstallPlanner(t, model, "enter")
+	if model.options.NvimMode != "preserve" {
+		t.Fatalf("default Neovim choice = %q, want preserve", model.options.NvimMode)
+	}
+}
+
+func updateInstallPlanner(t *testing.T, model installModel, key string) installModel {
+	t.Helper()
+	keyType := tea.KeyEnter
+	if key == "down" {
+		keyType = tea.KeyDown
+	}
+	updated, _ := model.Update(tea.KeyMsg{Type: keyType})
+	result, ok := updated.(installModel)
+	if !ok {
+		t.Fatalf("planner update returned %T", updated)
+	}
+	return result
 }
 
 func TestNativeInstallSetsBundledNeovimRuntime(t *testing.T) {

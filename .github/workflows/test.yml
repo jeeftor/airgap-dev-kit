@@ -182,11 +182,18 @@ jobs:
 
   test-install-ubuntu-20:
     name: Test Installation (Ubuntu 20.04)
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
+    container: ubuntu:20.04
     needs: test-build-linux
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+
+      - name: Install test dependencies
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            ca-certificates curl make tar gzip xz-utils unzip
       
       - name: Download binaries
         run: make update-linux
@@ -196,10 +203,12 @@ jobs:
       
       - name: Verify installation
         run: |
-          test -f ~/.local/bin/nvim
-          export PATH="$HOME/.local/bin:$PATH"
-          nvim --version
-          echo "✓ Works on Ubuntu 20.04"
+          # GitHub Actions containers run this job as root; the legacy installer
+          # therefore intentionally selects its system-wide destination.
+          test -x /usr/local/bin/nvim
+          test -x /usr/local/bin/rg
+          rg --version
+          echo "✓ Legacy installer completes on Ubuntu 20.04"
 
   test-config-copy-fallback:
     name: Test Config Copy Fallback
@@ -305,17 +314,22 @@ jobs:
       
       - name: Extract package to temp location
         run: |
-          mkdir -p /tmp/test-install/airgap-dev-kit
-          tar -xzf airgap-dev-kit.tar.gz -C /tmp/test-install/airgap-dev-kit
+          mkdir -p /tmp/test-install
+          tar -xzf airgap-dev-kit-linux-x86_64.tar.gz -C /tmp/test-install
       
       - name: Test installation from package
         run: |
           cd /tmp/test-install/airgap-dev-kit
-          echo -e "2\nn\n" | ./install.sh
+          export HOME=/tmp/test-install/home
+          export XDG_DATA_HOME="$HOME/.local/share"
+          export XDG_STATE_HOME="$HOME/.local/state"
+          ./airgap doctor --verify
+          ./airgap install --yes --nvim-mode=replace
       
       - name: Verify installation worked
         run: |
-          test -f ~/.local/bin/nvim || { echo "✗ Installation from package failed"; exit 1; }
+          test -x /tmp/test-install/home/.local/bin/nvim || { echo "✗ Installation from package failed"; exit 1; }
+          /tmp/test-install/home/.local/bin/nvim --headless '+qa'
           echo "✓ Offline package installation successful"
 
   test-dry-run:
