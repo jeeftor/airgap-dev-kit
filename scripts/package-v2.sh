@@ -32,6 +32,7 @@ printf '%s\n' "$version" > "$root/VERSION"
 cp -R config scripts docs "$root/"
 cp -R offline-packages/linux/. "$root/offline-packages/linux/amd64/"
 cp "$binary" "$root/offline-packages/linux/amd64/airgap"
+rm -f "$root/offline-packages/linux/amd64/airgap-dev-kit"
 ln -s airgap "$root/offline-packages/linux/amd64/airgap-dev-kit"
 # Keep the proven v1 installer usable while v2 migrates lifecycle operations:
 # root entries are lightweight links, while the manifest selects amd64.
