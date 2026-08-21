@@ -19,6 +19,25 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
+      - name: Set up Go build cache
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Restore LazyVim build cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.local/share/nvim/lazy
+          key: lazyvim-linux-${{ hashFiles('config/plugin-manifest.lua', 'config/nvim/.config/nvim/lazy-lock.json', '.github/workflows/update-binaries.yml') }}
+
+      - name: Restore Mason build cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.local/share/nvim-mason-test/mason
+          key: mason-linux-${{ hashFiles('config/plugin-manifest.lua', '.github/workflows/mason-config.lua', '.github/workflows/update-binaries.yml') }}
+
       - name: Download Linux binaries
         run: make update-linux
 
