@@ -27,7 +27,8 @@ stage=$(mktemp -d "${TMPDIR:-/tmp}/airgap-v2.XXXXXX")
 trap 'rm -rf "$stage"' EXIT HUP INT TERM
 root="$stage/$name"
 mkdir -p "$root/offline-packages/linux/amd64"
-cp install.sh uninstall.sh VERSION README.md "$root/"
+cp install.sh uninstall.sh README.md "$root/"
+printf '%s\n' "$version" > "$root/VERSION"
 cp -R config scripts docs "$root/"
 cp -R offline-packages/linux/. "$root/offline-packages/linux/amd64/"
 cp "$binary" "$root/offline-packages/linux/amd64/airgap"
