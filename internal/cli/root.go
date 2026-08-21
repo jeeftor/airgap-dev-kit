@@ -26,6 +26,7 @@ func New(version, commit string) *cobra.Command {
 	}
 	root.PersistentFlags().StringVar(&output, "output", "text", "Output format: text or json")
 	_ = viper.BindPFlag("output", root.PersistentFlags().Lookup("output"))
+	root.SetHelpFunc(func(command *cobra.Command, _ []string) { _ = writeHelp(command) })
 	root.AddCommand(versionCmd(version, commit), statusCmd(&output), doctorCmd(&output))
 	root.AddCommand(legacyCmd("install", "Install a kit from an offline payload", "install.sh"))
 	root.AddCommand(legacyCmd("uninstall", "Uninstall only tracked kit paths", "uninstall.sh"))
@@ -87,7 +88,28 @@ func doctorCmd(output *string) *cobra.Command {
 }
 
 func legacyCmd(name, short, script string) *cobra.Command {
-	return &cobra.Command{Use: name, Short: short, DisableFlagParsing: true, RunE: func(cmd *cobra.Command, args []string) error {
+	use := name
+	if name == "install" {
+		use = "install [installer options]"
+	}
+	return &cobra.Command{Use: use, Short: short, DisableFlagParsing: true, RunE: func(cmd *cobra.Command, args []string) error {
+		if name == "install" {
+			for _, arg := range args {
+				if arg == "--help" || arg == "-h" {
+					return writeHelp(cmd)
+				}
+			}
+		}
+		if name == "install" && wantsTUI(args) {
+			confirmed, err := confirmInstall(cmd)
+			if err != nil {
+				return err
+			}
+			if !confirmed {
+				_, err := fmt.Fprintln(cmd.OutOrStdout(), "Install cancelled.")
+				return err
+			}
+		}
 		root, err := kitRoot()
 		if err != nil {
 			return err
@@ -96,7 +118,7 @@ func legacyCmd(name, short, script string) *cobra.Command {
 		if _, err := os.Stat(path); err != nil {
 			return fmt.Errorf("%s is unavailable: %w", script, err)
 		}
-		child := exec.Command(path, args...)
+		child := exec.Command(path, withoutTUIFlag(args)...)
 		child.Dir, child.Stdin, child.Stdout, child.Stderr = root, cmd.InOrStdin(), cmd.OutOrStdout(), cmd.ErrOrStderr()
 		return child.Run()
 	}}
@@ -134,7 +156,7 @@ func cleanCmd() *cobra.Command {
 }
 
 func completionCmd(root *cobra.Command) *cobra.Command {
-	return &cobra.Command{Use: "completion [bash|zsh|fish|powershell]", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, a []string) error {
+	return &cobra.Command{Use: "completion [bash|zsh|fish|powershell]", Short: "Generate shell completion", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, a []string) error {
 		switch a[0] {
 		case "bash":
 			return root.GenBashCompletion(cmd.OutOrStdout())
@@ -184,8 +206,7 @@ func jsonOrText(cmd *cobra.Command, value any, text string) error {
 	if viper.GetString("output") != "text" {
 		return fmt.Errorf("unsupported output format %q", viper.GetString("output"))
 	}
-	_, err := fmt.Fprint(cmd.OutOrStdout(), text)
-	return err
+	return writeStyledText(cmd, cmd.OutOrStdout(), text)
 }
 
 func isPrerelease(version string) bool { return strings.Contains(version, "-") }
