@@ -19,6 +19,9 @@ while [ "$#" -gt 0 ]; do
 done
 [ -x "$binary" ] || { echo "A built executable is required: $binary" >&2; exit 1; }
 [ "$flavor" = full ] || [ "$flavor" = cli ] || usage
+for payload_archive in lazy-plugins.tar.gz mason-lsp.tar.gz; do
+  [ -f "offline-packages/$payload_archive" ] || { echo "Missing required editor payload: offline-packages/$payload_archive (run make build-editor-payloads)" >&2; exit 1; }
+done
 
 name="airgap-dev-kit"
 archive="airgap-dev-kit-linux-x86_64.tar.gz"
@@ -32,9 +35,7 @@ printf '%s\n' "$version" > "$root/VERSION"
 cp -R config docs "$root/"
 cp -R offline-packages/linux/. "$root/offline-packages/linux/amd64/"
 for payload_archive in lazy-plugins.tar.gz mason-lsp.tar.gz; do
-  if [ -f "offline-packages/$payload_archive" ]; then
-    cp "offline-packages/$payload_archive" "$root/offline-packages/"
-  fi
+  cp "offline-packages/$payload_archive" "$root/offline-packages/"
 done
 cp "$binary" "$root/offline-packages/linux/amd64/airgap"
 rm -f "$root/offline-packages/linux/amd64/airgap-dev-kit"

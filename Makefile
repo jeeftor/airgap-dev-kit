@@ -1,4 +1,6 @@
-.PHONY: help update verify package package-cli package-v2 release package-with-config download-release docker-test test-cli-package test-v2-package test-update-tools check-updates check-updates-strict clean clean-all install sync-nvim-config version-file airgap
+.PHONY: help update verify package package-cli package-v2 release local-release build-editor-payloads package-with-config download-release docker-test test-cli-package test-v2-package test-update-tools check-updates check-updates-strict clean clean-all install sync-nvim-config version-file airgap
+
+HOST_OS := $(shell uname -s)
 
 # Version variables - update these when new releases are available
 WEZTERM_VERSION := 20240203-110809-5046fc22
@@ -39,6 +41,7 @@ help:
 	@echo "make package-cli       - Create CLI-only tarball without GUI tools or fonts"
 	@echo "make package-v2        - Create target-aware v2 kit (BINARY=path/to/airgap)"
 	@echo "make release           - Build and package the Linux amd64 release kit"
+	@echo "make local-release     - Build a complete Linux amd64 kit in Docker (no bind mount)"
 	@echo "make test-v2-package   - Verify the v2 archive layout and launchers"
 	@echo "make download-release  - Download and verify the latest Linux release package"
 	@echo "make docker-test       - Package and smoke test install/remove in Docker"
@@ -436,7 +439,9 @@ verify:
 
 version-file:
 	@echo "Embedding kit version information..."
-	@(if git rev-parse --git-dir >/dev/null 2>&1; then \
+	@(if [ -n "$(KIT_VERSION)" ]; then \
+		echo "$(KIT_VERSION)"; \
+	elif git rev-parse --git-dir >/dev/null 2>&1; then \
 		git describe --tags --always --dirty; \
 	else \
 		echo "unknown"; \
@@ -454,13 +459,34 @@ package-v2:
 	@test -n "$(BINARY)" || (echo "Set BINARY to the prebuilt Linux amd64 airgap binary" >&2; exit 2)
 	@sh scripts/package-v2.sh --binary "$(BINARY)" --flavor "$(FLAVOR)" --output "$(OUTPUT)"
 
+ifeq ($(HOST_OS),Darwin)
+release:
+	@echo "Building the complete Linux amd64 kit through Docker (no bind mount)..."
+	@$(MAKE) --no-print-directory local-release OUTPUT="$(OUTPUT)" FLAVOR="$(FLAVOR)"
+else
 release: version-file verify
 	@echo "Building Linux amd64 airgap release binary..."
-	@kit_version=$$(cat VERSION); kit_commit=$$(git rev-parse --short HEAD); GOOS=linux GOARCH=amd64 CGO_ENABLED=0 GOCACHE="$${GOCACHE:-/tmp/airgap-dev-kit-gocache}" GOMODCACHE="$${GOMODCACHE:-/tmp/airgap-dev-kit-gomodcache}" go build -trimpath -ldflags "-s -w -X main.version=$$kit_version -X main.commit=$$kit_commit" -o /tmp/airgap-dev-kit-release-airgap ./main.go
+	@kit_version=$$(cat VERSION); kit_commit="$(KIT_COMMIT)"; if [ -z "$$kit_commit" ]; then kit_commit=$$(git rev-parse --short HEAD 2>/dev/null || printf unknown); fi; GOOS=linux GOARCH=amd64 CGO_ENABLED=0 GOCACHE="$${GOCACHE:-/tmp/airgap-dev-kit-gocache}" GOMODCACHE="$${GOMODCACHE:-/tmp/airgap-dev-kit-gomodcache}" go build -trimpath -ldflags "-s -w -X main.version=$$kit_version -X main.commit=$$kit_commit" -o /tmp/airgap-dev-kit-release-airgap ./main.go
 	@$(MAKE) --no-print-directory package-v2 BINARY=/tmp/airgap-dev-kit-release-airgap FLAVOR="$(FLAVOR)" OUTPUT="$(OUTPUT)"
 	@rm -f /tmp/airgap-dev-kit-release-airgap VERSION
 	@echo "Release ready: $(OUTPUT)/airgap-dev-kit-linux-x86_64.tar.gz"
 	@echo "Checksum file: $(OUTPUT)/checksums.txt"
+endif
+
+# Build both payload archives with the bundled Linux Neovim. This target must
+# run on Linux (or in the Docker-backed local-release target), not macOS.
+ifeq ($(HOST_OS),Darwin)
+build-editor-payloads:
+	@echo "build-editor-payloads requires Linux; run make local-release on macOS" >&2
+	@exit 2
+else
+build-editor-payloads: update-linux
+	@NVIM="$(CURDIR)/offline-packages/linux/nvim-static-x86_64" VIMRUNTIME="$(CURDIR)/offline-packages/linux/nvim-runtime" LAZY_CONFIG="$(CURDIR)/config/nvim/.config/nvim" LAZY_OUTPUT="$(CURDIR)/offline-packages/lazy-plugins.tar.gz" bash scripts/build-lazy-payload.sh
+	@NVIM="$(CURDIR)/offline-packages/linux/nvim-static-x86_64" VIMRUNTIME="$(CURDIR)/offline-packages/linux/nvim-runtime" MASON_MANIFEST="$(CURDIR)/config/plugin-manifest.lua" MASON_OUTPUT="$(CURDIR)/offline-packages/mason-lsp.tar.gz" bash scripts/build-mason-payload.sh
+endif
+
+local-release:
+	@bash scripts/build-local-linux-release.sh --output "$(OUTPUT)" --flavor "$(FLAVOR)"
 
 test-v2-package:
 	@bash test/scripts/test-v2-package.sh

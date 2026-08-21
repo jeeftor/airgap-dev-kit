@@ -31,4 +31,25 @@ if tar -tzf "$archive" | grep -Eq '^airgap-dev-kit/(install|uninstall)\.sh$|^air
   echo 'v2 package must not ship legacy lifecycle scripts' >&2
   exit 1
 fi
+
+assert_missing_payload_is_rejected() {
+  payload_name=$1
+  case_dir="$tmp_dir/missing-${payload_name%.tar.gz}"
+  cp -R "$fixture" "$case_dir"
+  rm -f "$case_dir/offline-packages/$payload_name"
+
+  if (
+    cd "$case_dir"
+    sh scripts/package-v2.sh --binary ./airgap --version v0.0.0 --output "$tmp_dir/output-missing-${payload_name%.tar.gz}"
+  ); then
+    echo "v2 package must reject a missing offline-packages/$payload_name payload" >&2
+    exit 1
+  fi
+}
+
+# A successful package must be self-contained: both archives are needed to
+# install LazyVim and Mason without reaching the network on the target host.
+assert_missing_payload_is_rejected lazy-plugins.tar.gz
+assert_missing_payload_is_rejected mason-lsp.tar.gz
+
 echo 'v2 package layout verified'

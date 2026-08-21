@@ -214,11 +214,19 @@ make verify            # Verify binaries are valid
 make package           # Create full deployment tarball
 make package-cli       # Create CLI-only tarball
 make docker-test       # Smoke test full package in Docker
+make local-release     # Build a complete Linux amd64 release through Docker
 make test-cli-package  # Test CLI-only package layout and dry-run behavior
 make install           # Install on current machine
 make sync-nvim-config  # Sync ~/.config/nvim to repo
 make clean             # Remove binaries (keep placeholders)
 ```
+
+`make local-release OUTPUT=/path/to/output` is the supported way to produce a
+complete Linux amd64 kit from macOS or another non-Linux workstation. It uses
+Docker only as a connected build environment, transfers source and output with
+`docker cp` (no bind mount), and runs the bundled Linux Neovim to create the
+LazyVim and Mason payloads. Installing the produced archive does not require
+Docker or network access.
 
 ## 🚀 airgap-dev-kit CLI
 
