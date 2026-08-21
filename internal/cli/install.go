@@ -89,11 +89,11 @@ func installKit(cmd *cobra.Command, options installOptions) error {
 		}
 		return nil
 	}
-	if !options.Yes && !wantsTUI(nil) {
-		return fmt.Errorf("install requires --yes when input is not interactive")
-	}
 	if !options.Yes {
-		confirmed, err := confirmInstall(cmd)
+		if !wantsTUI(nil) {
+			return fmt.Errorf("install requires --yes when input is not interactive")
+		}
+		planned, confirmed, err := planInstall(cmd, options, nvimStateExists(home, dataHome))
 		if err != nil {
 			return err
 		}
@@ -101,6 +101,7 @@ func installKit(cmd *cobra.Command, options installOptions) error {
 			fmt.Fprintln(cmd.OutOrStdout(), "Install cancelled.")
 			return nil
 		}
+		options = planned
 	}
 
 	fmt.Fprintln(cmd.OutOrStdout(), styled(cmd, titleStyle, "Airgap install"))
