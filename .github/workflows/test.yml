@@ -305,17 +305,22 @@ jobs:
       
       - name: Extract package to temp location
         run: |
-          mkdir -p /tmp/test-install/airgap-dev-kit
-          tar -xzf airgap-dev-kit.tar.gz -C /tmp/test-install/airgap-dev-kit
+          mkdir -p /tmp/test-install
+          tar -xzf airgap-dev-kit-linux-x86_64.tar.gz -C /tmp/test-install
       
       - name: Test installation from package
         run: |
           cd /tmp/test-install/airgap-dev-kit
-          echo -e "2\nn\n" | ./install.sh
+          export HOME=/tmp/test-install/home
+          export XDG_DATA_HOME="$HOME/.local/share"
+          export XDG_STATE_HOME="$HOME/.local/state"
+          ./airgap doctor --verify
+          ./airgap install --yes --nvim-mode=replace
       
       - name: Verify installation worked
         run: |
-          test -f ~/.local/bin/nvim || { echo "✗ Installation from package failed"; exit 1; }
+          test -x /tmp/test-install/home/.local/bin/nvim || { echo "✗ Installation from package failed"; exit 1; }
+          /tmp/test-install/home/.local/bin/nvim --headless '+qa'
           echo "✓ Offline package installation successful"
 
   test-dry-run:
