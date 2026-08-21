@@ -17,17 +17,31 @@ jobs:
       - name: Create artifacts directory
         run: mkdir -p artifacts
 
+      - name: Resolve latest Neovim release source
+        id: neovim-source
+        run: |
+          source="$(git ls-remote --tags --refs https://github.com/neovim/neovim.git | awk '$2 ~ /^refs\/tags\/v[0-9]+\.[0-9]+\.[0-9]+$/ { print $1, substr($2, 11) }' | sort -k2 -V | tail -n 1)"
+          set -- $source
+          commit="$1"
+          tag="$2"
+          test -n "$commit"
+          test -n "$tag"
+          printf 'commit=%s\n' "$commit" >> "$GITHUB_OUTPUT"
+          printf 'tag=%s\n' "$tag" >> "$GITHUB_OUTPUT"
+
       - name: Cache static Neovim binary
         id: cache-neovim
         uses: actions/cache@v6
         with:
           path: artifacts
-          key: static-neovim-x86_64-stable  # Change the key to invalidate cache when needed (e.g., for new Neovim versions)
+          key: static-neovim-linux-x86_64-static-v1-${{ steps.neovim-source.outputs.tag }}-${{ steps.neovim-source.outputs.commit }}
 
       - name: Clone and build Neovim if not cached
         if: steps.cache-neovim.outputs.cache-hit != 'true'
+        env:
+          NEOVIM_TAG: ${{ steps.neovim-source.outputs.tag }}
         run: |
-          git clone --depth 1 --branch stable https://github.com/neovim/neovim
+          git clone --depth 1 --branch "$NEOVIM_TAG" https://github.com/neovim/neovim
           cd neovim
           make CMAKE_EXTRA_FLAGS="-DSTATIC_BUILD=1"
           cp build/bin/nvim ../artifacts/nvim-static-x86_64

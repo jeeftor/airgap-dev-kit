@@ -149,7 +149,6 @@ tmux new-session nvim
 - **gopls** - Go language server for IDE features (autocomplete, diagnostics, goto definitions)
 - **delta** - Stunning git diff viewer with syntax highlighting
 - **svu** - Semantic version utility for release management
-- **stow** - GNU Stow for dotfile symlink management (used when already installed)
 - **gum** - Charm Bracelet TUI toolkit for pretty prompts (bundled)
 
 ### Language Support
@@ -280,14 +279,6 @@ For an unattended replacement of a previous Neovim setup, run `./airgap install 
 
 ### Directory Structure After Install
 
-**System-wide install:**
-```
-/usr/local/bin/        # Binaries (requires sudo)
-├── tmux, nvim, fzf, fd, rg, bat, starship
-├── wezterm           # Full package only
-└── (optional: btop, lsd, zoxide, direnv, dust, delta, svu, gum, glow, broot, fastfetch)
-```
-
 **User-local install:**
 ```
 ~/.local/bin/          # Binaries (no sudo needed)
@@ -296,11 +287,11 @@ For an unattended replacement of a previous Neovim setup, run `./airgap install 
 └── (optional: btop, lsd, zoxide, direnv, dust, delta, svu, gum, glow, broot, fastfetch)
 ```
 
-**Configuration files (both install types):**
+**Configuration files:**
 ```
 ~/
 ├── .config/
-│   ├── nvim/          # Neovim config (symlinked via Stow or copied)
+│   ├── nvim/          # Neovim config (copied from the kit when installed)
 │   ├── wezterm/       # WezTerm GUI configuration
 │   └── starship.toml  # Prompt config
 ├── .tmux.conf         # Tmux config
@@ -320,14 +311,10 @@ CLI-only installs do not create `~/.local/share/fonts/` from this kit and do not
 
 ### Air-Gapped Machine (for installing)
 - **No external dependencies required!**
-  - GNU Stow is bundled in the package for dotfile management
-  - Falls back to direct copy if Stow fails
-  - Everything needed is included
+  - Everything needed is included in the extracted kit
 
 ## 📖 Documentation
 
-- [INSTALLATION-TRACKING.md](INSTALLATION-TRACKING.md) - Installation tracking & undo system
-- [config/README.md](config/README.md) - GNU Stow configuration guide
 - [CHANGES.md](CHANGES.md) - Recent changes and improvements
 - [CLAUDE.md](CLAUDE.md) - Comprehensive developer guide
 - [Releases](https://github.com/jeeftor/airgap-dev-kit/releases) - Download pre-built packages
@@ -346,81 +333,63 @@ source ~/.zshrc   # zsh only; do not run this from bash
 export PATH="$HOME/bin:$PATH"
 ```
 
-**Permission denied errors:**
-```bash
-# For user-local install
-chmod +x ~/.local/bin/*
-
-# For system-wide install (if needed)
-sudo chmod +x /usr/local/bin/*
-```
-
-**Can't install system-wide (no sudo access):**
-- Choose option 2 (user-local install) when prompted
-- Installer will automatically use `~/.local/bin`
-- Remember to add to PATH as shown above
-
-**Stow conflicts:**
-```bash
-# The installer now handles this automatically with backups
-# But if you need to manually fix:
-
-# Remove old symlinks
-cd config && stow -D -t ~ */
-
-# Backup conflicting files
-mv ~/.config/nvim ~/.config/nvim.backup
-
-# Re-stow
-cd config && stow -t ~ */
-```
-
-**Config directory structure issues:**
-```bash
-# If you're getting Stow errors, restructure the config directory:
-./restructure-config-for-stow.sh
-
-# See config/README.md for details on proper Stow structure
-```
-
 **Neovim plugins missing:**
 - Ensure `offline-packages/lazy-plugins.tar.gz` exists
 - GitHub Actions should bundle this automatically
-- Or manually run: `nvim --headless "+Lazy! sync" +qa` on internet machine
+- After installing, run `~/.local/bin/nvim --headless '+qa'` to verify the bundled runtime starts
 
 **Installation fails with "command not found":**
 - Make sure you're running `./airgap install` from the extracted `airgap-dev-kit` directory
 - Check that the root launcher is executable: `chmod +x airgap`
 
-## 🗑️ Uninstallation
+**Repairing an older or broken installation:**
 
-The kit includes a smart uninstaller that uses the installation log:
+Always start with the launcher in the newly extracted kit. A bare `airgap` on
+your `PATH` can be an older release and cannot safely operate on this kit.
 
 ```bash
+cd /path/to/extracted/airgap-dev-kit
+./airgap doctor --verify
+./airgap install --nvim-mode=replace
+~/.local/bin/nvim --headless '+qa'
+./airgap doctor --verify
+```
+
+`--nvim-mode=replace` backs up the complete existing Neovim profile before
+installing the bundled configuration, runtime, LazyVim plugins, and Mason LSP
+payload. Backups are kept under `~/.local/share/airgap-dev-kit/backups/`.
+
+## 🗑️ Uninstallation
+
+The v2 CLI removes only paths it recorded during installation. Preview the
+tracked paths first, then confirm removal:
+
+```bash
+./airgap uninstall --dry-run
 ./airgap uninstall --yes
 ```
 
 **Features:**
-- ✅ Reads installation log (`~/.airgap-dev-kit-install.log`)
-- ✅ Shows exactly what will be removed
+- ✅ Reads the JSON install record at `~/.local/state/airgap-dev-kit/install.json` (or `$XDG_STATE_HOME/airgap-dev-kit/install.json`)
+- ✅ Removes only recorded paths
 - ✅ Preserves backups created during installation
-- ✅ Properly unstows Stow packages
 - ✅ Cleans shell configurations
-- ✅ Falls back to manual search if no log exists
+- ✅ Refuses to guess at untracked legacy files when no record exists
 
 **What gets removed:**
 - All installed binaries
-- Configuration files (with confirmation)
+- Configuration files recorded by this installation
 - Neovim plugins and data
 - Shell RC modifications
 - Fonts (optional)
 
 **What gets preserved:**
-- Backup files (`.backup-*` files)
-- Shell config backups (`.bashrc.airgap-backup`)
-- Custom modifications you made
+- Neovim profile backups under `~/.local/share/airgap-dev-kit/backups/`
+- Untracked legacy files and custom modifications
 
-See [INSTALLATION-TRACKING.md](INSTALLATION-TRACKING.md) for details.
+If `uninstall` reports no native record, it has not removed anything. Use the
+repair procedure above to replace an old Neovim setup safely; review and remove
+other legacy files yourself rather than relying on a broad fallback delete.
 
 ## 🔐 Security
 
