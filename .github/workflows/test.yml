@@ -182,11 +182,18 @@ jobs:
 
   test-install-ubuntu-20:
     name: Test Installation (Ubuntu 20.04)
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
+    container: ubuntu:20.04
     needs: test-build-linux
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+
+      - name: Install test dependencies
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            ca-certificates curl make tar gzip xz-utils unzip
       
       - name: Download binaries
         run: make update-linux
