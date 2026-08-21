@@ -144,7 +144,7 @@ Test both installation modes:
 ### 3. Update GitHub Actions (if needed)
 
 The workflow should still work, but verify:
-- `config/nvim/.config/nvim/` path is used in line 49 of `.github/workflows/update-binaries.yml`
+- `config/nvim/.config/nvim/` is used by `.github/workflows/release.yml`
 - After restructuring, this should become `config/nvim/.config/nvim/`
 
 Update line 49:

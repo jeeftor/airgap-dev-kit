@@ -126,17 +126,15 @@ docker run --rm -it \
 
 ### GitHub Actions
 
-Workflow: `.github/workflows/build-nvim-packages.yml`
+Workflow: `.github/workflows/release.yml`
 
-**Triggers automatically on:**
-- Push to main (if `config/plugin-manifest.lua` changed)
-- Weekly schedule (Sunday at midnight UTC)
-- Manual dispatch
+**Triggers on:**
+- A pushed SemVer tag (`vX.Y.Z`)
 
-**Creates artifacts:**
-- `lazyvim-plugins.tar.gz`
-- `mason-packages.tar.gz`
-- `MANIFEST.txt` (lists all installed packages)
+**Creates the release payload:**
+- `offline-packages/lazy-plugins.tar.gz`
+- `offline-packages/mason-lsp.tar.gz`
+- the checksum-backed Linux kit archive
 
 ### Manual Script Usage
 
@@ -229,7 +227,7 @@ airgap-dev-kit/
 │   └── test-with-manifest.sh         ← Test wrapper
 ├── .github/
 │   └── workflows/
-│       └── build-nvim-packages.yml   ← GitHub Actions
+│       └── release.yml               ← Tagged GitHub release build
 └── Makefile                          ← Convenient commands
 ```
 
@@ -362,7 +360,7 @@ docker run --rm -it -v $(pwd):/workspace airgap-mason-test bash
 ```
 
 ### GitHub Actions not triggering?
-Check workflow paths in `.github/workflows/build-nvim-packages.yml`:
+Check release payload paths in `.github/workflows/release.yml`:
 ```yaml
 paths:
   - 'config/plugin-manifest.lua'  # Must match your file

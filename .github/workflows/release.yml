@@ -1,0 +1,123 @@
+name: Release Air-Gap Kit
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+  artifact-metadata: write
+
+jobs:
+  release:
+    name: Build and publish Linux amd64 kit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Validate release tag
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          case "$TAG" in
+            v[0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "Release tags must use SemVer: vX.Y.Z" >&2; exit 1 ;;
+          esac
+          git tag --points-at HEAD | grep -Fx "$TAG"
+
+      - name: Set up Go build cache
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Restore LazyVim build cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.local/share/nvim/lazy
+          key: release-lazy-linux-v1-${{ hashFiles('config/plugin-manifest.lua', 'config/nvim/.config/nvim/lazy-lock.json') }}
+
+      - name: Restore Mason build cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.local/share/nvim-mason-test
+          key: release-mason-linux-v1-${{ hashFiles('config/plugin-manifest.lua', '.github/workflows/release.yml', 'scripts/build-mason-payload.sh') }}
+
+      - name: Download Linux payload inputs
+        run: |
+          set -euo pipefail
+          make update-linux
+          make update-fonts
+
+      - name: Bundle pinned LazyVim plugins
+        run: |
+          set -euo pipefail
+          nvim="$GITHUB_WORKSPACE/offline-packages/linux/nvim-static-x86_64"
+          export VIMRUNTIME="$GITHUB_WORKSPACE/offline-packages/linux/nvim-runtime"
+          chmod +x "$nvim"
+          mkdir -p ~/.config/nvim
+          cp -R "$GITHUB_WORKSPACE/config/nvim/.config/nvim/." ~/.config/nvim/
+          sed -i 's/missing = false/missing = true/' ~/.config/nvim/lua/config/lazy.lua
+          "$nvim" --headless '+Lazy! sync' +qa
+          sed -i 's/missing = true/missing = false/' ~/.config/nvim/lua/config/lazy.lua
+          test -d ~/.local/share/nvim/lazy
+          cd ~/.local/share/nvim
+          cp ~/.config/nvim/lazy-lock.json .
+          tar -czf "$GITHUB_WORKSPACE/offline-packages/lazy-plugins.tar.gz" lazy lazy-lock.json
+
+      - name: Bundle pinned Mason LSP payload
+        run: |
+          set -euo pipefail
+          chmod +x "$GITHUB_WORKSPACE/offline-packages/linux/nvim-static-x86_64"
+          NVIM="$GITHUB_WORKSPACE/offline-packages/linux/nvim-static-x86_64" \
+          VIMRUNTIME="$GITHUB_WORKSPACE/offline-packages/linux/nvim-runtime" \
+          MASON_MANIFEST="$GITHUB_WORKSPACE/config/plugin-manifest.lua" \
+          MASON_OUTPUT="$GITHUB_WORKSPACE/offline-packages/mason-lsp.tar.gz" \
+            bash scripts/build-mason-payload.sh
+
+      - name: Build release archive
+        run: |
+          set -euo pipefail
+          make release
+          sha256sum -c checksums.txt
+          tar -tzf airgap-dev-kit-linux-x86_64.tar.gz | grep -Fx 'airgap-dev-kit/airgap'
+          tar -tzf airgap-dev-kit-linux-x86_64.tar.gz | grep -Fx 'airgap-dev-kit/offline-packages/lazy-plugins.tar.gz'
+          tar -tzf airgap-dev-kit-linux-x86_64.tar.gz | grep -Fx 'airgap-dev-kit/offline-packages/mason-lsp.tar.gz'
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Air-Gap Dev Kit ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            airgap-dev-kit-linux-x86_64.tar.gz
+            checksums.txt
+
+      - name: Attest release archive
+        uses: actions/attest@v4
+        with:
+          subject-path: airgap-dev-kit-linux-x86_64.tar.gz
+
+      - name: Attest checksum file
+        uses: actions/attest@v4
+        with:
+          subject-path: checksums.txt
+
+      - name: Upload release build artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: airgap-dev-kit-${{ github.ref_name }}
+          path: |
+            airgap-dev-kit-linux-x86_64.tar.gz
+            checksums.txt
+          retention-days: 30

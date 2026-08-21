@@ -2,7 +2,7 @@
 
 A complete, offline-ready terminal development environment for Linux, designed for air-gapped systems. Choose the full package with WezTerm and fonts, or the CLI-only package for headless servers and SSH workflows. Both include tmux, Neovim, and modern CLI tools with zero internet dependency on the target machine.
 
-[![GitHub Actions](https://img.shields.io/github/actions/workflow/status/jeeftor/airgap-dev-kit/update-binaries.yml)](https://github.com/jeeftor/airgap-dev-kit/actions)
+[![GitHub Actions](https://img.shields.io/github/actions/workflow/status/jeeftor/airgap-dev-kit/release.yml)](https://github.com/jeeftor/airgap-dev-kit/actions)
 [![Latest Release](https://img.shields.io/github/v/release/jeeftor/airgap-dev-kit)](https://github.com/jeeftor/airgap-dev-kit/releases/latest)
 
 ## ⚡ Quick Start
@@ -185,16 +185,21 @@ The CLI-only package omits WezTerm and JetBrainsMono Nerd Font to keep installs 
 
 ## 📦 GitHub Actions Automation
 
-This repository automatically builds fresh releases every Sunday with:
-- All latest stable binaries
-- Neovim plugins pre-downloaded via lazy.nvim
+This repository publishes a release only from an explicit SemVer tag, with:
+- Version-pinned Linux binaries
+- Neovim plugins and Mason payloads built from the committed manifest
 - SHA256 checksums for verification
 - Ready-to-deploy packages
 
-**Trigger a build:**
-- Automatically: Every Sunday at midnight UTC
-- Manually: Go to Actions → "Update Air-Gap Kit" → "Run workflow"
-- On Push: When pushing config changes to master/main
+**Publish a release:**
+
+```bash
+git tag -a vX.Y.Z -m "Release vX.Y.Z"
+git push origin vX.Y.Z
+```
+
+The `Release Air-Gap Kit` workflow is the only publisher. Pushes and pull
+requests run validation only; they never create GitHub Releases.
 
 **Security & Provenance:**
 - ✅ **SLSA Attestations** - All releases include cryptographic provenance

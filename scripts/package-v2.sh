@@ -31,6 +31,11 @@ cp install.sh uninstall.sh README.md "$root/"
 printf '%s\n' "$version" > "$root/VERSION"
 cp -R config scripts docs "$root/"
 cp -R offline-packages/linux/. "$root/offline-packages/linux/amd64/"
+for payload_archive in lazy-plugins.tar.gz mason-lsp.tar.gz; do
+  if [ -f "offline-packages/$payload_archive" ]; then
+    cp "offline-packages/$payload_archive" "$root/offline-packages/"
+  fi
+done
 cp "$binary" "$root/offline-packages/linux/amd64/airgap"
 rm -f "$root/offline-packages/linux/amd64/airgap-dev-kit"
 ln -s airgap "$root/offline-packages/linux/amd64/airgap-dev-kit"

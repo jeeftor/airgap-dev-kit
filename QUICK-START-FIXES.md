@@ -24,21 +24,10 @@ git commit -m "Fix: Restructure config for GNU Stow compatibility"
 
 ## Step 2: Update GitHub Actions Workflow (2 minutes)
 
-Edit `.github/workflows/update-binaries.yml` line 49:
-
-**Change from:**
-```yaml
-cp -r $GITHUB_WORKSPACE/config/nvim/.config/nvim/* ~/.config/nvim/
-```
-
-**Change to:**
-```yaml
-cp -r $GITHUB_WORKSPACE/config/nvim/.config/nvim/* ~/.config/nvim/
-```
-
-Commit:
+The canonical release workflow is `.github/workflows/release.yml`. If you
+change the config layout, update its plugin bundle path in the same commit:
 ```bash
-git add .github/workflows/update-binaries.yml
+git add .github/workflows/release.yml
 git commit -m "Fix: Update workflow for new config structure"
 ```
 
@@ -156,7 +145,7 @@ cd config && stow -t ~ */
 ## Summary
 
 1. ✅ Run `./restructure-config-for-stow.sh`
-2. ✅ Update `.github/workflows/update-binaries.yml` line 49
+2. ✅ Verify `.github/workflows/release.yml` uses the current config path
 3. ✅ Test locally with `./install.sh`
 4. ✅ Commit and push
 5. ✅ Done!

@@ -7,7 +7,7 @@ on:
       - 'install.sh'
       - 'test/scripts/test-nvim-state-safety.sh'
       - '.github/workflows/nvim-config-ci.yml'
-      - '.github/workflows/update-binaries.yml'
+      - '.github/workflows/release.yml'
       - '.github/workflows/mason-config.lua'
   pull_request:
     paths:
@@ -15,9 +15,13 @@ on:
       - 'install.sh'
       - 'test/scripts/test-nvim-state-safety.sh'
       - '.github/workflows/nvim-config-ci.yml'
-      - '.github/workflows/update-binaries.yml'
+      - '.github/workflows/release.yml'
       - '.github/workflows/mason-config.lua'
   workflow_dispatch:
+
+concurrency:
+  group: nvim-config-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   lint-lua:

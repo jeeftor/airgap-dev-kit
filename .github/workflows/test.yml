@@ -7,7 +7,34 @@ on:
     branches: [ master ]
   workflow_dispatch:  # Allow manual trigger
 
+concurrency:
+  group: test-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  test-airgap-v2:
+    name: Test airgap v2 command and package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Test lifecycle code and v2 archive layout
+        run: |
+          set -euo pipefail
+          go test ./...
+          go vet ./...
+          go build -trimpath -o /tmp/airgap ./main.go
+          /tmp/airgap version
+          make test-v2-package
+
   test-nvim-installer-safety:
     name: Test Neovim State Safety
     runs-on: ubuntu-latest

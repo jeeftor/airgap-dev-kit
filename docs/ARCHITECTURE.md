@@ -26,7 +26,7 @@
 │  (Docker)         │          │  (Cloud)           │
 │                   │          │                    │
 │ make test-manifest│          │ .github/workflows/ │
-│        ↓          │          │ build-nvim-packages│
+│        ↓          │          │ release.yml        │
 │   airgap-mason-   │          │        ↓           │
 │   test container  │          │   ubuntu-latest    │
 │        ↓          │          │        ↓           │
@@ -114,14 +114,13 @@ test/
 
 ```
 .github/workflows/
-└── build-nvim-packages.yml
+└── release.yml
     │
-    ├─→ Trigger: push to main, weekly schedule
-    ├─→ Build Neovim from source
-    ├─→ Run: scripts/install-from-manifest.sh
-    ├─→ Package: tar -czf ...
-    ├─→ Upload artifacts
-    └─→ Create release (on tag)
+    ├─→ Trigger: SemVer tag push only
+    ├─→ Build the Linux kit from committed inputs
+    ├─→ Bundle LazyVim and Mason payloads
+    ├─→ Verify archive layout and checksum
+    └─→ Create the GitHub Release
 ```
 
 ### 5. Deployment Layer

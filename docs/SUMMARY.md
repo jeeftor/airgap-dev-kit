@@ -21,7 +21,7 @@ A **Don't Repeat Yourself (DRY)** system for managing Neovim plugins and LSP ser
 5. **`make test-package-manifest`** - Package plugins for production
 
 ### GitHub Actions
-6. **`.github/workflows/build-nvim-packages.yml`** - Automated builds
+6. **`.github/workflows/release.yml`** - Canonical tagged release build
 
 ### Documentation
 7. **`docs/QUICK-START-DRY.md`** - 2-minute quick start

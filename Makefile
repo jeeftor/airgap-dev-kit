@@ -1,4 +1,4 @@
-.PHONY: help update verify package package-cli package-v2 release package-with-config download-release docker-test test-cli-package test-update-tools check-updates check-updates-strict clean clean-all install sync-nvim-config version-file airgap
+.PHONY: help update verify package package-cli package-v2 release package-with-config download-release docker-test test-cli-package test-v2-package test-update-tools check-updates check-updates-strict clean clean-all install sync-nvim-config version-file airgap
 
 # Version variables - update these when new releases are available
 WEZTERM_VERSION := 20240203-110809-5046fc22
@@ -39,6 +39,7 @@ help:
 	@echo "make package-cli       - Create CLI-only tarball without GUI tools or fonts"
 	@echo "make package-v2        - Create target-aware v2 kit (BINARY=path/to/airgap)"
 	@echo "make release           - Build and package the Linux amd64 release kit"
+	@echo "make test-v2-package   - Verify the v2 archive layout and launchers"
 	@echo "make download-release  - Download and verify the latest Linux release package"
 	@echo "make docker-test       - Package and smoke test install/remove in Docker"
 	@echo "make test-cli-package  - Test the CLI-only package and installer mode"
@@ -487,13 +488,16 @@ package-v2:
 	@test -n "$(BINARY)" || (echo "Set BINARY to the prebuilt Linux amd64 airgap binary" >&2; exit 2)
 	@sh scripts/package-v2.sh --binary "$(BINARY)" --flavor "$(FLAVOR)" --output "$(OUTPUT)"
 
-release: version-file
+release: version-file verify
 	@echo "Building Linux amd64 airgap release binary..."
 	@kit_version=$$(cat VERSION); kit_commit=$$(git rev-parse --short HEAD); GOOS=linux GOARCH=amd64 CGO_ENABLED=0 GOCACHE="$${GOCACHE:-/tmp/airgap-dev-kit-gocache}" GOMODCACHE="$${GOMODCACHE:-/tmp/airgap-dev-kit-gomodcache}" go build -trimpath -ldflags "-s -w -X main.version=$$kit_version -X main.commit=$$kit_commit" -o /tmp/airgap-dev-kit-release-airgap ./main.go
 	@$(MAKE) --no-print-directory package-v2 BINARY=/tmp/airgap-dev-kit-release-airgap FLAVOR="$(FLAVOR)" OUTPUT="$(OUTPUT)"
 	@rm -f /tmp/airgap-dev-kit-release-airgap VERSION
 	@echo "Release ready: $(OUTPUT)/airgap-dev-kit-linux-x86_64.tar.gz"
 	@echo "Checksum file: $(OUTPUT)/checksums.txt"
+
+test-v2-package:
+	@bash test/scripts/test-v2-package.sh
 
 package-cli: version-file
 	@echo "Creating CLI-only deployment package..."
