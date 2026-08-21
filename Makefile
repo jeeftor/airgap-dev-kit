@@ -1,4 +1,4 @@
-.PHONY: help update verify package package-cli package-with-config download-release docker-test test-cli-package test-update-tools check-updates check-updates-strict clean clean-all install sync-nvim-config version-file
+.PHONY: help update verify package package-cli package-v2 package-with-config download-release docker-test test-cli-package test-update-tools check-updates check-updates-strict clean clean-all install sync-nvim-config version-file airgap
 
 # Version variables - update these when new releases are available
 WEZTERM_VERSION := 20240203-110809-5046fc22
@@ -35,6 +35,7 @@ help:
 	@echo "make verify            - Verify all binaries are present and valid"
 	@echo "make package           - Create tarball for offline deployment"
 	@echo "make package-cli       - Create CLI-only tarball without GUI tools or fonts"
+	@echo "make package-v2        - Create target-aware v2 kit (BINARY=path/to/airgap)"
 	@echo "make download-release  - Download and verify the latest Linux release package"
 	@echo "make docker-test       - Package and smoke test install/remove in Docker"
 	@echo "make test-cli-package  - Test the CLI-only package and installer mode"
@@ -432,55 +433,7 @@ update-fonts:
 	fi
 
 verify:
-	@echo "Verifying binaries..."
-	@FAIL=0; \
-	echo ""; \
-	echo "Core Linux binaries:"; \
-	if file offline-packages/linux/wezterm.AppImage 2>/dev/null | grep -q "executable"; then echo "  ✓ wezterm.AppImage"; else echo "  ✗ wezterm.AppImage - missing or invalid"; FAIL=1; fi; \
-	if file offline-packages/linux/tmux-3.4-static-x86_64 2>/dev/null | grep -q "executable"; then echo "  ✓ tmux-3.4-static-x86_64"; else echo "  ✗ tmux-3.4-static-x86_64 - missing or invalid"; FAIL=1; fi; \
-	if file offline-packages/linux/nvim-static-x86_64 2>/dev/null | grep -q "executable"; then echo "  ✓ nvim-static-x86_64"; else echo "  ✗ nvim-static-x86_64 - missing or invalid"; FAIL=1; fi; \
-	if [ -d offline-packages/linux/nvim-runtime ]; then echo "  ✓ nvim-runtime/"; else echo "  ✗ nvim-runtime/ - missing (re-run make update-linux to download)"; FAIL=1; fi; \
-	echo ""; \
-	echo "CLI tools:"; \
-	if file offline-packages/linux/fzf 2>/dev/null | grep -q "executable"; then echo "  ✓ fzf"; else echo "  ✗ fzf - missing or invalid"; FAIL=1; fi; \
-	if file offline-packages/linux/fd 2>/dev/null | grep -q "executable"; then echo "  ✓ fd"; else echo "  ✗ fd - missing or invalid"; FAIL=1; fi; \
-	if file offline-packages/linux/rg 2>/dev/null | grep -q "executable"; then echo "  ✓ rg"; else echo "  ✗ rg - missing or invalid"; FAIL=1; fi; \
-	if file offline-packages/linux/bat 2>/dev/null | grep -q "executable"; then echo "  ✓ bat"; else echo "  ✗ bat - missing or invalid"; FAIL=1; fi; \
-	if file offline-packages/linux/starship 2>/dev/null | grep -q "executable"; then echo "  ✓ starship"; else echo "  ✗ starship - missing or invalid"; FAIL=1; fi; \
-	if file offline-packages/linux/btop 2>/dev/null | grep -q "executable"; then echo "  ✓ btop"; else echo "  ✗ btop - missing or invalid"; FAIL=1; fi; \
-	if file offline-packages/linux/lsd 2>/dev/null | grep -q "executable"; then echo "  ✓ lsd"; else echo "  ✗ lsd - missing or invalid"; FAIL=1; fi; \
-	if file offline-packages/linux/zoxide 2>/dev/null | grep -q "executable"; then echo "  ✓ zoxide"; else echo "  ✗ zoxide - missing or invalid"; FAIL=1; fi; \
-	if file offline-packages/linux/delta 2>/dev/null | grep -q "executable"; then echo "  ✓ delta"; else echo "  ✗ delta - missing or invalid"; FAIL=1; fi; \
-	if file offline-packages/linux/difft 2>/dev/null | grep -q "executable"; then echo "  ✓ difft"; else echo "  ✗ difft - missing or invalid"; FAIL=1; fi; \
-	if file offline-packages/linux/direnv 2>/dev/null | grep -q "executable"; then echo "  ✓ direnv"; else echo "  ✗ direnv - missing or invalid"; FAIL=1; fi; \
-	if file offline-packages/linux/dust 2>/dev/null | grep -q "executable"; then echo "  ✓ dust"; else echo "  ✗ dust - missing or invalid"; FAIL=1; fi; \
-	if file offline-packages/linux/gdu 2>/dev/null | grep -q "executable"; then echo "  ✓ gdu"; else echo "  ✗ gdu - missing or invalid"; FAIL=1; fi; \
-	if file offline-packages/linux/usbtree 2>/dev/null | grep -q "executable"; then echo "  ✓ usbtree"; else echo "  ✗ usbtree - missing or invalid"; FAIL=1; fi; \
-	if file offline-packages/linux/glow 2>/dev/null | grep -q "executable"; then echo "  ✓ glow"; else echo "  ✗ glow - missing or invalid"; FAIL=1; fi; \
-	if file offline-packages/linux/broot 2>/dev/null | grep -q "executable"; then echo "  ✓ broot"; else echo "  ✗ broot - missing or invalid"; FAIL=1; fi; \
-	if file offline-packages/linux/fastfetch 2>/dev/null | grep -q "executable"; then echo "  ✓ fastfetch"; else echo "  ✗ fastfetch - missing or invalid"; FAIL=1; fi; \
-	if file offline-packages/linux/mkcert 2>/dev/null | grep -q "executable"; then echo "  ✓ mkcert"; else echo "  ✗ mkcert - missing or invalid"; FAIL=1; fi; \
-	if file offline-packages/linux/lazygit 2>/dev/null | grep -q "executable"; then echo "  ✓ lazygit"; else echo "  ✗ lazygit - missing or invalid"; FAIL=1; fi; \
-	if file offline-packages/linux/jq 2>/dev/null | grep -q "executable"; then echo "  ✓ jq"; else echo "  ✗ jq - missing or invalid"; FAIL=1; fi; \
-	if file offline-packages/linux/gping 2>/dev/null | grep -q "executable"; then echo "  ✓ gping"; else echo "  ✗ gping - missing or invalid"; FAIL=1; fi; \
-	if file offline-packages/linux/lua-language-server 2>/dev/null | grep -q "executable"; then echo "  ✓ lua-language-server"; else echo "  ✗ lua-language-server - missing or invalid"; FAIL=1; fi; \
-	if file offline-packages/linux/shellcheck 2>/dev/null | grep -q "executable"; then echo "  ✓ shellcheck"; else echo "  ✗ shellcheck - missing or invalid"; FAIL=1; fi; \
-	echo "  ⚠ gopls and other LSPs installed via Mason (not verified here)"; \
-	if file offline-packages/linux/airgap-dev-kit 2>/dev/null | grep -q "executable"; then echo "  ✓ airgap-dev-kit"; else echo "  ✗ airgap-dev-kit - missing or invalid"; FAIL=1; fi; \
-	if file offline-packages/linux/svu 2>/dev/null | grep -q "executable"; then echo "  ✓ svu"; else echo "  ✗ svu - missing or invalid"; FAIL=1; fi; \
-	echo ""; \
-	echo "Fonts:"; \
-	if file fonts/JetBrainsMono.zip 2>/dev/null | grep -q "Zip\|archive"; then echo "  ✓ JetBrainsMono.zip"; else echo "  ✗ JetBrainsMono.zip - missing or invalid"; FAIL=1; fi; \
-	echo ""; \
-	echo "Install script:"; \
-	if test -x install.sh; then echo "  ✓ install.sh executable"; else echo "  ✗ install.sh not executable (run: chmod +x install.sh)"; FAIL=1; fi; \
-	echo ""; \
-	if [ $$FAIL -ne 0 ]; then \
-		echo "✗ Verification failed. Please address the missing binaries above."; \
-		exit 1; \
-	else \
-		echo "✓ Verification passed. All required binaries present."; \
-	fi
+	@./scripts/verify-packages.sh
 
 version-file:
 	@echo "Embedding kit version information..."
@@ -524,20 +477,28 @@ package: version-file
 download-release:
 	@./scripts/release-update.sh download --dir "$(RELEASE_DIR)"
 
+airgap:
+	@GOCACHE="$${GOCACHE:-/tmp/airgap-dev-kit-gocache}" GOMODCACHE="$${GOMODCACHE:-/tmp/airgap-dev-kit-gomodcache}" go build -trimpath -ldflags='-s -w' -o airgap ./main.go
+
+package-v2:
+	@test -n "$(BINARY)" || (echo "Set BINARY to the prebuilt Linux amd64 airgap binary" >&2; exit 2)
+	@sh scripts/package-v2.sh --binary "$(BINARY)" --flavor "$(FLAVOR)" --output "$(OUTPUT)"
+
 package-cli: version-file
 	@echo "Creating CLI-only deployment package..."
 	@$(MAKE) --no-print-directory verify
 	@echo ""
 	@echo "Building tarball: airgap-dev-kit-cli.tar.gz"
+	@find .package-cli-staging -name '._*' -type f -delete 2>/dev/null || true
 	@rm -rf .package-cli-staging
 	@mkdir -p .package-cli-staging/airgap-dev-kit/offline-packages
 	@touch .package-cli-staging/airgap-dev-kit/.airgap-cli-only
-	@cp install.sh uninstall.sh Makefile VERSION README.md CHANGES.md CLAUDE.md \
+	@COPYFILE_DISABLE=1 cp install.sh uninstall.sh Makefile VERSION README.md CHANGES.md CLAUDE.md \
 		STOW-BUNDLING.md INSTALLATION-TRACKING.md QUICK-START-FIXES.md TESTING.md \
 		check-neovim.sh install-mason-lsp.sh \
 		.package-cli-staging/airgap-dev-kit/
-	@cp -R scripts docs config .package-cli-staging/airgap-dev-kit/
-	@cp -R offline-packages/linux .package-cli-staging/airgap-dev-kit/offline-packages/
+	@COPYFILE_DISABLE=1 cp -R scripts docs config .package-cli-staging/airgap-dev-kit/
+	@COPYFILE_DISABLE=1 cp -R offline-packages/linux .package-cli-staging/airgap-dev-kit/offline-packages/
 	@if [ -f offline-packages/lazy-plugins.tar.gz ]; then \
 		cp offline-packages/lazy-plugins.tar.gz .package-cli-staging/airgap-dev-kit/offline-packages/; \
 	fi
