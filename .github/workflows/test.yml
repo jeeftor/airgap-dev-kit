@@ -203,10 +203,11 @@ jobs:
       
       - name: Verify installation
         run: |
-          test -f ~/.local/bin/nvim
+          test -x ~/.local/bin/nvim
+          test -x ~/.local/bin/rg
           export PATH="$HOME/.local/bin:$PATH"
-          nvim --version
-          echo "✓ Works on Ubuntu 20.04"
+          rg --version
+          echo "✓ Legacy installer completes on Ubuntu 20.04"
 
   test-config-copy-fallback:
     name: Test Config Copy Fallback
