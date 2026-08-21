@@ -40,17 +40,19 @@ jobs:
           cache: true
           cache-dependency-path: go.sum
 
-      - name: Restore LazyVim build cache
+      - name: Restore LazyVim payload cache
+        id: lazy-payload-cache
         uses: actions/cache@v6
         with:
-          path: ~/.local/share/nvim/lazy
-          key: release-lazy-linux-v1-${{ hashFiles('config/plugin-manifest.lua', 'config/nvim/.config/nvim/lazy-lock.json') }}
+          path: offline-packages/lazy-plugins.tar.gz
+          key: release-lazy-payload-linux-v1-${{ hashFiles('config/plugin-manifest.lua', 'config/nvim/.config/nvim/lazy-lock.json') }}
 
-      - name: Restore Mason build cache
+      - name: Restore Mason payload cache
+        id: mason-payload-cache
         uses: actions/cache@v6
         with:
-          path: ~/.local/share/nvim-mason-test
-          key: release-mason-linux-v1-${{ hashFiles('config/plugin-manifest.lua', '.github/workflows/release.yml', 'scripts/build-mason-payload.sh') }}
+          path: offline-packages/mason-lsp.tar.gz
+          key: release-mason-payload-linux-v1-${{ hashFiles('config/plugin-manifest.lua', 'scripts/build-mason-payload.sh') }}
 
       - name: Download Linux payload inputs
         run: |
@@ -59,6 +61,7 @@ jobs:
           make update-fonts
 
       - name: Bundle pinned LazyVim plugins
+        if: steps.lazy-payload-cache.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
           nvim="$GITHUB_WORKSPACE/offline-packages/linux/nvim-static-x86_64"
@@ -79,6 +82,7 @@ jobs:
           fi
 
       - name: Bundle pinned Mason LSP payload
+        if: steps.mason-payload-cache.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
           chmod +x "$GITHUB_WORKSPACE/offline-packages/linux/nvim-static-x86_64"
