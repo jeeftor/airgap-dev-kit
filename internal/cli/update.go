@@ -370,8 +370,8 @@ func extractSafeTarGz(archive, dst string) error {
 			return err
 		}
 		if h.Typeflag == tar.TypeSymlink {
-			link := filepath.Clean(h.Linkname)
-			if filepath.IsAbs(h.Linkname) || link == "." || strings.HasPrefix(link, ".."+string(filepath.Separator)) {
+			resolvedLink := filepath.Clean(filepath.Join(filepath.Dir(clean), h.Linkname))
+			if filepath.IsAbs(h.Linkname) || resolvedLink == "." || strings.HasPrefix(resolvedLink, ".."+string(filepath.Separator)) {
 				return fmt.Errorf("unsafe archive link %q", h.Linkname)
 			}
 			if err := os.Symlink(h.Linkname, target); err != nil {

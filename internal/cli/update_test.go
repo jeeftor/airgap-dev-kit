@@ -74,7 +74,7 @@ func TestExtractSafeTarGzAcceptsRelativeSymlinks(t *testing.T) {
 	if _, err := tw.Write([]byte("ok")); err != nil {
 		t.Fatal(err)
 	}
-	if err := tw.WriteHeader(&tar.Header{Name: "lazy/link", Typeflag: tar.TypeSymlink, Linkname: "target"}); err != nil {
+	if err := tw.WriteHeader(&tar.Header{Name: "lazy/nested/link", Typeflag: tar.TypeSymlink, Linkname: "../target"}); err != nil {
 		t.Fatal(err)
 	}
 	if err := tw.Close(); err != nil {
@@ -90,8 +90,8 @@ func TestExtractSafeTarGzAcceptsRelativeSymlinks(t *testing.T) {
 	if err := extractSafeTarGz(archive, destination); err != nil {
 		t.Fatal(err)
 	}
-	link, err := os.Readlink(filepath.Join(destination, "lazy", "link"))
-	if err != nil || link != "target" {
+	link, err := os.Readlink(filepath.Join(destination, "lazy", "nested", "link"))
+	if err != nil || link != "../target" {
 		t.Fatalf("relative symlink = %q, %v", link, err)
 	}
 }
