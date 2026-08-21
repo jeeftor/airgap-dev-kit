@@ -57,6 +57,13 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+
+      - name: Set up Go for the embedded lifecycle binary
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: go.sum
       
       - name: Download Linux binaries
         run: make update
@@ -90,6 +97,16 @@ jobs:
         run: |
           test -f airgap-dev-kit.tar.gz || { echo "✗ Package not created"; exit 1; }
           echo "✓ Package created successfully"
+
+      - name: Smoke test extracted v2 archive
+        run: |
+          set -euo pipefail
+          make release
+          mkdir /tmp/airgap-v2-kit
+          tar -xzf airgap-dev-kit-linux-x86_64.tar.gz -C /tmp/airgap-v2-kit
+          cd /tmp/airgap-v2-kit/airgap-dev-kit
+          test -x ./airgap
+          ./airgap doctor --verify
       
       - name: Upload package as artifact
         uses: actions/upload-artifact@v7

@@ -97,6 +97,22 @@ jobs:
           tar -tzf airgap-dev-kit-linux-x86_64.tar.gz | grep -Fx 'airgap-dev-kit/offline-packages/lazy-plugins.tar.gz'
           tar -tzf airgap-dev-kit-linux-x86_64.tar.gz | grep -Fx 'airgap-dev-kit/offline-packages/mason-lsp.tar.gz'
 
+      - name: Sign release manifest
+        env:
+          RELEASE_SIGNING_PRIVATE_KEY: ${{ secrets.AIRGAP_RELEASE_SIGNING_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$RELEASE_SIGNING_PRIVATE_KEY"
+          key_file=$(mktemp)
+          trap 'rm -f "$key_file"' EXIT
+          umask 077
+          printf '%s\n' "$RELEASE_SIGNING_PRIVATE_KEY" > "$key_file"
+          go run ./cmd/release-sign sign \
+            --private-key-file "$key_file" \
+            --repository "$GITHUB_REPOSITORY" \
+            --version "$GITHUB_REF_NAME" \
+            --archive airgap-dev-kit-linux-x86_64.tar.gz
+
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v3
         with:
@@ -106,6 +122,8 @@ jobs:
           files: |
             airgap-dev-kit-linux-x86_64.tar.gz
             checksums.txt
+            release-manifest.json
+            release-manifest.sig
 
       - name: Attest release archive
         uses: actions/attest@v4
@@ -117,6 +135,11 @@ jobs:
         with:
           subject-path: checksums.txt
 
+      - name: Attest signed release manifest
+        uses: actions/attest@v4
+        with:
+          subject-path: release-manifest.json
+
       - name: Upload release build artifact
         uses: actions/upload-artifact@v7
         with:
@@ -124,4 +147,6 @@ jobs:
           path: |
             airgap-dev-kit-linux-x86_64.tar.gz
             checksums.txt
+            release-manifest.json
+            release-manifest.sig
           retention-days: 30

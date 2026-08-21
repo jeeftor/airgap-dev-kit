@@ -20,13 +20,14 @@ import (
 
 const defaultRepository = "jeeftor/airgap-dev-kit"
 
-// releasePublicKeys is intentionally compiled into the updater. The all-zero
-// placeholder fails closed until the protected release key is provisioned.
-var releasePublicKeys = []string{"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}
+// releasePublicKeys is intentionally compiled into the updater. Private keys
+// live only in protected GitHub Actions secrets.
+var releasePublicKeys = []string{"e1qJ8y9w1xiW0Y2f+C3I4psDK7XXEXnwYuXWWa+Ah98="}
 
 type githubRelease struct {
 	TagName string        `json:"tag_name"`
 	Assets  []githubAsset `json:"assets"`
+	Draft   bool          `json:"draft"`
 }
 type githubAsset struct {
 	Name string `json:"name"`
@@ -176,7 +177,7 @@ func fetchManifest(cmd *cobra.Command) (release.Manifest, map[string]string, err
 	if repo == "" {
 		repo = defaultRepository
 	}
-	req, err := http.NewRequestWithContext(cmd.Context(), http.MethodGet, api+"/repos/"+repo+"/releases/latest", nil)
+	req, err := http.NewRequestWithContext(cmd.Context(), http.MethodGet, api+"/repos/"+repo+"/releases", nil)
 	if err != nil {
 		return release.Manifest{}, nil, err
 	}
@@ -191,33 +192,42 @@ func fetchManifest(cmd *cobra.Command) (release.Manifest, map[string]string, err
 	if resp.StatusCode != http.StatusOK {
 		return release.Manifest{}, nil, fmt.Errorf("fetch release: %s", resp.Status)
 	}
-	var r githubRelease
-	if err := json.NewDecoder(resp.Body).Decode(&r); err != nil {
+	var releases []githubRelease
+	if err := json.NewDecoder(resp.Body).Decode(&releases); err != nil {
 		return release.Manifest{}, nil, err
 	}
-	assets := map[string]string{}
-	for _, a := range r.Assets {
-		assets[a.Name] = a.URL
+	for _, r := range releases {
+		if r.Draft {
+			continue
+		}
+		assets := map[string]string{}
+		for _, a := range r.Assets {
+			assets[a.Name] = a.URL
+		}
+		if assets["release-manifest.json"] == "" || assets["release-manifest.sig"] == "" {
+			continue
+		}
+		raw, err := getBytes(assets["release-manifest.json"])
+		if err != nil {
+			return release.Manifest{}, nil, err
+		}
+		sig, err := getBytes(assets["release-manifest.sig"])
+		if err != nil {
+			return release.Manifest{}, nil, err
+		}
+		if err := release.VerifySignature(raw, sig, releasePublicKeys); err != nil {
+			return release.Manifest{}, nil, err
+		}
+		m, err := release.Parse(raw)
+		if err != nil {
+			return release.Manifest{}, nil, err
+		}
+		if m.Repository != repo || (r.TagName != "" && strings.TrimPrefix(r.TagName, "v") != strings.TrimPrefix(m.Version, "v")) {
+			return release.Manifest{}, nil, fmt.Errorf("release identity mismatch")
+		}
+		return m, assets, nil
 	}
-	raw, err := getBytes(assets["release-manifest.json"])
-	if err != nil {
-		return release.Manifest{}, nil, err
-	}
-	sig, err := getBytes(assets["release-manifest.sig"])
-	if err != nil {
-		return release.Manifest{}, nil, err
-	}
-	if err := release.VerifySignature(raw, sig, releasePublicKeys); err != nil {
-		return release.Manifest{}, nil, err
-	}
-	m, err := release.Parse(raw)
-	if err != nil {
-		return release.Manifest{}, nil, err
-	}
-	if m.Repository != repo || (r.TagName != "" && strings.TrimPrefix(r.TagName, "v") != strings.TrimPrefix(m.Version, "v")) {
-		return release.Manifest{}, nil, fmt.Errorf("release identity mismatch")
-	}
-	return m, assets, nil
+	return release.Manifest{}, nil, fmt.Errorf("no signed release is available")
 }
 
 func getBytes(url string) ([]byte, error) {

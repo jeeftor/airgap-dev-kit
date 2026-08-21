@@ -11,10 +11,10 @@ contacts GitHub Releases, verifies the raw `release-manifest.json` with an
 embedded Ed25519 public key, and verifies the selected archive before it is
 extracted.
 
-Before publishing signed updates, replace the fail-closed placeholder public key in
-`internal/cli/update.go` with the protected release signing public key and add
-the corresponding private key only to protected GitHub Actions secrets. Never
-enable unsigned checksum-only updates.
+Signed updates use the public key embedded in `internal/cli/update.go`. The
+matching private key is stored only as the protected GitHub Actions secret
+`AIRGAP_RELEASE_SIGNING_PRIVATE_KEY`. Never enable unsigned checksum-only
+updates or commit the private key.
 
 ## Build and publish path
 
