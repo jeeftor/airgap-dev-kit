@@ -215,6 +215,8 @@ make package           # Create full deployment tarball
 make package-cli       # Create CLI-only tarball
 make docker-test       # Smoke test full package in Docker
 make local-release     # Build a complete Linux amd64 release through Docker
+make release-patch     # Prompt for architecture, tag, and push the next patch release
+make release-download VERSION=vX.Y.Z  # Download and verify a published release
 make test-cli-package  # Test CLI-only package layout and dry-run behavior
 make install           # Install on current machine
 make sync-nvim-config  # Sync ~/.config/nvim to repo
@@ -227,6 +229,16 @@ Docker only as a connected build environment, transfers source and output with
 `docker cp` (no bind mount), and runs the bundled Linux Neovim to create the
 LazyVim and Mason payloads. Installing the produced archive does not require
 Docker or network access.
+
+`make release-patch` requires a clean, synchronized `master` branch. It asks
+for the release architecture before tagging and pushing the next patch version,
+then returns immediately with the watch and download commands. Today the
+published architecture is `linux-x86_64`. Use `WAIT=1` only when you want the
+command to wait for publication and download/verify the selected release:
+
+```bash
+make release-patch WAIT=1 DIST_DIR=/Volumes/DEV/dist
+```
 
 ## 🚀 airgap-dev-kit CLI
 

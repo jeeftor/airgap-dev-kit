@@ -1,4 +1,4 @@
-.PHONY: help update verify package package-cli package-v2 release local-release build-editor-payloads package-with-config download-release docker-test test-cli-package test-v2-package test-update-tools check-updates check-updates-strict clean clean-all install sync-nvim-config version-file airgap
+.PHONY: help update verify package package-cli package-v2 release release-patch release-download local-release build-editor-payloads package-with-config download-release docker-test test-cli-package test-v2-package test-release-patch test-update-tools check-updates check-updates-strict clean clean-all install sync-nvim-config version-file airgap
 
 HOST_OS := $(shell uname -s)
 
@@ -31,6 +31,9 @@ STARSHIP_VERSION := 1.26.0
 RELEASE_DIR ?= .
 FLAVOR ?= full
 OUTPUT ?= .
+ARCHES ?=
+WAIT ?= 0
+DIST_DIR ?= $(CURDIR)/dist
 
 help:
 	@echo "Air-Gap Dev Kit - Makefile Commands"
@@ -41,8 +44,11 @@ help:
 	@echo "make package-cli       - Create CLI-only tarball without GUI tools or fonts"
 	@echo "make package-v2        - Create target-aware v2 kit (BINARY=path/to/airgap)"
 	@echo "make release           - Build and package the Linux amd64 release kit"
+	@echo "make release-patch     - Tag/push the next patch release (ARCHES=..., WAIT=1)"
+	@echo "make release-download  - Download a published release (VERSION=vX.Y.Z)"
 	@echo "make local-release     - Build a complete Linux amd64 kit in Docker (no bind mount)"
 	@echo "make test-v2-package   - Verify the v2 archive layout and launchers"
+	@echo "make test-release-patch - Test patch-release guard and tag calculation"
 	@echo "make download-release  - Download and verify the latest Linux release package"
 	@echo "make docker-test       - Package and smoke test install/remove in Docker"
 	@echo "make test-cli-package  - Test the CLI-only package and installer mode"
@@ -452,6 +458,13 @@ package: release
 download-release:
 	@./scripts/release-update.sh download --dir "$(RELEASE_DIR)"
 
+release-patch:
+	@ARCHES="$(ARCHES)" WAIT="$(WAIT)" DIST_DIR="$(DIST_DIR)" bash scripts/release-patch.sh start
+
+release-download:
+	@test -n "$(VERSION)" || (echo "Set VERSION=vX.Y.Z" >&2; exit 2)
+	@ARCHES="$(ARCHES)" DIST_DIR="$(DIST_DIR)" bash scripts/release-patch.sh download "$(VERSION)"
+
 airgap:
 	@GOCACHE="$${GOCACHE:-/tmp/airgap-dev-kit-gocache}" GOMODCACHE="$${GOMODCACHE:-/tmp/airgap-dev-kit-gomodcache}" go build -trimpath -ldflags='-s -w' -o airgap ./main.go
 
@@ -490,6 +503,9 @@ local-release:
 
 test-v2-package:
 	@bash test/scripts/test-v2-package.sh
+
+test-release-patch:
+	@bash test/scripts/test-release-patch.sh
 
 package-cli:
 	@$(MAKE) --no-print-directory release FLAVOR=cli
