@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
@@ -9,6 +11,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/jeeftor/airgap-dev-kit/internal/release"
@@ -53,5 +57,66 @@ func TestFetchManifestSkipsLegacyRelease(t *testing.T) {
 	}
 	if got.Version != "v2.1.4" || assets["airgap-dev-kit-linux-x86_64.tar.gz"] == "" {
 		t.Fatalf("unexpected release: %#v, %#v", got, assets)
+	}
+}
+
+func TestExtractSafeTarGzAcceptsRelativeSymlinks(t *testing.T) {
+	archive := filepath.Join(t.TempDir(), "payload.tar.gz")
+	file, err := os.Create(archive)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gz := gzip.NewWriter(file)
+	tw := tar.NewWriter(gz)
+	if err := tw.WriteHeader(&tar.Header{Name: "lazy/target", Mode: 0644, Size: 2}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tw.Write([]byte("ok")); err != nil {
+		t.Fatal(err)
+	}
+	if err := tw.WriteHeader(&tar.Header{Name: "lazy/link", Typeflag: tar.TypeSymlink, Linkname: "target"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := tw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := gz.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatal(err)
+	}
+	destination := t.TempDir()
+	if err := extractSafeTarGz(archive, destination); err != nil {
+		t.Fatal(err)
+	}
+	link, err := os.Readlink(filepath.Join(destination, "lazy", "link"))
+	if err != nil || link != "target" {
+		t.Fatalf("relative symlink = %q, %v", link, err)
+	}
+}
+
+func TestExtractSafeTarGzRejectsEscapingSymlink(t *testing.T) {
+	archive := filepath.Join(t.TempDir(), "payload.tar.gz")
+	file, err := os.Create(archive)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gz := gzip.NewWriter(file)
+	tw := tar.NewWriter(gz)
+	if err := tw.WriteHeader(&tar.Header{Name: "lazy/link", Typeflag: tar.TypeSymlink, Linkname: "../../outside"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := tw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := gz.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := extractSafeTarGz(archive, t.TempDir()); err == nil {
+		t.Fatal("escaping symlink was accepted")
 	}
 }

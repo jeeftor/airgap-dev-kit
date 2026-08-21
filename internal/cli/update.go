@@ -357,7 +357,7 @@ func extractSafeTarGz(archive, dst string) error {
 			return fmt.Errorf("unsafe archive path %q", h.Name)
 		}
 		target := filepath.Join(dst, clean)
-		if h.Typeflag != tar.TypeDir && h.Typeflag != tar.TypeReg {
+		if h.Typeflag != tar.TypeDir && h.Typeflag != tar.TypeReg && h.Typeflag != tar.TypeSymlink {
 			return fmt.Errorf("unsafe archive entry %q", h.Name)
 		}
 		if h.Typeflag == tar.TypeDir {
@@ -368,6 +368,16 @@ func extractSafeTarGz(archive, dst string) error {
 		}
 		if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
 			return err
+		}
+		if h.Typeflag == tar.TypeSymlink {
+			link := filepath.Clean(h.Linkname)
+			if filepath.IsAbs(h.Linkname) || link == "." || strings.HasPrefix(link, ".."+string(filepath.Separator)) {
+				return fmt.Errorf("unsafe archive link %q", h.Linkname)
+			}
+			if err := os.Symlink(h.Linkname, target); err != nil {
+				return err
+			}
+			continue
 		}
 		out, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_EXCL, os.FileMode(h.Mode)&0755)
 		if err != nil {
