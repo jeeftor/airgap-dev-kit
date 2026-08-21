@@ -110,17 +110,13 @@ func writeDoctorTerminalReport(cmd *cobra.Command, report doctorReport) error {
 		kitDir = "not found"
 	}
 	keyStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("245")).Width(15)
-	headerStyle := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("99")).Padding(0, 1)
-	panelStyle := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("240")).Padding(0, 1)
 	statusColumn := lipgloss.NewStyle().Width(11)
 	nameColumn := lipgloss.NewStyle().Bold(true).Width(20)
 
 	var b strings.Builder
-	header := lipgloss.JoinVertical(lipgloss.Left,
-		styled(cmd, titleStyle, "🩺 Airgap Doctor"),
-		styled(cmd, dimStyle, "Offline kit diagnostics"),
-	)
-	fmt.Fprintln(&b, headerStyle.Render(header))
+	fmt.Fprintln(&b, styled(cmd, titleStyle, "✦ Airgap Doctor"))
+	fmt.Fprintln(&b, styled(cmd, dimStyle, "Offline kit diagnostics"))
+	fmt.Fprintln(&b, styled(cmd, accentStyle, "────────────────────────────────"))
 	fmt.Fprintln(&b, keyStyle.Render("Kit directory")+styled(cmd, pathStyle, kitDir))
 	if report.Layout != "" {
 		fmt.Fprintln(&b, keyStyle.Render("Layout")+styled(cmd, dimStyle, report.Layout))
@@ -137,7 +133,7 @@ func writeDoctorTerminalReport(cmd *cobra.Command, report doctorReport) error {
 		"   ",
 		styled(cmd, failureStyle, fmt.Sprintf("✗ %d failure(s)", report.Failures)),
 	)
-	fmt.Fprintln(&b, panelStyle.Render(summary))
+	fmt.Fprintln(&b, summary)
 	fmt.Fprintln(&b, styled(cmd, accentStyle, "Checks"))
 	for _, check := range report.Checks {
 		row := lipgloss.JoinHorizontal(lipgloss.Top,
@@ -192,7 +188,7 @@ func doctorDetailToken(cmd *cobra.Command, token string) string {
 		return styled(cmd, pathStyle, trimmed) + styled(cmd, dimStyle, suffix)
 	}
 	switch trimmed {
-	case "airgap", "airgap-dev-kit", "install.sh", "VERSION", "kit-manifest.json":
+	case "airgap", "airgap-dev-kit", "VERSION", "kit-manifest.json":
 		return styled(cmd, fileStyle, trimmed) + styled(cmd, dimStyle, suffix)
 	default:
 		return styled(cmd, dimStyle, token)
@@ -255,12 +251,6 @@ func diagnoseKit(root string, found bool, runtimeVersion, runtimeCommit string) 
 		report.add("kit version", "warn", "kit is "+value+" but running binary is "+runtimeIdentity(runtimeVersion, runtimeCommit))
 	} else {
 		report.add("kit version", "pass", value)
-	}
-
-	if executable(filepath.Join(root, "install.sh")) {
-		report.add("installer", "pass", "install.sh is executable")
-	} else {
-		report.add("installer", "fail", "install.sh is missing or is not executable")
 	}
 
 	payloadDir := filepath.Join(root, "offline-packages", "linux")

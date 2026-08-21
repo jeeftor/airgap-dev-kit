@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -309,9 +308,9 @@ func stageKit(archive, version string) (string, error) {
 		return "", fmt.Errorf("release archive must contain one top-level directory")
 	}
 	root := filepath.Join(stage, entries[0].Name())
-	if _, err := os.Stat(filepath.Join(root, "install.sh")); err != nil {
+	if _, _, err := readKitManifest(root); err != nil {
 		_ = os.RemoveAll(stage)
-		return "", fmt.Errorf("release package has no install launcher")
+		return "", fmt.Errorf("release package has no valid v2 manifest: %w", err)
 	}
 	final := filepath.Join(kits, strings.TrimPrefix(version, "v")+"-"+time.Now().UTC().Format("20060102150405"))
 	if err := os.Rename(root, final); err != nil {
@@ -386,12 +385,12 @@ func extractSafeTarGz(archive, dst string) error {
 }
 
 func runKitInstaller(cmd *cobra.Command, kit string) error {
-	script := filepath.Join(kit, "install.sh")
-	// The retained installer has no --yes flag. Preserve Neovim state as the
-	// noninteractive safe default while the Go transaction executor is completed.
-	child := exec.Command(script, "--nvim-mode=preserve")
-	child.Dir, child.Stdin, child.Stdout, child.Stderr = kit, cmd.InOrStdin(), cmd.OutOrStdout(), cmd.ErrOrStderr()
-	return child.Run()
+	previous := os.Getenv("AIRGAP_KIT_DIR")
+	if err := os.Setenv("AIRGAP_KIT_DIR", kit); err != nil {
+		return err
+	}
+	defer os.Setenv("AIRGAP_KIT_DIR", previous)
+	return installKit(cmd, installOptions{Yes: true, NvimMode: "preserve"})
 }
 
 func statePath() (string, error) {

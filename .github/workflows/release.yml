@@ -96,6 +96,15 @@ jobs:
           tar -tzf airgap-dev-kit-linux-x86_64.tar.gz | grep -Fx 'airgap-dev-kit/airgap'
           tar -tzf airgap-dev-kit-linux-x86_64.tar.gz | grep -Fx 'airgap-dev-kit/offline-packages/lazy-plugins.tar.gz'
           tar -tzf airgap-dev-kit-linux-x86_64.tar.gz | grep -Fx 'airgap-dev-kit/offline-packages/mason-lsp.tar.gz'
+          mkdir /tmp/airgap-v2-kit
+          tar -xzf airgap-dev-kit-linux-x86_64.tar.gz -C /tmp/airgap-v2-kit
+          cd /tmp/airgap-v2-kit/airgap-dev-kit
+          export HOME=/tmp/airgap-v2-home
+          export XDG_DATA_HOME="$HOME/.local/share"
+          export XDG_STATE_HOME="$HOME/.local/state"
+          ./airgap doctor --verify
+          ./airgap install --yes --nvim-mode=replace
+          "$HOME/.local/bin/nvim" --headless '+qa'
 
       - name: Sign release manifest
         env:

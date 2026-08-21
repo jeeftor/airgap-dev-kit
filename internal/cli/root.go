@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -14,8 +13,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-// New builds the command tree. Filesystem mutations remain in the established
-// lifecycle scripts until their transaction semantics have direct Go coverage.
+// New builds the command tree for an extracted v2 kit.
 func New(version, commit string) *cobra.Command {
 	var output string
 	root := &cobra.Command{
@@ -28,8 +26,7 @@ func New(version, commit string) *cobra.Command {
 	_ = viper.BindPFlag("output", root.PersistentFlags().Lookup("output"))
 	root.SetHelpFunc(func(command *cobra.Command, _ []string) { _ = writeHelp(command) })
 	root.AddCommand(versionCmd(version, commit), statusCmd(&output), doctorCmd(&output, version, commit))
-	root.AddCommand(legacyCmd("install", "Install a kit from an offline payload", "install.sh"))
-	root.AddCommand(legacyCmd("uninstall", "Uninstall only tracked kit paths", "uninstall.sh"))
+	root.AddCommand(installCmd(), uninstallCmd())
 	root.AddCommand(cleanCmd())
 	root.AddCommand(updateCmd(version))
 	root.AddCommand(completionCmd(root))
@@ -55,43 +52,6 @@ func statusCmd(output *string) *cobra.Command {
 			return err
 		}
 		return jsonOrText(cmd, map[string]any{"kit_dir": root, "kit_available": found, "executable": executable, "target": runtime.GOOS + "/" + runtime.GOARCH}, fmt.Sprintf("Executable: %s\nKit directory: %s\nKit available: %t\nTarget: %s/%s\n", executable, kitDir, found, runtime.GOOS, runtime.GOARCH))
-	}}
-}
-
-func legacyCmd(name, short, script string) *cobra.Command {
-	use := name
-	if name == "install" {
-		use = "install [installer options]"
-	}
-	return &cobra.Command{Use: use, Short: short, DisableFlagParsing: true, RunE: func(cmd *cobra.Command, args []string) error {
-		if name == "install" {
-			for _, arg := range args {
-				if arg == "--help" || arg == "-h" {
-					return writeHelp(cmd)
-				}
-			}
-		}
-		if name == "install" && wantsTUI(args) {
-			confirmed, err := confirmInstall(cmd)
-			if err != nil {
-				return err
-			}
-			if !confirmed {
-				_, err := fmt.Fprintln(cmd.OutOrStdout(), "Install cancelled.")
-				return err
-			}
-		}
-		root, err := kitRoot()
-		if err != nil {
-			return err
-		}
-		path := filepath.Join(root, script)
-		if _, err := os.Stat(path); err != nil {
-			return fmt.Errorf("%s is unavailable: %w", script, err)
-		}
-		child := exec.Command(path, withoutTUIFlag(args)...)
-		child.Dir, child.Stdin, child.Stdout, child.Stderr = root, cmd.InOrStdin(), cmd.OutOrStdout(), cmd.ErrOrStderr()
-		return child.Run()
 	}}
 }
 
@@ -186,8 +146,12 @@ func isKitRoot(root string) bool {
 	if root == "" {
 		return false
 	}
-	info, err := os.Stat(filepath.Join(root, "install.sh"))
-	return err == nil && !info.IsDir()
+	info, err := os.Stat(filepath.Join(root, "kit-manifest.json"))
+	if err == nil && !info.IsDir() {
+		return true
+	}
+	info, err = os.Stat(filepath.Join(root, "offline-packages", "linux"))
+	return err == nil && info.IsDir()
 }
 
 func jsonOrText(cmd *cobra.Command, value any, text string) error {

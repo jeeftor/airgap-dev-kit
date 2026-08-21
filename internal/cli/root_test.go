@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -21,6 +22,77 @@ func TestRootHelpIsUsefulWithoutColor(t *testing.T) {
 		if !strings.Contains(output.String(), expected) {
 			t.Fatalf("help is missing %q: %s", expected, output.String())
 		}
+	}
+}
+
+func TestNativeInstallSetsBundledNeovimRuntime(t *testing.T) {
+	t.Setenv("NO_COLOR", "1")
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("SHELL", "/bin/bash")
+	t.Setenv("XDG_DATA_HOME", filepath.Join(home, ".local", "share"))
+	t.Setenv("XDG_STATE_HOME", filepath.Join(home, ".local", "state"))
+	if err := os.WriteFile(filepath.Join(home, ".bashrc"), []byte("# personal shell setup\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	kit := t.TempDir()
+	payload := filepath.Join(kit, "offline-packages", "linux", "amd64")
+	if err := os.MkdirAll(filepath.Join(payload, "nvim-runtime", "syntax"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	for path, content := range map[string]string{
+		"kit-manifest.json": `{"schema_version":1,"version":"v2.0.2","target":"linux/amd64","payload_dir":"offline-packages/linux/amd64"}`,
+		"offline-packages/linux/amd64/nvim-static-x86_64":             "#!/bin/sh\nprintf '%s' \"$VIMRUNTIME\"\n",
+		"offline-packages/linux/amd64/nvim-runtime/syntax/syntax.vim": "runtime\n",
+		"config/nvim/.config/nvim/init.lua":                           "-- kit config\n",
+	} {
+		if err := os.MkdirAll(filepath.Dir(filepath.Join(kit, path)), 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(kit, path), []byte(content), 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("AIRGAP_KIT_DIR", kit)
+	root := New("v2.0.2", "abc1234")
+	root.SetArgs([]string{"install", "--yes", "--nvim-mode=replace"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	launcher := filepath.Join(home, ".local", "bin", "nvim")
+	output, err := exec.Command(launcher).Output()
+	if err != nil {
+		t.Fatalf("run nvim launcher: %v", err)
+	}
+	wantRuntime := filepath.Join(home, ".local", "share", "nvim", "runtime")
+	if got := string(output); got != wantRuntime {
+		t.Fatalf("VIMRUNTIME = %q, want %q", got, wantRuntime)
+	}
+	if _, err := os.Stat(filepath.Join(home, ".config", "nvim", "init.lua")); err != nil {
+		t.Fatalf("Neovim config was not installed: %v", err)
+	}
+	bashrc, err := os.ReadFile(filepath.Join(home, ".bashrc"))
+	if err != nil || !strings.Contains(string(bashrc), shellBlockStart) {
+		t.Fatalf("Bash startup block was not installed: %v\n%s", err, bashrc)
+	}
+	userFile := filepath.Join(home, ".config", "nvim", "after-install.lua")
+	if err := os.WriteFile(userFile, []byte("-- user file\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	root = New("v2.0.2", "abc1234")
+	root.SetArgs([]string{"uninstall", "--yes"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(userFile); err != nil {
+		t.Fatalf("uninstall removed an untracked file: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(home, ".config", "nvim", "init.lua")); !os.IsNotExist(err) {
+		t.Fatalf("uninstall did not remove tracked config: %v", err)
+	}
+	bashrc, err = os.ReadFile(filepath.Join(home, ".bashrc"))
+	if err != nil || strings.Contains(string(bashrc), shellBlockStart) || !strings.Contains(string(bashrc), "# personal shell setup") {
+		t.Fatalf("uninstall did not safely remove the Bash startup block: %v\n%s", err, bashrc)
 	}
 }
 
@@ -43,7 +115,7 @@ func TestStatusReportsWhenNoKitIsAvailable(t *testing.T) {
 func TestDoctorReportsIncompleteKit(t *testing.T) {
 	t.Setenv("NO_COLOR", "1")
 	kit := t.TempDir()
-	if err := os.WriteFile(filepath.Join(kit, "install.sh"), []byte("#!/bin/sh\n"), 0755); err != nil {
+	if err := os.WriteFile(filepath.Join(kit, "kit-manifest.json"), []byte(`{"schema_version":1,"version":"v2.0.0","target":"linux/amd64","payload_dir":"offline-packages/linux/amd64"}`), 0644); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("AIRGAP_KIT_DIR", kit)
@@ -69,7 +141,6 @@ func TestDoctorReportsHealthyV2Kit(t *testing.T) {
 		t.Fatal(err)
 	}
 	for path, content := range map[string]string{
-		"install.sh":                          "#!/bin/sh\n",
 		"VERSION":                             "v2.0.2\n",
 		"kit-manifest.json":                   `{"schema_version":1,"version":"v2.0.2","target":"linux/amd64","payload_dir":"offline-packages/linux/amd64"}`,
 		"offline-packages/linux/amd64/airgap": "#!/bin/sh\n",
@@ -110,14 +181,7 @@ func TestTextOutputRemainsPlainWhenColorIsDisabled(t *testing.T) {
 	}
 }
 
-func TestNoTUIIsIgnoredByLegacyInstaller(t *testing.T) {
-	args := withoutTUIFlag([]string{"--no-tui", "--dry-run"})
-	if got, want := strings.Join(args, " "), "--dry-run"; got != want {
-		t.Fatalf("installer arguments = %q, want %q", got, want)
-	}
-}
-
-func TestInstallHelpDocumentsTUIOptOut(t *testing.T) {
+func TestInstallHelpDocumentsNativeOptions(t *testing.T) {
 	t.Setenv("NO_COLOR", "1")
 	root := New("v2.0.0-test", "abc1234")
 	var output bytes.Buffer
@@ -126,7 +190,9 @@ func TestInstallHelpDocumentsTUIOptOut(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(output.String(), "--no-tui") {
-		t.Fatalf("install help does not document --no-tui: %s", output.String())
+	for _, expected := range []string{"--yes, -y", "--nvim-mode MODE", "--cli-only"} {
+		if !strings.Contains(output.String(), expected) {
+			t.Fatalf("install help does not document %q: %s", expected, output.String())
+		}
 	}
 }

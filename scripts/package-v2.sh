@@ -27,9 +27,9 @@ stage=$(mktemp -d "${TMPDIR:-/tmp}/airgap-v2.XXXXXX")
 trap 'rm -rf "$stage"' EXIT HUP INT TERM
 root="$stage/$name"
 mkdir -p "$root/offline-packages/linux/amd64"
-cp install.sh uninstall.sh README.md "$root/"
+cp README.md "$root/"
 printf '%s\n' "$version" > "$root/VERSION"
-cp -R config scripts docs "$root/"
+cp -R config docs "$root/"
 cp -R offline-packages/linux/. "$root/offline-packages/linux/amd64/"
 for payload_archive in lazy-plugins.tar.gz mason-lsp.tar.gz; do
   if [ -f "offline-packages/$payload_archive" ]; then
@@ -43,8 +43,7 @@ ln -s airgap "$root/offline-packages/linux/amd64/airgap-dev-kit"
 # remains target-specific, while these launchers avoid requiring a PATH change.
 ln -s offline-packages/linux/airgap "$root/airgap"
 ln -s airgap "$root/airgap-dev-kit"
-# Keep the proven v1 installer usable while v2 migrates lifecycle operations:
-# root entries are lightweight links, while the manifest selects amd64.
+# Root launchers and the manifest make the extracted archive self-contained.
 for entry in "$root/offline-packages/linux/amd64"/*; do
   base=$(basename "$entry")
   ln -s "amd64/$base" "$root/offline-packages/linux/$base"

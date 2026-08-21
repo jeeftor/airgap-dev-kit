@@ -13,8 +13,8 @@ import (
 )
 
 var (
-	accentStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("99")).Bold(true)
-	titleStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("212")).Bold(true)
+	accentStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("39")).Bold(true)
+	titleStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("51")).Bold(true)
 	okStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("42"))
 	warnStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("214"))
 	failStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Bold(true)
@@ -54,7 +54,7 @@ func writeHelp(cmd *cobra.Command) error {
 		if _, err := fmt.Fprintln(out, styled(cmd, accentStyle, "Installer options")); err != nil {
 			return err
 		}
-		_, err := fmt.Fprintln(out, "  --no-tui              Use deterministic text instead of the install UI\n  --dry-run, -n          Preview without changing files\n  --nvim-mode MODE       preserve or replace the Neovim profile\n  --cli-only             Skip GUI payloads")
+		_, err := fmt.Fprintln(out, "  --yes, -y             Confirm a non-interactive install\n  --dry-run, -n          Preview without changing files\n  --nvim-mode MODE       preserve or replace the Neovim profile\n  --cli-only             Skip GUI payloads")
 		return err
 	}
 	if _, err := fmt.Fprintln(out, styled(cmd, accentStyle, "Commands")); err != nil {
@@ -106,21 +106,11 @@ func wantsTUI(args []string) bool {
 		return false
 	}
 	for _, arg := range args {
-		if arg == "--yes" || arg == "--no-tui" || arg == "--dry-run" || arg == "-n" {
+		if arg == "--yes" || arg == "--dry-run" || arg == "-n" {
 			return false
 		}
 	}
 	return true
-}
-
-func withoutTUIFlag(args []string) []string {
-	filtered := make([]string, 0, len(args))
-	for _, arg := range args {
-		if arg != "--no-tui" {
-			filtered = append(filtered, arg)
-		}
-	}
-	return filtered
 }
 
 func confirmInstall(cmd *cobra.Command) (bool, error) {

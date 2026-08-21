@@ -32,17 +32,17 @@ gh attestation verify airgap-dev-kit-linux-x86_64.tar.gz --repo jeeftor/airgap-d
 # Extract and install
 tar -xzf airgap-dev-kit-linux-x86_64.tar.gz
 cd airgap-dev-kit
-./install.sh
+./airgap install
 ```
 
 **CLI-only Linux x86_64:**
 ```bash
 # Use the full package unless you intentionally need the headless build.
 # Download the CLI release and checksums, verify its matching SHA-256 entry,
-# then extract and run ./install.sh. The .airgap-cli-only marker enables this mode.
+# then extract and run ./airgap install. The .airgap-cli-only marker enables this mode.
 ```
 
-The CLI-only package automatically runs in CLI-only mode. It skips WezTerm, skips font installation, disables GUI prompts, and asks before patching detected shell RC files for Starship, zoxide, fzf, and PATH. Set `AIRGAP_DEV_KIT_CONFIGURE_SHELLS=0` to skip shell RC edits, or `AIRGAP_DEV_KIT_CONFIGURE_SHELLS=1` to force shell setup in non-interactive installs.
+The CLI-only package skips WezTerm and fonts. `airgap install` appends one idempotent, clearly marked block to detected Bash/Zsh startup files for PATH, fzf, zoxide, and Starship; use `--configure-shell=false` to opt out.
 
 ### Build From Source
 
@@ -78,11 +78,11 @@ make package-cli
 grep ' airgap-dev-kit-linux-x86_64.tar.gz$' checksums.txt | sha256sum -c -
 
 # 3. Extract
-tar -xzf airgap-dev-kit.tar.gz
+tar -xzf airgap-dev-kit-linux-x86_64.tar.gz
 cd airgap-dev-kit
 
 # 4. Install
-./install.sh
+./airgap install
 
 # 4. Add to PATH (add to ~/.bashrc or ~/.zshrc)
 export PATH="$HOME/bin:$PATH"
@@ -110,7 +110,7 @@ tar -xzf airgap-dev-kit-cli.tar.gz
 cd airgap-dev-kit
 
 # 3. Install without GUI prompts
-./install.sh
+./airgap install
 
 # 4. Add to PATH if using a user-local install
 export PATH="$HOME/.local/bin:$PATH"
@@ -178,7 +178,7 @@ The CLI-only package omits WezTerm and JetBrainsMono Nerd Font to keep installs 
 - ✅ **Automated Updates** - GitHub Actions builds fresh releases weekly
 - ✅ **Linux-Focused** - Supports Linux x86_64 install and package workflows
 - ✅ **Air-Gap Ready** - Neovim plugins pre-bundled for offline use
-- ✅ **One-Command Install** - `./install.sh` does everything
+- ✅ **One-Command Install** - `./airgap install` does everything
 - ✅ **Installation Tracking** - Complete undo system with automatic backups
 - ✅ **Flexible Installation** - System-wide or user-local, with or without root
 - ✅ **Reproducible** - Checksums and version pinning
@@ -223,15 +223,15 @@ make clean             # Remove binaries (keep placeholders)
 
 ## 🚀 airgap-dev-kit CLI
 
-After installation, you can use the unified `airgap-dev-kit` command:
+After extraction, use the unified `airgap` command:
 
 ```bash
-airgap-dev-kit version     # Show kit version and installation info
-airgap-dev-kit update      # Download/update all binaries (requires internet)
-airgap-dev-kit install     # Install missing tools from offline packages
-airgap-dev-kit status      # Show installation status of all tools
-airgap-dev-kit remove      # Completely uninstall the airgap-dev-kit
-airgap-dev-kit help        # Show help and available commands
+airgap version             # Show kit version and installation info
+airgap update check        # Check signed kit releases (on a connected machine)
+airgap install             # Install the extracted offline payload
+airgap status              # Show kit status
+airgap uninstall --yes     # Remove only paths tracked by airgap
+airgap --help              # Show help and available commands
 ```
 
 This provides a simple interface for managing your air-gap development environment without needing to remember individual make commands or script locations.
@@ -260,26 +260,19 @@ git push
 fi
 ```
 
-2. Update `install.sh` to copy the binary:
-```bash
-cp offline-packages/linux/your-tool ~/bin/
-```
+2. Add the tool to the v2 install mapping in `internal/cli/install.go` when it needs a different installed name.
 
 ## 📋 Installation Details
 
-### What `install.sh` Does
+### What `airgap install` Does
 
-1. **Prompts for installation location** - System-wide (`/usr/local/bin`) or user-local (`~/.local/bin`); CLI-only packages default to user-local unless run as root
-2. **Checks OS** - Exits early outside Linux
-3. **Installs binaries** - Copies to chosen location with version checking
-4. **Extracts Neovim** - Unpacks and installs text editor
-5. **Protects existing Neovim state** - Backs up `~/.config/nvim`, Neovim data, state, and cache before replacement; non-interactive installs preserve existing state unless you pass `--nvim-mode=replace`
-6. **Installs plugins and LSPs atomically** - Activates staged LazyVim/Mason payloads, including the bundled Node runtime required by JavaScript-based language servers
-7. **Configures dotfiles** - Uses GNU Stow (if available) or direct copy
-8. **Installs fonts** - JetBrainsMono Nerd Font for icons in the full package only
-9. **Configures shell** - Optionally adds PATH and tool initialization to shell RC files; CLI-only packages prompt before patching interactive shells
+1. **Installs user-local binaries** - Copies the extracted payload to `~/.local/bin` without network access
+2. **Makes Neovim self-contained** - The `nvim` launcher sets `VIMRUNTIME` to the bundled runtime before starting Neovim
+3. **Protects existing Neovim state** - Preserves it by default, or backs up the complete profile before `--nvim-mode=replace`
+4. **Activates offline LazyVim and Mason** - Extracts the matching bundled plugin and LSP payloads
+5. **Configures Bash/Zsh safely** - Appends one removable, idempotent Airgap block for PATH and bundled shell integrations; use `--configure-shell=false` to opt out
 
-For an unattended replacement of a previous Neovim setup, run `./install.sh --nvim-mode=replace`. The prior state is retained under `~/.local/share/airgap-dev-kit/backups/`; use `--nvim-mode=preserve` to skip the kit's Neovim components explicitly.
+For an unattended replacement of a previous Neovim setup, run `./airgap install --yes --nvim-mode=replace`. The prior state is retained under `~/.local/share/airgap-dev-kit/backups/`; use `--nvim-mode=preserve` to skip the kit's Neovim components explicitly.
 
 ### Directory Structure After Install
 
@@ -392,15 +385,15 @@ cd config && stow -t ~ */
 - Or manually run: `nvim --headless "+Lazy! sync" +qa` on internet machine
 
 **Installation fails with "command not found":**
-- Make sure you're running `./install.sh` from the extracted `airgap-dev-kit` directory
-- Check that install.sh is executable: `chmod +x install.sh`
+- Make sure you're running `./airgap install` from the extracted `airgap-dev-kit` directory
+- Check that the root launcher is executable: `chmod +x airgap`
 
 ## 🗑️ Uninstallation
 
 The kit includes a smart uninstaller that uses the installation log:
 
 ```bash
-./uninstall.sh
+./airgap uninstall --yes
 ```
 
 **Features:**

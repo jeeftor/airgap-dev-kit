@@ -35,7 +35,7 @@ help:
 	@echo "===================================="
 	@echo "make update            - Download all missing binaries"
 	@echo "make verify            - Verify all binaries are present and valid"
-	@echo "make package           - Create tarball for offline deployment"
+	@echo "make package           - Create the binary-only v2 tarball for offline deployment"
 	@echo "make package-cli       - Create CLI-only tarball without GUI tools or fonts"
 	@echo "make package-v2        - Create target-aware v2 kit (BINARY=path/to/airgap)"
 	@echo "make release           - Build and package the Linux amd64 release kit"
@@ -46,7 +46,7 @@ help:
 	@echo "make test-update-tools - Test automated version-update planning"
 	@echo "make check-updates     - Check for newer tool releases (run on online machine)"
 	@echo "make check-updates-strict - Check releases and fail if updates are available"
-	@echo "make install           - Install on current machine (runs install.sh)"
+	@echo "make install           - Build airgap and install the local payload"
 	@echo "make sync              - Rsync repo to jstein@ai:~/airgap-dev-kit (for local testing)"
 	@echo "make sync-nvim-config  - Sync local Neovim config to repo"
 	@echo "make clean             - Remove downloaded binaries (keeps placeholders)"
@@ -358,11 +358,6 @@ update-linux:
 		echo "  ✓ fastfetch already present"; \
 	fi
 
-	@# airgap-dev-kit - CLI wrapper command
-	@echo "  → airgap-dev-kit (CLI wrapper)..."; \
-	cp scripts/airgap-dev-kit offline-packages/linux/airgap-dev-kit; \
-	chmod +x offline-packages/linux/airgap-dev-kit
-
 	@# lazygit - Terminal UI for git
 	@if [ ! -f offline-packages/linux/lazygit ]; then \
 		echo "  → lazygit (git TUI)..."; \
@@ -447,36 +442,7 @@ version-file:
 		echo "unknown"; \
 	fi) > VERSION
 
-package: version-file
-	@echo "Creating deployment package..."
-	@$(MAKE) --no-print-directory verify
-	@echo ""
-	@echo "Building tarball: airgap-dev-kit.tar.gz"
-	@# Ship the full kit so the air-gapped machine has Makefile, scripts, docs, etc.
-	@# Exclude only build artifacts and VCS/tool-specific dirs.
-	@COPYFILE_DISABLE=1 tar --no-xattrs \
-		--exclude='.git' --exclude='.claude' --exclude='.devin' --exclude='._*' \
-		--exclude='.github' --exclude='test' \
-		--exclude='nvim-linux-x86_64' --exclude='nvim-linux64' \
-		-czf airgap-dev-kit.tar.gz \
-		install.sh uninstall.sh Makefile VERSION \
-		README.md CHANGES.md CLAUDE.md \
-		STOW-BUNDLING.md INSTALLATION-TRACKING.md QUICK-START-FIXES.md TESTING.md \
-		check-neovim.sh install-mason-lsp.sh \
-		scripts/ docs/ \
-		offline-packages/linux/ \
-		$$( [ -f offline-packages/lazy-plugins.tar.gz ] && echo offline-packages/lazy-plugins.tar.gz ) \
-		$$( [ -f offline-packages/mason-lsp.tar.gz ] && echo offline-packages/mason-lsp.tar.gz ) \
-		config/ \
-		$$( [ -d fonts ] && echo fonts/ )
-	@echo ""
-	@ls -lh airgap-dev-kit.tar.gz
-	@echo ""
-	@echo "✓ Package ready for deployment!"
-	@echo "  Transfer airgap-dev-kit.tar.gz to target machine"
-	@echo "  Extract: mkdir airgap-dev-kit && tar -xzf airgap-dev-kit.tar.gz -C airgap-dev-kit"
-	@echo "  Install: cd airgap-dev-kit && ./install.sh"
-	@rm -f VERSION
+package: release
 
 download-release:
 	@./scripts/release-update.sh download --dir "$(RELEASE_DIR)"
@@ -499,44 +465,8 @@ release: version-file verify
 test-v2-package:
 	@bash test/scripts/test-v2-package.sh
 
-package-cli: version-file
-	@echo "Creating CLI-only deployment package..."
-	@$(MAKE) --no-print-directory verify
-	@echo ""
-	@echo "Building tarball: airgap-dev-kit-cli.tar.gz"
-	@find .package-cli-staging -name '._*' -type f -delete 2>/dev/null || true
-	@rm -rf .package-cli-staging
-	@mkdir -p .package-cli-staging/airgap-dev-kit/offline-packages
-	@touch .package-cli-staging/airgap-dev-kit/.airgap-cli-only
-	@COPYFILE_DISABLE=1 cp install.sh uninstall.sh Makefile VERSION README.md CHANGES.md CLAUDE.md \
-		STOW-BUNDLING.md INSTALLATION-TRACKING.md QUICK-START-FIXES.md TESTING.md \
-		check-neovim.sh install-mason-lsp.sh \
-		.package-cli-staging/airgap-dev-kit/
-	@COPYFILE_DISABLE=1 cp -R scripts docs config .package-cli-staging/airgap-dev-kit/
-	@COPYFILE_DISABLE=1 cp -R offline-packages/linux .package-cli-staging/airgap-dev-kit/offline-packages/
-	@if [ -f offline-packages/lazy-plugins.tar.gz ]; then \
-		cp offline-packages/lazy-plugins.tar.gz .package-cli-staging/airgap-dev-kit/offline-packages/; \
-	fi
-	@if [ -f offline-packages/mason-lsp.tar.gz ]; then \
-		cp offline-packages/mason-lsp.tar.gz .package-cli-staging/airgap-dev-kit/offline-packages/; \
-	fi
-	@rm -f .package-cli-staging/airgap-dev-kit/offline-packages/linux/wezterm.AppImage
-	@COPYFILE_DISABLE=1 tar --no-xattrs \
-		--exclude='.git' --exclude='.claude' --exclude='.devin' --exclude='._*' \
-		--exclude='.github' --exclude='test' \
-		--exclude='fonts' \
-		--exclude='offline-packages/linux/wezterm.AppImage' \
-		--exclude='nvim-linux-x86_64' --exclude='nvim-linux64' \
-		-czf airgap-dev-kit-cli.tar.gz -C .package-cli-staging airgap-dev-kit
-	@rm -rf .package-cli-staging
-	@rm -f VERSION
-	@echo ""
-	@ls -lh airgap-dev-kit-cli.tar.gz
-	@echo ""
-	@echo "✓ CLI-only package ready for deployment!"
-	@echo "  Transfer airgap-dev-kit-cli.tar.gz to target machine"
-	@echo "  Extract: mkdir airgap-dev-kit && tar -xzf airgap-dev-kit-cli.tar.gz -C airgap-dev-kit"
-	@echo "  Install: cd airgap-dev-kit && ./install.sh"
+package-cli:
+	@$(MAKE) --no-print-directory release FLAVOR=cli
 
 package-with-config: verify version-file
 	@echo "Creating full deployment package (with config/)..."
@@ -583,9 +513,8 @@ test-update-tools:
 	@bash test/scripts/test-close-superseded-update-prs.sh
 
 install:
-	@echo "Installing Linux air-gap dev kit on current machine..."
-	@chmod +x install.sh
-	@./install.sh
+	@$(MAKE) --no-print-directory airgap
+	@./airgap install --yes
 
 check-updates:
 	@echo "Checking for newer tool releases..."
@@ -637,4 +566,4 @@ sync:
 		--exclude='.devin/' \
 		./ "$(REMOTE):$(DEST)"
 	@echo "✓ Synced to $(REMOTE):$(DEST)"
-	@echo "  SSH in and run: cd ~/airgap-dev-kit && ./install.sh"
+	@echo "  SSH in and run: cd ~/airgap-dev-kit && ./airgap install"
