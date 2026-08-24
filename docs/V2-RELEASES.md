@@ -16,6 +16,24 @@ matching private key is stored only as the protected GitHub Actions secret
 `AIRGAP_RELEASE_SIGNING_PRIVATE_KEY`. Never enable unsigned checksum-only
 updates or commit the private key.
 
+## Updating an installed kit
+
+On a connected machine, the installed command upgrades directly to the newest
+trusted signed release:
+
+```bash
+airgap update check
+airgap update --yes
+```
+
+For an air-gapped target, download the verified release on a connected machine,
+transfer the resulting directory, then apply it offline on the target:
+
+```bash
+airgap update download --output /media/airgap-update
+airgap update apply --from /media/airgap-update --yes
+```
+
 ## Build and publish path
 
 There is one release path:

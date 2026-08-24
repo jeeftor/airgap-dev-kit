@@ -39,7 +39,7 @@ func installCmd() *cobra.Command {
 	c.Flags().BoolVarP(&options.DryRun, "dry-run", "n", false, "Show the plan without changing files")
 	c.Flags().BoolVarP(&options.Yes, "yes", "y", false, "Confirm a non-interactive install")
 	c.Flags().BoolVar(&options.CLIOnly, "cli-only", false, "Skip GUI payloads and fonts")
-	c.Flags().StringVar(&options.NvimMode, "nvim-mode", "preserve", "Neovim state handling: preserve or replace")
+	c.Flags().StringVar(&options.NvimMode, "nvim-mode", "preserve", "Neovim state handling: preserve, replace, or overwrite")
 	c.Flags().BoolVar(&options.ConfigureShell, "configure-shell", true, "Add an idempotent Airgap block to Bash or Zsh")
 	return c
 }
@@ -58,8 +58,8 @@ func uninstallCmd() *cobra.Command {
 }
 
 func installKit(cmd *cobra.Command, options installOptions) error {
-	if options.NvimMode != "preserve" && options.NvimMode != "replace" {
-		return fmt.Errorf("unsupported --nvim-mode %q; use preserve or replace", options.NvimMode)
+	if options.NvimMode != "preserve" && options.NvimMode != "replace" && options.NvimMode != "overwrite" {
+		return fmt.Errorf("unsupported --nvim-mode %q; use preserve, replace, or overwrite", options.NvimMode)
 	}
 	root, err := kitRoot()
 	if err != nil {
@@ -107,7 +107,7 @@ func installKit(cmd *cobra.Command, options installOptions) error {
 	fmt.Fprintln(cmd.OutOrStdout(), styled(cmd, titleStyle, "Airgap install"))
 	fmt.Fprintln(cmd.OutOrStdout(), styled(cmd, dimStyle, "Offline payload · user-local installation"))
 	record := installRecord{Version: manifest.Version, KitDir: root}
-	installNvim := options.NvimMode == "replace" || !nvimStateExists(home, dataHome)
+	installNvim := options.NvimMode == "replace" || options.NvimMode == "overwrite" || !nvimStateExists(home, dataHome)
 	steps := []installStep{
 		{label: "Prepare user-local directories", result: "Installed", details: "Created ~/.local/bin", action: func() error {
 			return os.MkdirAll(binDir, 0755)
@@ -318,7 +318,7 @@ func copyPayloadBinaries(payload, binDir string, cliOnly bool, record *installRe
 }
 
 func installNvimPayload(root, payload, home, dataHome, mode string, record *installRecord) error {
-	paths := []string{filepath.Join(home, ".config", "nvim"), filepath.Join(dataHome, "nvim"), filepath.Join(home, ".local", "state", "nvim"), filepath.Join(home, ".cache", "nvim")}
+	paths := nvimProfilePaths(home, dataHome)
 	if mode == "replace" {
 		backup := filepath.Join(dataHome, "airgap-dev-kit", "backups", "nvim-"+time.Now().UTC().Format("20060102-150405"))
 		for _, path := range paths {
@@ -330,6 +330,12 @@ func installNvimPayload(root, payload, home, dataHome, mode string, record *inst
 				if err := os.Rename(path, destination); err != nil {
 					return fmt.Errorf("back up %s: %w", path, err)
 				}
+			}
+		}
+	} else if mode == "overwrite" {
+		for _, path := range paths {
+			if err := os.RemoveAll(path); err != nil {
+				return fmt.Errorf("delete %s: %w", path, err)
 			}
 		}
 	}
@@ -365,12 +371,16 @@ func installNvimPayload(root, payload, home, dataHome, mode string, record *inst
 }
 
 func nvimStateExists(home, dataHome string) bool {
-	for _, path := range []string{filepath.Join(home, ".config", "nvim"), filepath.Join(dataHome, "nvim"), filepath.Join(home, ".local", "state", "nvim"), filepath.Join(home, ".cache", "nvim")} {
+	for _, path := range nvimProfilePaths(home, dataHome) {
 		if _, err := os.Lstat(path); err == nil {
 			return true
 		}
 	}
 	return false
+}
+
+func nvimProfilePaths(home, dataHome string) []string {
+	return []string{filepath.Join(home, ".config", "nvim"), filepath.Join(dataHome, "nvim"), filepath.Join(home, ".local", "state", "nvim"), filepath.Join(home, ".cache", "nvim")}
 }
 
 func copyManagedConfig(root, home string, nvim bool, record *installRecord) error {

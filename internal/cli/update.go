@@ -46,9 +46,27 @@ func updateCmd(currentVersion string) *cobra.Command {
 	var yes bool
 	root := &cobra.Command{Use: "update", Short: "Check, stage, and apply signed kit releases", RunE: func(cmd *cobra.Command, _ []string) error {
 		if !yes {
-			return fmt.Errorf("interactive update is not available in this non-TUI build; rerun with --yes or use update check/download/apply")
+			return fmt.Errorf("update requires --yes; use update check to inspect releases or update download/apply for an offline transfer")
 		}
-		return fmt.Errorf("use 'airgap update download' then 'airgap update apply --from DIR --yes'")
+		cache, err := os.UserCacheDir()
+		if err != nil {
+			return err
+		}
+		staging := filepath.Join(cache, "airgap-dev-kit", "releases", "latest")
+		latest, _, err := fetchManifest(cmd)
+		if err != nil {
+			return err
+		}
+		if strings.TrimPrefix(latest.Version, "v") == strings.TrimPrefix(currentVersion, "v") {
+			fmt.Fprintf(cmd.OutOrStdout(), "Already up to date: %s\n", latest.Version)
+			return nil
+		}
+		manifest, err := downloadLatestRelease(cmd, "", "full", staging)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "Updating %s to %s\n", currentVersion, manifest.Version)
+		return applyStagedUpdate(cmd, staging, false)
 	}}
 	root.Flags().BoolVar(&yes, "yes", false, "Confirm the update")
 	root.AddCommand(updateCheckCmd(currentVersion), updateDownloadCmd(), updateApplyCmd(), updateRollbackCmd())
@@ -81,30 +99,8 @@ func updateDownloadCmd() *cobra.Command {
 		if output == "" {
 			return fmt.Errorf("--output is required")
 		}
-		m, assets, err := fetchManifest(cmd)
-		if err != nil {
-			return err
-		}
-		if version != "" && strings.TrimPrefix(version, "v") != strings.TrimPrefix(m.Version, "v") {
-			return fmt.Errorf("requested version %s is not the latest trusted release %s", version, m.Version)
-		}
-		asset, err := m.Select(runtime.GOOS+"/"+runtime.GOARCH, flavor)
-		if err != nil {
-			return err
-		}
-		if err := os.MkdirAll(output, 0700); err != nil {
-			return err
-		}
-		for _, name := range []string{"release-manifest.json", "release-manifest.sig", asset.Name} {
-			if err := downloadAtomic(assets[name], filepath.Join(output, name)); err != nil {
-				return err
-			}
-		}
-		if err := release.VerifyFile(filepath.Join(output, asset.Name), asset); err != nil {
-			return err
-		}
-		fmt.Fprintf(cmd.OutOrStdout(), "Verified %s in %s\n", asset.Name, output)
-		return nil
+		_, err := downloadLatestRelease(cmd, version, flavor, output)
+		return err
 	}}
 	c.Flags().StringVar(&version, "version", "", "Exact trusted version to stage")
 	c.Flags().StringVar(&flavor, "flavor", "full", "Kit flavor: full or cli")
@@ -119,30 +115,69 @@ func updateApplyCmd() *cobra.Command {
 		if from == "" {
 			return fmt.Errorf("--from is required")
 		}
-		m, asset, err := verifyStaged(from)
-		if err != nil {
-			return err
-		}
 		if dryRun {
+			m, asset, err := verifyStaged(from)
+			if err != nil {
+				return err
+			}
 			fmt.Fprintf(cmd.OutOrStdout(), "would apply %s from %s\n", m.Version, filepath.Join(from, asset.Name))
 			return nil
 		}
 		if !yes {
 			return fmt.Errorf("update apply requires --yes unless --dry-run is used")
 		}
-		kit, err := stageKit(filepath.Join(from, asset.Name), m.Version)
-		if err != nil {
-			return err
-		}
-		if err := runKitInstaller(cmd, kit); err != nil {
-			return err
-		}
-		return saveUpdateState(m.Version, kit)
+		return applyStagedUpdate(cmd, from, false)
 	}}
 	c.Flags().StringVar(&from, "from", "", "Directory created by update download")
 	c.Flags().BoolVar(&dryRun, "dry-run", false, "Show the plan without mutation")
 	c.Flags().BoolVar(&yes, "yes", false, "Confirm application")
 	return c
+}
+
+func downloadLatestRelease(cmd *cobra.Command, version, flavor, output string) (release.Manifest, error) {
+	m, assets, err := fetchManifest(cmd)
+	if err != nil {
+		return release.Manifest{}, err
+	}
+	if version != "" && strings.TrimPrefix(version, "v") != strings.TrimPrefix(m.Version, "v") {
+		return release.Manifest{}, fmt.Errorf("requested version %s is not the latest trusted release %s", version, m.Version)
+	}
+	asset, err := m.Select(runtime.GOOS+"/"+runtime.GOARCH, flavor)
+	if err != nil {
+		return release.Manifest{}, err
+	}
+	if err := os.MkdirAll(output, 0700); err != nil {
+		return release.Manifest{}, err
+	}
+	for _, name := range []string{"release-manifest.json", "release-manifest.sig", asset.Name} {
+		if err := downloadAtomic(assets[name], filepath.Join(output, name)); err != nil {
+			return release.Manifest{}, err
+		}
+	}
+	if err := release.VerifyFile(filepath.Join(output, asset.Name), asset); err != nil {
+		return release.Manifest{}, err
+	}
+	fmt.Fprintf(cmd.OutOrStdout(), "Verified %s in %s\n", asset.Name, output)
+	return m, nil
+}
+
+func applyStagedUpdate(cmd *cobra.Command, from string, dryRun bool) error {
+	m, asset, err := verifyStaged(from)
+	if err != nil {
+		return err
+	}
+	if dryRun {
+		fmt.Fprintf(cmd.OutOrStdout(), "would apply %s from %s\n", m.Version, filepath.Join(from, asset.Name))
+		return nil
+	}
+	kit, err := stageKit(filepath.Join(from, asset.Name), m.Version)
+	if err != nil {
+		return err
+	}
+	if err := runKitInstaller(cmd, kit); err != nil {
+		return err
+	}
+	return saveUpdateState(m.Version, kit)
 }
 
 func updateRollbackCmd() *cobra.Command {

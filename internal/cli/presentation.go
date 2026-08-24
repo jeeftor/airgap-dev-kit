@@ -79,7 +79,7 @@ func writeHelp(cmd *cobra.Command) error {
 		if _, err := fmt.Fprintln(out, styled(cmd, accentStyle, "Installer options")); err != nil {
 			return err
 		}
-		_, err := fmt.Fprintln(out, "  --yes, -y             Confirm a non-interactive install\n  --dry-run, -n          Preview without changing files\n  --nvim-mode MODE       preserve or replace the Neovim profile\n  --cli-only             Skip GUI payloads\n  --configure-shell BOOL Add or skip managed Bash/Zsh integration")
+		_, err := fmt.Fprintln(out, "  --yes, -y             Confirm a non-interactive install\n  --dry-run, -n          Preview without changing files\n  --nvim-mode MODE       preserve, replace, or overwrite the Neovim profile\n  --cli-only             Skip GUI payloads\n  --configure-shell BOOL Add or skip managed Bash/Zsh integration")
 		return err
 	}
 	if _, err := fmt.Fprintln(out, styled(cmd, accentStyle, "Commands")); err != nil {
@@ -156,8 +156,10 @@ func (m installModel) View() tea.View {
 		nvim := "Install bundled Neovim and LazyVim"
 		if m.existingNvim && m.options.NvimMode == "preserve" {
 			nvim = "Preserve the existing Neovim profile"
-		} else if m.existingNvim {
+		} else if m.existingNvim && m.options.NvimMode == "replace" {
 			nvim = "Back up and replace the Neovim profile"
+		} else if m.existingNvim {
+			nvim = "Delete and overwrite the Neovim profile"
 		}
 		b.WriteString(okStyle.Render("●") + " Neovim   " + nvim + "\n")
 		shell := "Do not change shell startup files"
@@ -167,6 +169,8 @@ func (m installModel) View() tea.View {
 		b.WriteString(okStyle.Render("●") + " Shell     " + shell + "\n")
 		if m.existingNvim && m.options.NvimMode == "replace" {
 			b.WriteString("\n" + installerSafetyStyle.Render("Backup first: your complete Neovim profile will be moved to ~/.local/share/airgap-dev-kit/backups/.") + "\n")
+		} else if m.existingNvim && m.options.NvimMode == "overwrite" {
+			b.WriteString("\n" + installerSafetyStyle.Render("Permanent deletion: the existing Neovim profile, state, and cache will be removed without a backup.") + "\n")
 		}
 		b.WriteString("\n" + dimStyle.Render("Nothing has changed yet.") + "\n\n")
 		b.WriteString(okStyle.Render("Enter") + " install    " + warnStyle.Render("b") + " back    " + warnStyle.Render("q") + " cancel")
@@ -174,7 +178,7 @@ func (m installModel) View() tea.View {
 	}
 	b.WriteString(accentStyle.Render(m.question()) + "\n")
 	if m.step == 1 && m.existingNvim {
-		b.WriteString(installerSafetyStyle.Render("Existing Neovim, LazyVim, Mason, state, and cache were found. Your files stay untouched unless you choose backup and replace.") + "\n\n")
+		b.WriteString(installerSafetyStyle.Render("Existing Neovim, LazyVim, Mason, state, and cache were found. Choose preserve, back up and replace, or permanent deletion and overwrite.") + "\n\n")
 	}
 	if m.step == 2 {
 		b.WriteString(dimStyle.Render("This adds one removable Airgap block to Bash/Zsh. It enables PATH, FZF keys/completion, zoxide, and Starship.") + "\n\n")
@@ -227,7 +231,7 @@ func (m installModel) choices() []string {
 		return []string{"Full kit — include all available payloads", "CLI-only kit — skip GUI payloads"}
 	case 1:
 		if m.existingNvim {
-			return []string{"Preserve existing profile — do not change Neovim or LazyVim", "Back up and replace — save the complete profile, then install a fresh kit"}
+			return []string{"Preserve existing profile — do not change Neovim or LazyVim", "Back up and replace — save the complete profile, then install a fresh kit", "Delete and overwrite — permanently remove the profile, then install a fresh kit"}
 		}
 		return []string{"Install the bundled Neovim and LazyVim profile"}
 	default:
@@ -244,6 +248,8 @@ func (m *installModel) applyChoice() {
 			m.options.NvimMode = "preserve"
 			if m.choice == 1 {
 				m.options.NvimMode = "replace"
+			} else if m.choice == 2 {
+				m.options.NvimMode = "overwrite"
 			}
 		}
 	case 2:
@@ -260,6 +266,8 @@ func (m installModel) selectedChoice() int {
 	case 1:
 		if m.existingNvim && m.options.NvimMode == "replace" {
 			return 1
+		} else if m.existingNvim && m.options.NvimMode == "overwrite" {
+			return 2
 		}
 	case 2:
 		if !m.options.ConfigureShell {

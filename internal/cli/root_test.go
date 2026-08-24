@@ -76,6 +76,62 @@ func TestInstallPlannerPreservesExistingNeovimByDefault(t *testing.T) {
 	}
 }
 
+func TestInstallPlannerSelectsDestructiveNeovimOverwrite(t *testing.T) {
+	model := installModel{options: installOptions{ConfigureShell: true, NvimMode: "preserve"}, existingNvim: true}
+	model = updateInstallPlanner(t, model, "enter")
+	model = updateInstallPlanner(t, model, "down")
+	model = updateInstallPlanner(t, model, "down")
+	model = updateInstallPlanner(t, model, "enter")
+	model = updateInstallPlanner(t, model, "enter")
+	if model.options.NvimMode != "overwrite" {
+		t.Fatalf("Neovim mode = %q, want overwrite", model.options.NvimMode)
+	}
+	view := model.View()
+	if !strings.Contains(view.Content, "Delete and overwrite") || !strings.Contains(view.Content, "Permanent deletion") {
+		t.Fatalf("review does not warn about destructive overwrite: %s", view.Content)
+	}
+}
+
+func TestInstallNvimPayloadOverwriteDeletesExistingProfile(t *testing.T) {
+	home := t.TempDir()
+	dataHome := filepath.Join(home, ".local", "share")
+	payload := filepath.Join(t.TempDir(), "payload")
+	if err := os.MkdirAll(filepath.Join(payload, "nvim-runtime", "syntax"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	for path, content := range map[string]string{
+		"nvim-static-x86_64":             "#!/bin/sh\n",
+		"nvim-runtime/syntax/syntax.vim": "runtime\n",
+	} {
+		if err := os.WriteFile(filepath.Join(payload, path), []byte(content), 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, path := range nvimProfilePaths(home, dataHome) {
+		if err := os.MkdirAll(path, 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(path, "old"), []byte("old\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	record := installRecord{}
+	if err := installNvimPayload(t.TempDir(), payload, home, dataHome, "overwrite", &record); err != nil {
+		t.Fatalf("overwrite Neovim profile: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(home, ".config", "nvim")); !os.IsNotExist(err) {
+		t.Fatalf("old Neovim config still exists: %v", err)
+	}
+	for _, path := range []string{filepath.Join(dataHome, "nvim", "old"), filepath.Join(home, ".local", "state", "nvim", "old"), filepath.Join(home, ".cache", "nvim", "old")} {
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Fatalf("old Neovim state still exists at %s: %v", path, err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(dataHome, "airgap-dev-kit", "backups")); !os.IsNotExist(err) {
+		t.Fatalf("overwrite unexpectedly created a backup: %v", err)
+	}
+}
+
 func TestInstallProgressRendersCompletedResults(t *testing.T) {
 	model := newInstallProgressModel([]installStep{
 		{label: "Copy command-line payload", result: "Installed", details: "Offline binaries copied", action: func() error { return nil }},
