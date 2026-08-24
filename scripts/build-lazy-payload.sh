@@ -36,8 +36,11 @@ return {}
 EOF
 cat > "$config_dir/lua/plugins/zz-airgap-payload-build.lua" <<'EOF'
 return {
-  { "mason-org/mason.nvim", enabled = false },
-  { "mason-org/mason-lspconfig.nvim", enabled = false },
+  -- LazyVim's Mason bridge still loads while the plugin set is synchronized.
+  -- Keep Mason enabled but suppress installations; build-mason-payload.sh
+  -- creates the separate offline LSP archive immediately after this pass.
+  { "mason-org/mason.nvim", opts = { ensure_installed = {} } },
+  { "mason-org/mason-lspconfig.nvim", opts = { ensure_installed = {} } },
 }
 EOF
 
