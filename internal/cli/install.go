@@ -234,8 +234,8 @@ func writeAirgapShellFile(path string) error {
 		"if [ -n \"${ZSH_VERSION:-}\" ]; then _airgap_shell=zsh; else _airgap_shell=bash; fi\n" +
 		"[ -f \"$HOME/.fzf/shell/key-bindings.${_airgap_shell}\" ] && . \"$HOME/.fzf/shell/key-bindings.${_airgap_shell}\"\n" +
 		"[ -f \"$HOME/.fzf/shell/completion.${_airgap_shell}\" ] && . \"$HOME/.fzf/shell/completion.${_airgap_shell}\"\n" +
-		"command -v zoxide >/dev/null 2>&1 && eval \"$(zoxide init \"${_airgap_shell}\")\"\n" +
 		"command -v starship >/dev/null 2>&1 && eval \"$(starship init \"${_airgap_shell}\")\"\n" +
+		"command -v zoxide >/dev/null 2>&1 && eval \"$(zoxide init \"${_airgap_shell}\")\"\n" +
 		"unset _airgap_shell\n"
 	return writeAtomic(path, []byte(content), 0644)
 }

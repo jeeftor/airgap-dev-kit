@@ -27,6 +27,22 @@ func TestRootHelpIsUsefulWithoutColor(t *testing.T) {
 	}
 }
 
+func TestManagedShellInitializesZoxideLast(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "shell.sh")
+	if err := writeAirgapShellFile(path); err != nil {
+		t.Fatalf("write managed shell file: %v", err)
+	}
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read managed shell file: %v", err)
+	}
+	starship := strings.Index(string(content), "starship init")
+	zoxide := strings.Index(string(content), "zoxide init")
+	if starship < 0 || zoxide < 0 || starship > zoxide {
+		t.Fatalf("managed shell file must initialize Starship before zoxide:\n%s", content)
+	}
+}
+
 func TestInstallPlannerSelectsRecoverableReplaceAndNoShellChanges(t *testing.T) {
 	model := installModel{
 		options:      installOptions{ConfigureShell: true, NvimMode: "preserve"},
