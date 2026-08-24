@@ -155,7 +155,7 @@ Commands:
     download-release Download and checksum-verify the latest Linux release
     apply-release   Verify, extract, and install a downloaded release
     update [--yes]  Check, download, verify, and apply a published release
-    doctor          Diagnose kit, Neovim, and bundled LSP state (read-only)
+    doctor          Report installed tools, shell setup, and Neovim/LazyVim health (read-only)
     refresh-sources Refresh maintainer source binaries with make update
     install     Install missing tools from offline packages
     remove      Completely uninstall the airgap-dev-kit
@@ -165,7 +165,7 @@ Commands:
 Examples:
     $COMMAND_NAME version     # Show version info
     $COMMAND_NAME update      # Safely update from a published release
-    $COMMAND_NAME doctor      # Check Neovim and LSP payload health
+    $COMMAND_NAME doctor      # Check tools, shell setup, Neovim, LazyVim, and Mason
     $COMMAND_NAME install      # Install from offline packages
     $COMMAND_NAME status      # Check what's installed
     $COMMAND_NAME remove       # Uninstall everything
@@ -281,18 +281,135 @@ refresh_sources() {
 }
 
 doctor() {
-    local mason_dir="${XDG_DATA_HOME:-$HOME/.local/share}/nvim/mason" failures=0
+    local data_home="${XDG_DATA_HOME:-$HOME/.local/share}"
+    local config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
+    local state_home="${XDG_STATE_HOME:-$HOME/.local/state}"
+    local nvim_config="$config_home/nvim"
+    local nvim_data="$data_home/nvim"
+    local mason_dir="$nvim_data/mason"
+    local nvim_runtime="$nvim_data/runtime"
+    local install_log="$HOME/.airgap-dev-kit-install.log"
+    local failures=0 warnings=0 checked_binaries=0 startup_output
+
+    doctor_error() {
+        print_error "$1"
+        failures=$((failures + 1))
+    }
+
+    doctor_warning() {
+        print_warning "$1"
+        warnings=$((warnings + 1))
+    }
+
+    check_shell_rc() {
+        local shell_name="$1" rc_file="$2" binding_ext="$3" zoxide_init starship_init zoxide_line starship_line
+        [[ -f "$rc_file" ]] || { doctor_warning "$shell_name setup: $rc_file is not present"; return; }
+
+        if [[ "$shell_name" == "bash" ]]; then
+            bash -n "$rc_file" && print_status "$shell_name setup: syntax is valid" || doctor_error "$shell_name setup: syntax error in $rc_file"
+        elif command -v zsh >/dev/null 2>&1; then
+            zsh -n "$rc_file" && print_status "$shell_name setup: syntax is valid" || doctor_error "$shell_name setup: syntax error in $rc_file"
+        else
+            doctor_warning "$shell_name setup: zsh is unavailable, skipped syntax check"
+        fi
+
+        if [[ -d "$HOME/.fzf/shell" ]]; then
+            for integration in "key-bindings.$binding_ext" "completion.$binding_ext"; do
+                if [[ -f "$HOME/.fzf/shell/$integration" ]] && rg -Fq "source ~/.fzf/shell/$integration" "$rc_file"; then
+                    print_status "$shell_name fzf $integration enabled"
+                else
+                    doctor_error "$shell_name fzf $integration missing from $rc_file or ~/.fzf/shell"
+                fi
+            done
+        fi
+
+        zoxide_init="eval \"\$(zoxide init $shell_name)\""
+        if [[ -x "${BIN_DIR:-$HOME/.local/bin}/zoxide" ]]; then
+            rg -Fq "$zoxide_init" "$rc_file" && print_status "$shell_name zoxide integration enabled" || doctor_error "$shell_name zoxide integration missing from $rc_file"
+        fi
+        starship_init="eval \"\$(starship init $shell_name)\""
+        if [[ -x "${BIN_DIR:-$HOME/.local/bin}/starship" ]]; then
+            rg -Fq "$starship_init" "$rc_file" && print_status "$shell_name Starship integration enabled" || doctor_error "$shell_name Starship integration missing from $rc_file"
+        fi
+        if rg -Fq "$zoxide_init" "$rc_file" && rg -Fq "$starship_init" "$rc_file"; then
+            zoxide_line=$(rg -nF "$zoxide_init" "$rc_file" | tail -1 | cut -d: -f1)
+            starship_line=$(rg -nF "$starship_init" "$rc_file" | tail -1 | cut -d: -f1)
+            if [[ "$zoxide_line" -gt "$starship_line" ]]; then
+                print_status "$shell_name initializer order: Starship before zoxide"
+            else
+                doctor_error "$shell_name initializer order is wrong: place zoxide after Starship at the end of $rc_file"
+            fi
+        fi
+        if [[ -d "$nvim_runtime" ]]; then
+            rg -Fq 'export VIMRUNTIME="$HOME/.local/share/nvim/runtime"' "$rc_file" && print_status "$shell_name VIMRUNTIME configured" || doctor_error "$shell_name VIMRUNTIME missing from $rc_file"
+        fi
+    }
+
     print_header "Air-Gap Dev Kit Doctor"
     if [[ "$(uname -s)" == "Linux" ]]; then print_status "Linux host detected"; else print_error "Linux is required"; failures=$((failures + 1)); fi
     if [[ -f "$KIT_DIR/VERSION" ]]; then print_status "Kit version: $KIT_VERSION"; else print_error "Kit VERSION file missing"; failures=$((failures + 1)); fi
-    if [[ -f "$KIT_DIR/config/plugin-manifest.lua" ]]; then print_status "Plugin manifest found"; else print_error "Plugin manifest missing"; failures=$((failures + 1)); fi
-    for lsp in gopls bash-language-server; do
-        if [[ -x "$mason_dir/bin/$lsp" ]]; then print_status "Mason $lsp available"; else print_error "Mason $lsp missing: $mason_dir/bin/$lsp"; failures=$((failures + 1)); fi
-    done
-    if [[ -x "$mason_dir/node/bin/node" ]]; then print_status "Bundled Mason Node runtime available"; else print_error "Bundled Mason Node runtime missing"; failures=$((failures + 1)); fi
-    if [[ -d "$HOME/.config/nvim" ]]; then print_status "Neovim config: $HOME/.config/nvim"; else print_warning "No Neovim config installed"; fi
-    if [[ -d "${XDG_STATE_HOME:-$HOME/.local/state}/airgap-dev-kit/transactions" ]]; then print_status "Installation transactions retained"; else print_warning "No installation transaction history"; fi
-    [[ -d "$HOME/.local/share/airgap-dev-kit/backups" ]] && print_warning "Neovim backups are available for recovery"
+    if [[ -f "$KIT_DIR/config/plugin-manifest.lua" ]]; then print_status "Plugin manifest found"; else doctor_error "Plugin manifest missing"; fi
+
+    echo ""
+    echo "Installed binaries:"
+    if [[ -f "$install_log" ]] && rg -q '^BINARY\|' "$install_log"; then
+        while IFS='|' read -r type path _; do
+            [[ "$type" == "BINARY" ]] || continue
+            checked_binaries=$((checked_binaries + 1))
+            [[ -x "$path" ]] && print_status "$(basename "$path"): $path" || doctor_error "$(basename "$path") missing or not executable: $path"
+        done < <(awk -F'|' '!seen[$2]++ && $1 == "BINARY" { print }' "$install_log")
+    else
+        doctor_warning "No installed-binary records in $install_log; rerun install to record the exact package set"
+    fi
+    [[ $checked_binaries -gt 0 ]] && print_status "Checked $checked_binaries installed binaries"
+
+    echo ""
+    echo "Shell configuration:"
+    check_shell_rc bash "$HOME/.bashrc" bash
+    check_shell_rc zsh "$HOME/.zshrc" zsh
+
+    echo ""
+    echo "Neovim and LazyVim:"
+    [[ -x "${BIN_DIR:-$HOME/.local/bin}/nvim" ]] && print_status "Neovim binary: ${BIN_DIR:-$HOME/.local/bin}/nvim" || doctor_error "Neovim binary missing from ${BIN_DIR:-$HOME/.local/bin}"
+    [[ -f "$nvim_config/init.lua" ]] && print_status "Neovim config entry point: $nvim_config/init.lua" || doctor_error "Neovim config entry point missing: $nvim_config/init.lua"
+    [[ -f "$nvim_config/lua/config/lazy.lua" ]] && print_status "LazyVim bootstrap config: $nvim_config/lua/config/lazy.lua" || doctor_error "LazyVim bootstrap config missing"
+    [[ -d "$nvim_runtime/syntax" ]] && print_status "Neovim runtime: $nvim_runtime" || doctor_error "Neovim runtime missing or incomplete: $nvim_runtime"
+    [[ -d "$nvim_data/lazy/lazy.nvim" ]] && print_status "lazy.nvim payload: $nvim_data/lazy/lazy.nvim" || doctor_error "lazy.nvim payload missing: $nvim_data/lazy/lazy.nvim"
+    [[ -d "$nvim_data/lazy/LazyVim" ]] && print_status "LazyVim payload: $nvim_data/lazy/LazyVim" || doctor_error "LazyVim payload missing: $nvim_data/lazy/LazyVim"
+    [[ -f "$nvim_data/lazy-lock.json" ]] && print_status "LazyVim lockfile: $nvim_data/lazy-lock.json" || doctor_error "LazyVim lockfile missing: $nvim_data/lazy-lock.json"
+    if [[ -x "${BIN_DIR:-$HOME/.local/bin}/nvim" && -d "$nvim_data/lazy/lazy.nvim" && -d "$nvim_data/lazy/LazyVim" && -d "$nvim_runtime/syntax" ]]; then
+        startup_output=$(mktemp "${TMPDIR:-/tmp}/airgap-dev-kit-doctor-nvim.XXXXXX")
+        if VIMRUNTIME="$nvim_runtime" "${BIN_DIR:-$HOME/.local/bin}/nvim" --headless '+lua assert(pcall(require, "lazy"), "cannot load lazy.nvim")' '+qa' >"$startup_output" 2>&1; then
+            print_status "Neovim headless startup and lazy.nvim load succeeded"
+            if [[ -s "$startup_output" ]]; then
+                doctor_warning "Neovim startup emitted diagnostics (often optional toolchain checks):"
+                sed 's/^/  /' "$startup_output"
+            fi
+        else
+            doctor_error "Neovim headless startup failed; inspect $state_home/nvim/lazy.log"
+            sed 's/^/  /' "$startup_output"
+        fi
+        rm -f "$startup_output"
+    fi
+
+    echo ""
+    echo "Mason payload:"
+    [[ -x "$mason_dir/node/bin/node" ]] && print_status "Bundled Mason Node runtime: $mason_dir/node/bin/node" || doctor_error "Bundled Mason Node runtime missing: $mason_dir/node/bin/node"
+    if [[ -f "$KIT_DIR/config/plugin-manifest.lua" ]]; then
+        while IFS= read -r package; do
+            [[ -n "$package" ]] || continue
+            [[ -d "$mason_dir/packages/$package" ]] && print_status "Mason package: $package" || doctor_error "Mason package missing: $package ($mason_dir/packages/$package)"
+        done < <(awk '
+            /^[[:space:]]*mason[[:space:]]*=/ { in_mason = 1; next }
+            in_mason && /^[[:space:]]*lazyvim_extras[[:space:]]*=/ { exit }
+            in_mason { sub(/--.*/, ""); if (match($0, /"[^"]+"/)) { value = substr($0, RSTART + 1, RLENGTH - 2); print value } }
+        ' "$KIT_DIR/config/plugin-manifest.lua")
+    fi
+    if [[ -d "$state_home/airgap-dev-kit/transactions" ]]; then print_status "Installation transactions retained"; else doctor_warning "No installation transaction history"; fi
+    [[ -d "$data_home/airgap-dev-kit/backups" ]] && doctor_warning "Neovim backups are available for recovery"
+    echo ""
+    [[ $warnings -eq 0 ]] || print_warning "Doctor completed with $warnings warning(s)"
+    [[ $failures -eq 0 ]] && print_status "Doctor completed: all required installed components are healthy"
     [[ $failures -eq 0 ]] || return 1
 }
 

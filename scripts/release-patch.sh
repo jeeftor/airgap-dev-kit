@@ -62,7 +62,12 @@ release_run_id() {
 }
 
 download() {
-  local tag=$1 asset="airgap-dev-kit-linux-x86_64.tar.gz" target_dir
+  local tag=${1:-} asset="airgap-dev-kit-linux-x86_64.tar.gz" target_dir
+  if [ -z "$tag" ]; then
+    tag=$(gh release view --repo "$repo" --json tagName --jq '.tagName') || die "Could not determine the latest release"
+    [ -n "$tag" ] || die "Could not determine the latest release"
+    printf 'Downloading latest published release: %s\n' "$tag"
+  fi
   target_dir="$dist_dir/$tag"
   mkdir -p "$target_dir"
   gh release download "$tag" --repo "$repo" --dir "$target_dir" --pattern "$asset" --pattern checksums.txt --clobber
@@ -96,6 +101,6 @@ start() {
 
 case "${1:-}" in
   start) start ;;
-  download) [ "$#" = 2 ] || die "Usage: $0 download vX.Y.Z"; select_arches; validate_arches; download "$2" ;;
-  *) die "Usage: $0 <start|download vX.Y.Z>" ;;
+  download) [ "$#" -le 2 ] || die "Usage: $0 download [vX.Y.Z]"; select_arches; validate_arches; download "${2:-}" ;;
+  *) die "Usage: $0 <start|download [vX.Y.Z]>" ;;
 esac

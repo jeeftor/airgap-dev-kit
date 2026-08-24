@@ -1542,23 +1542,22 @@ else
       fi
     fi
 
-    # Zoxide (smarter cd) - must be near the end of the RC file; zoxide's
-    # doctor warns if its init runs before other shell integrations.
-    if [[ -f "$BIN_DIR/zoxide" ]]; then
-      if [[ "$SHELL_TYPE" == "fish" ]]; then
-        add_terminal_shell_rc "$SHELL_RC" "zoxide init fish | source" "Zoxide (z command)"
-      else
-        add_terminal_shell_rc "$SHELL_RC" "eval \"\$(zoxide init $SHELL_TYPE)\"" "Zoxide (z command)"
-      fi
-    fi
-
-    # Starship prompt must be last so it wins over legacy prompt setup and
-    # runs after shell integrations that add hooks or aliases.
+    # Starship establishes the prompt before zoxide adds its directory-tracking
+    # hook. Zoxide must be the final initializer, or it reports a configuration
+    # warning when another prompt integration replaces that hook.
     if command -v starship &>/dev/null || [[ -f "$BIN_DIR/starship" ]]; then
       if [[ "$SHELL_TYPE" == "fish" ]]; then
         add_terminal_shell_rc "$SHELL_RC" "starship init fish | source" "Starship prompt"
       else
         add_terminal_shell_rc "$SHELL_RC" "eval \"\$(starship init $SHELL_TYPE)\"" "Starship prompt"
+      fi
+    fi
+
+    if [[ -f "$BIN_DIR/zoxide" ]]; then
+      if [[ "$SHELL_TYPE" == "fish" ]]; then
+        add_terminal_shell_rc "$SHELL_RC" "zoxide init fish | source" "Zoxide (z command)"
+      else
+        add_terminal_shell_rc "$SHELL_RC" "eval \"\$(zoxide init $SHELL_TYPE)\"" "Zoxide (z command)"
       fi
     fi
 

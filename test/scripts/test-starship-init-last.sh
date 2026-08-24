@@ -39,9 +39,9 @@ EOF
 ) > "$TMP_DIR/install.out" 2>&1
 
 # shellcheck disable=SC2016
-awk 'NF { line = $0 } END { print line }' "$TMP_DIR/home/.bashrc" | grep -F 'eval "$(starship init bash)"'
+awk 'NF { line = $0 } END { print line }' "$TMP_DIR/home/.bashrc" | grep -F 'eval "$(zoxide init bash)"'
 # shellcheck disable=SC2016
-awk 'NF { line = $0 } END { print line }' "$TMP_DIR/home/.zshrc" | grep -F 'eval "$(starship init zsh)"'
+awk 'NF { line = $0 } END { print line }' "$TMP_DIR/home/.zshrc" | grep -F 'eval "$(zoxide init zsh)"'
 
 # shellcheck disable=SC2016
 if [[ $(grep -Fc 'eval "$(starship init bash)"' "$TMP_DIR/home/.bashrc") -ne 1 ]]; then
@@ -55,8 +55,8 @@ if [[ $(grep -Fc 'eval "$(starship init zsh)"' "$TMP_DIR/home/.zshrc") -ne 1 ]];
   exit 1
 fi
 
-# Zoxide init must be present exactly once and appear after fzf key bindings
-# but before Starship in .bashrc (zoxide doctor requires it near the end).
+# Zoxide init must be present exactly once and follow Starship in .bashrc, so
+# its prompt hook is not replaced by a later initializer.
 # shellcheck disable=SC2016
 if [[ $(grep -Fc 'eval "$(zoxide init bash)"' "$TMP_DIR/home/.bashrc") -ne 1 ]]; then
   echo "bash Zoxide init should be relocated, not duplicated" >&2
@@ -74,8 +74,8 @@ if [[ -z "$zoxide_line" || -z "$starship_line" ]]; then
   exit 1
 fi
 
-if [[ "$zoxide_line" -ge "$starship_line" ]]; then
-  echo "Zoxide init (line $zoxide_line) must come before Starship init (line $starship_line)" >&2
+if [[ "$zoxide_line" -le "$starship_line" ]]; then
+  echo "Zoxide init (line $zoxide_line) must come after Starship init (line $starship_line)" >&2
   exit 1
 fi
 
@@ -84,4 +84,4 @@ if [[ -n "$fzf_line" && "$fzf_line" -ge "$zoxide_line" ]]; then
   exit 1
 fi
 
-echo "Starship terminal init test passed"
+echo "Shell initializer order test passed"

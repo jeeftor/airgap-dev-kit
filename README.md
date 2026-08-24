@@ -216,7 +216,8 @@ make package-cli       # Create CLI-only tarball
 make docker-test       # Smoke test full package in Docker
 make local-release     # Build a complete Linux amd64 release through Docker
 make release-patch     # Prompt for architecture, tag, and push the next patch release
-make release-download VERSION=vX.Y.Z  # Download and verify a published release
+make release-download                 # Download and verify the latest published release
+make release-download VERSION=vX.Y.Z  # Download and verify a specific published release
 make test-cli-package  # Test CLI-only package layout and dry-run behavior
 make install           # Install on current machine
 make sync-nvim-config  # Sync ~/.config/nvim to repo

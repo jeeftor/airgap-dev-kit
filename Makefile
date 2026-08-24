@@ -45,7 +45,7 @@ help:
 	@echo "make package-v2        - Create target-aware v2 kit (BINARY=path/to/airgap)"
 	@echo "make release           - Build and package the Linux amd64 release kit"
 	@echo "make release-patch     - Tag/push the next patch release (ARCHES=..., WAIT=1)"
-	@echo "make release-download  - Download a published release (VERSION=vX.Y.Z)"
+	@echo "make release-download  - Download and verify the latest published release (VERSION=vX.Y.Z to select one)"
 	@echo "make local-release     - Build a complete Linux amd64 kit in Docker (no bind mount)"
 	@echo "make test-v2-package   - Verify the v2 archive layout and launchers"
 	@echo "make test-release-patch - Test patch-release guard and tag calculation"
@@ -462,7 +462,6 @@ release-patch:
 	@ARCHES="$(ARCHES)" WAIT="$(WAIT)" DIST_DIR="$(DIST_DIR)" bash scripts/release-patch.sh start
 
 release-download:
-	@test -n "$(VERSION)" || (echo "Set VERSION=vX.Y.Z" >&2; exit 2)
 	@ARCHES="$(ARCHES)" DIST_DIR="$(DIST_DIR)" bash scripts/release-patch.sh download "$(VERSION)"
 
 airgap:
@@ -548,6 +547,7 @@ test-cli-package:
 	@bash test/scripts/test-config-idempotent.sh
 	@bash test/scripts/test-nvim-state-safety.sh
 	@bash test/scripts/test-starship-init-last.sh
+	@bash test/scripts/test-doctor.sh
 
 test-update-tools:
 	@bash test/scripts/test-release-update.sh
