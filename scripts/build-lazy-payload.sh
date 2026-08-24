@@ -24,6 +24,17 @@ lazy_config_file="$config_dir/lua/config/lazy.lua"
 sed 's/missing = false/missing = true/' "$lazy_config_file" > "$lazy_config_file.tmp"
 mv "$lazy_config_file.tmp" "$lazy_config_file"
 
+# Synchronize the plugin sources without starting the runtime configuration
+# that installs Mason tools or Tree-sitter parsers. Those host-specific assets
+# are created by build-mason-payload.sh instead of this plugin archive.
+cat > "$config_dir/lua/plugins/zz-airgap-payload-build.lua" <<'EOF'
+return {
+  { "mason-org/mason.nvim", config = false },
+  { "mason-org/mason-lspconfig.nvim", config = false },
+  { "nvim-treesitter/nvim-treesitter", config = false },
+}
+EOF
+
 XDG_CONFIG_HOME="$config_home" \
 XDG_DATA_HOME="$data_home" \
 XDG_STATE_HOME="$state_home" \
