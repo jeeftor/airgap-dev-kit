@@ -41,6 +41,15 @@ return {
   -- creates the separate offline LSP archive immediately after this pass.
   { "mason-org/mason.nvim", opts = { ensure_installed = {} } },
   { "mason-org/mason-lspconfig.nvim", opts = { ensure_installed = {} } },
+  {
+    "nvim-treesitter/nvim-treesitter",
+    opts = function(_, opts)
+      -- Parser binaries are platform-specific and are not part of this plugin
+      -- source archive. Avoid Mason's first-run tree-sitter-cli install race.
+      opts.ensure_installed = {}
+      opts.auto_install = false
+    end,
+  },
 }
 EOF
 
