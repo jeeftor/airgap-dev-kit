@@ -37,12 +37,17 @@ jobs:
       - name: Download or validate Linux payload
         run: make update
 
+      - name: Build shared editor payloads
+        run: make build-editor-payloads
+
       - name: Upload immutable payload for this workflow run
         uses: actions/upload-artifact@v7
         with:
           name: ${{ env.LINUX_PAYLOAD_ARTIFACT }}
           path: |
             offline-packages/linux
+            offline-packages/lazy-plugins.tar.gz
+            offline-packages/mason-lsp.tar.gz
             fonts/JetBrainsMono.zip
           if-no-files-found: error
           retention-days: 1

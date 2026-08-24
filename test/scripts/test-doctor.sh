@@ -28,6 +28,15 @@ for binary in nvim fd zoxide starship; do
   printf '%s\n' '#!/bin/sh' 'exit 0' > "$TMP_DIR/home/.local/bin/$binary"
   chmod +x "$TMP_DIR/home/.local/bin/$binary"
 done
+cat > "$TMP_DIR/home/.local/bin/uname" <<'EOF'
+#!/bin/sh
+if [ "${1:-}" = "-s" ]; then
+  printf '%s\n' Linux
+else
+  /usr/bin/uname "$@"
+fi
+EOF
+chmod +x "$TMP_DIR/home/.local/bin/uname"
 cp "$TMP_DIR/home/.local/bin/nvim" "$TMP_DIR/home/.local/share/nvim/mason/node/bin/node"
 for file in key-bindings.bash completion.bash key-bindings.zsh completion.zsh; do touch "$TMP_DIR/home/.fzf/shell/$file"; done
 
