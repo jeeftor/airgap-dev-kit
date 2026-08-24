@@ -37,8 +37,17 @@ jobs:
       - name: Download or validate Linux payload
         run: make update
 
-      - name: Build shared editor payloads
-        run: make build-editor-payloads
+      - name: Restore LazyVim payload cache
+        uses: actions/cache@v6
+        with:
+          path: offline-packages/lazy-plugins.tar.gz
+          key: release-lazy-payload-linux-v1-${{ hashFiles('config/plugin-manifest.lua', 'config/nvim/.config/nvim/lazy-lock.json') }}
+
+      - name: Restore Mason payload cache
+        uses: actions/cache@v6
+        with:
+          path: offline-packages/mason-lsp.tar.gz
+          key: release-mason-payload-linux-v1-${{ hashFiles('config/plugin-manifest.lua', 'scripts/build-mason-payload.sh') }}
 
       - name: Upload immutable payload for this workflow run
         uses: actions/upload-artifact@v7
