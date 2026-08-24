@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 func TestRootHelpIsUsefulWithoutColor(t *testing.T) {
@@ -43,8 +43,8 @@ func TestInstallPlannerSelectsRecoverableReplaceAndNoShellChanges(t *testing.T) 
 		t.Fatalf("unexpected install plan: %#v", model)
 	}
 	view := model.View()
-	if !strings.Contains(view, "Back up and replace") || !strings.Contains(view, "Do not change shell startup files") {
-		t.Fatalf("review does not describe selected plan: %s", view)
+	if !strings.Contains(view.Content, "Back up and replace") || !strings.Contains(view.Content, "Do not change shell startup files") {
+		t.Fatalf("review does not describe selected plan: %s", view.Content)
 	}
 }
 
@@ -60,13 +60,42 @@ func TestInstallPlannerPreservesExistingNeovimByDefault(t *testing.T) {
 	}
 }
 
+func TestInstallProgressRendersCompletedResults(t *testing.T) {
+	model := newInstallProgressModel([]installStep{
+		{label: "Copy command-line payload", result: "Installed", details: "Offline binaries copied", action: func() error { return nil }},
+		{label: "Keep existing Neovim profile", result: "Preserved", details: "No files changed", action: func() error { return nil }},
+	})
+	updated, _ := model.Update(installStepDone{})
+	model = updated.(installProgressModel)
+	updated, _ = model.Update(installStepDone{})
+	model = updated.(installProgressModel)
+	view := model.View().Content
+	for _, expected := range []string{"Installation complete", "Installed", "Preserved", "Copy command-line payload"} {
+		if !strings.Contains(view, expected) {
+			t.Fatalf("completed progress view is missing %q: %s", expected, view)
+		}
+	}
+}
+
+func TestInstallProgressRendersRecoveryPanel(t *testing.T) {
+	model := newInstallProgressModel([]installStep{{label: "Copy command-line payload", action: func() error { return nil }}})
+	updated, _ := model.Update(installStepDone{err: os.ErrPermission})
+	model = updated.(installProgressModel)
+	view := model.View().Content
+	for _, expected := range []string{"Installation stopped", "Copy command-line payload", "airgap doctor"} {
+		if !strings.Contains(view, expected) {
+			t.Fatalf("failure progress view is missing %q: %s", expected, view)
+		}
+	}
+}
+
 func updateInstallPlanner(t *testing.T, model installModel, key string) installModel {
 	t.Helper()
 	keyType := tea.KeyEnter
 	if key == "down" {
 		keyType = tea.KeyDown
 	}
-	updated, _ := model.Update(tea.KeyMsg{Type: keyType})
+	updated, _ := model.Update(tea.KeyPressMsg{Code: keyType})
 	result, ok := updated.(installModel)
 	if !ok {
 		t.Fatalf("planner update returned %T", updated)

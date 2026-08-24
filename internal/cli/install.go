@@ -106,31 +106,46 @@ func installKit(cmd *cobra.Command, options installOptions) error {
 
 	fmt.Fprintln(cmd.OutOrStdout(), styled(cmd, titleStyle, "Airgap install"))
 	fmt.Fprintln(cmd.OutOrStdout(), styled(cmd, dimStyle, "Offline payload · user-local installation"))
-	if err := os.MkdirAll(binDir, 0755); err != nil {
-		return err
-	}
 	record := installRecord{Version: manifest.Version, KitDir: root}
-	if err := copyPayloadBinaries(payload, binDir, options.CLIOnly, &record); err != nil {
-		return err
-	}
 	installNvim := options.NvimMode == "replace" || !nvimStateExists(home, dataHome)
-	if !installNvim {
-		fmt.Fprintln(cmd.OutOrStdout(), styled(cmd, warnStyle, "⚠ Preserved existing Neovim profile (--nvim-mode=preserve)."))
-	} else if err := installNvimPayload(root, payload, home, dataHome, options.NvimMode, &record); err != nil {
-		return err
+	steps := []installStep{
+		{label: "Prepare user-local directories", result: "Installed", details: "Created ~/.local/bin", action: func() error {
+			return os.MkdirAll(binDir, 0755)
+		}},
+		{label: "Copy command-line payload", result: "Installed", details: "Offline binaries copied to ~/.local/bin", action: func() error {
+			return copyPayloadBinaries(payload, binDir, options.CLIOnly, &record)
+		}},
 	}
-	if err := copyManagedConfig(root, home, installNvim, &record); err != nil {
-		return err
+	if installNvim {
+		steps = append(steps, installStep{label: "Install Neovim and editor payload", result: "Installed", details: "Bundled Neovim, LazyVim, and Mason payload", action: func() error {
+			return installNvimPayload(root, payload, home, dataHome, options.NvimMode, &record)
+		}})
+	} else {
+		steps = append(steps, installStep{label: "Keep existing Neovim profile", result: "Preserved", details: "No Neovim files were changed", action: func() error { return nil }})
 	}
-	if err := installFZFIntegration(payload, home, &record); err != nil {
-		return err
-	}
+	steps = append(steps,
+		installStep{label: "Install managed configuration", result: "Installed", details: "User configuration copied safely", action: func() error {
+			return copyManagedConfig(root, home, installNvim, &record)
+		}},
+		installStep{label: "Install FZF shell integration", result: "Installed", details: "Bundled FZF shell helpers", action: func() error {
+			return installFZFIntegration(payload, home, &record)
+		}},
+	)
 	if options.ConfigureShell {
-		if err := configureShells(home, &record); err != nil {
+		steps = append(steps, installStep{label: "Configure Bash and Zsh", result: "Installed", details: "Managed, removable shell integration", action: func() error {
+			return configureShells(home, &record)
+		}})
+	} else {
+		steps = append(steps, installStep{label: "Leave shell startup files unchanged", result: "Skipped", details: "Shell integration was declined", action: func() error { return nil }})
+	}
+	steps = append(steps, installStep{label: "Save installation record", result: "Installed", details: "Safe uninstall record written", action: func() error {
+		return saveInstallRecord(record)
+	}})
+	if wantsTUI(nil) && !options.Yes {
+		if err := runInstallProgress(cmd, steps); err != nil {
 			return err
 		}
-	}
-	if err := saveInstallRecord(record); err != nil {
+	} else if err := runInstallText(cmd, steps); err != nil {
 		return err
 	}
 	fmt.Fprintln(cmd.OutOrStdout(), styled(cmd, okStyle, "✓ Installed offline kit payload"))

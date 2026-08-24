@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
@@ -111,7 +111,7 @@ type installModel struct {
 func (m installModel) Init() tea.Cmd { return nil }
 
 func (m installModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
-	if key, ok := message.(tea.KeyMsg); ok {
+	if key, ok := message.(tea.KeyPressMsg); ok {
 		switch key.String() {
 		case "up", "k":
 			if m.choice > 0 {
@@ -142,7 +142,7 @@ func (m installModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m installModel) View() string {
+func (m installModel) View() tea.View {
 	var b strings.Builder
 	b.WriteString(installerTitleStyle.Render("✦ Airgap Setup") + "  " + dimStyle.Render("offline kit installer") + "\n")
 	b.WriteString(m.stepper() + "\n\n")
@@ -170,7 +170,7 @@ func (m installModel) View() string {
 		}
 		b.WriteString("\n" + dimStyle.Render("Nothing has changed yet.") + "\n\n")
 		b.WriteString(okStyle.Render("Enter") + " install    " + warnStyle.Render("b") + " back    " + warnStyle.Render("q") + " cancel")
-		return "\n" + installerFrameStyle.Render(b.String()) + "\n"
+		return tea.NewView("\n" + installerFrameStyle.Render(b.String()) + "\n")
 	}
 	b.WriteString(accentStyle.Render(m.question()) + "\n")
 	if m.step == 1 && m.existingNvim {
@@ -189,7 +189,7 @@ func (m installModel) View() string {
 		b.WriteString(style.Render(marker+choice) + "\n")
 	}
 	b.WriteString("\n" + dimStyle.Render("↑/k and ↓/j choose  ·  Enter continue  ·  b back  ·  q cancel"))
-	return "\n" + installerFrameStyle.Render(b.String()) + "\n"
+	return tea.NewView("\n" + installerFrameStyle.Render(b.String()) + "\n")
 }
 
 func (m installModel) stepper() string {
