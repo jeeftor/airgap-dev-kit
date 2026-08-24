@@ -24,35 +24,6 @@ lazy_config_file="$config_dir/lua/config/lazy.lua"
 sed 's/missing = false/missing = true/' "$lazy_config_file" > "$lazy_config_file.tmp"
 mv "$lazy_config_file.tmp" "$lazy_config_file"
 
-# Mason's air-gapped server list is bundled separately by build-mason-payload.
-# Keeping it out of this connected Lazy-only pass prevents LazyVim from asking
-# its empty temporary Mason registry to resolve servers before the registry is
-# installed. These replacements affect only the temporary copied config.
-cat > "$config_dir/lua/plugins/airgap-lsp.lua" <<'EOF'
-return {}
-EOF
-cat > "$config_dir/lua/plugins/mason-airgap.lua" <<'EOF'
-return {}
-EOF
-cat > "$config_dir/lua/plugins/zz-airgap-payload-build.lua" <<'EOF'
-return {
-  -- LazyVim's Mason bridge still loads while the plugin set is synchronized.
-  -- Keep Mason enabled but suppress installations; build-mason-payload.sh
-  -- creates the separate offline LSP archive immediately after this pass.
-  { "mason-org/mason.nvim", opts = { ensure_installed = {} } },
-  { "mason-org/mason-lspconfig.nvim", opts = { ensure_installed = {} } },
-  {
-    "nvim-treesitter/nvim-treesitter",
-    opts = function(_, opts)
-      -- Parser binaries are platform-specific and are not part of this plugin
-      -- source archive. Avoid Mason's first-run tree-sitter-cli install race.
-      opts.ensure_installed = {}
-      opts.auto_install = false
-    end,
-  },
-}
-EOF
-
 XDG_CONFIG_HOME="$config_home" \
 XDG_DATA_HOME="$data_home" \
 XDG_STATE_HOME="$state_home" \
