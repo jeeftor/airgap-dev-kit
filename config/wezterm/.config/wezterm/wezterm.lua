@@ -23,4 +23,11 @@ config.window_padding = {
 config.enable_tab_bar = true
 config.hide_tab_bar_if_only_one_tab = true
 
+-- Keep the command palette readable without changing terminal or tmux colors.
+-- Ctrl+Shift+P is WezTerm's built-in command palette shortcut.
+config.command_palette_bg_color = "#16161e"
+config.command_palette_fg_color = "#c0caf5"
+config.command_palette_rows = 14
+config.ui_key_cap_rendering = "Emacs"
+
 return config
