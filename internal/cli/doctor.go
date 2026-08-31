@@ -1,11 +1,14 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
@@ -296,7 +299,91 @@ func diagnoseKit(root string, found bool, runtimeVersion, runtimeCommit string) 
 	} else {
 		report.add("root launcher", "warn", "./airgap is unavailable; use the payload path or build a fresh v2 release")
 	}
+	addInstalledBinaryChecks(&report)
 	return report
+}
+
+// addInstalledBinaryChecks verifies every executable recorded by the native
+// installer, including whether the user's current PATH resolves that command.
+func addInstalledBinaryChecks(report *doctorReport) {
+	status, err := installationStatus()
+	if err != nil {
+		report.add("installation record", "warn", "cannot inspect installed components: "+err.Error())
+		return
+	}
+	if !status.RecordFound {
+		// Doctor is also the pre-install archive-health gate. Without a native
+		// installation record there are no installed binaries to assess.
+		return
+	}
+	for _, component := range status.Components {
+		if component.Kind != "binary" {
+			continue
+		}
+		name := filepath.Base(component.Path)
+		if component.Status != "installed" {
+			report.add("installed binary "+name, "fail", component.Path+" is "+component.Status)
+			continue
+		}
+		if component.PathHit == "" {
+			report.add("installed binary "+name, "warn", component.Path+" is installed but not found on PATH")
+		} else {
+			report.add("installed binary "+name, "pass", component.Path+"; PATH resolves to "+component.PathHit)
+		}
+		addBinaryRunCheck(report, component.Path)
+	}
+	addNerdFontCheck(report)
+}
+
+// addBinaryRunCheck executes a safe version probe rather than opening an
+// interactive program. AppImages get a FUSE-free probe when direct execution
+// fails, making a missing fusermount dependency explicit.
+func addBinaryRunCheck(report *doctorReport, path string) {
+	name, args := filepath.Base(path), []string{"--version"}
+	if name == "tmux" {
+		args = []string{"-V"}
+	} else if name == "airgap" {
+		args = []string{"version"}
+	}
+	if err := runVersionProbe(path, args...); err == nil {
+		report.add("run "+name, "pass", path+" completed "+strings.Join(args, " "))
+		return
+	} else if name == "wezterm" && runVersionProbe(path, "--appimage-extract-and-run", "--version") == nil {
+		report.add("run "+name, "warn", path+" runs with --appimage-extract-and-run; install FUSE to run it normally")
+		return
+	} else {
+		report.add("run "+name, "fail", path+" failed "+strings.Join(args, " ")+": "+err.Error())
+	}
+}
+
+func runVersionProbe(path string, args ...string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	return exec.CommandContext(ctx, path, args...).Run()
+}
+
+func addNerdFontCheck(report *doctorReport) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		report.add("Nerd Fonts", "warn", "cannot resolve the user home directory")
+		return
+	}
+	fontDir := filepath.Join(home, ".local", "share", "fonts")
+	if info, err := os.Stat(fontDir); err != nil || !info.IsDir() {
+		report.add("Nerd Fonts", "warn", fontDir+" is not installed")
+		return
+	}
+	fcMatch, err := exec.LookPath("fc-match")
+	if err != nil {
+		report.add("Nerd Fonts", "warn", fontDir+" exists but fc-match is unavailable")
+		return
+	}
+	output, err := exec.Command(fcMatch, "-f", "%{family}", "JetBrainsMono Nerd Font").Output()
+	if err != nil || !strings.Contains(strings.ToLower(string(output)), "jetbrainsmono nerd") {
+		report.add("Nerd Fonts", "fail", fontDir+" exists but JetBrainsMono Nerd Font is not in Fontconfig")
+		return
+	}
+	report.add("Nerd Fonts", "pass", "JetBrainsMono Nerd Font resolves through Fontconfig")
 }
 
 // runtimeIdentity returns the version and commit embedded in the running binary.

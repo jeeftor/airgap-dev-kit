@@ -41,7 +41,7 @@ func versionCmd(version, commit string) *cobra.Command {
 }
 
 func statusCmd(output *string) *cobra.Command {
-	return &cobra.Command{Use: "status", Short: "Show kit location and supported target", RunE: func(cmd *cobra.Command, _ []string) error {
+	return &cobra.Command{Use: "status", Short: "Show the kit and every recorded installed component", RunE: func(cmd *cobra.Command, _ []string) error {
 		root, found := discoveredKitRoot()
 		kitDir := "not found"
 		if found {
@@ -51,7 +51,18 @@ func statusCmd(output *string) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		return jsonOrText(cmd, map[string]any{"kit_dir": root, "kit_available": found, "executable": executable, "target": runtime.GOOS + "/" + runtime.GOARCH}, fmt.Sprintf("Executable: %s\nKit directory: %s\nKit available: %t\nTarget: %s/%s\n", executable, kitDir, found, runtime.GOOS, runtime.GOARCH))
+		report, err := installationStatus()
+		if err != nil {
+			return err
+		}
+		report.KitDir = root
+		report.KitAvailable = found
+		report.Executable = executable
+		report.Target = runtime.GOOS + "/" + runtime.GOARCH
+		if err := report.addKitApplications(); err != nil {
+			return err
+		}
+		return jsonOrText(cmd, report, report.text(kitDir))
 	}}
 }
 

@@ -229,6 +229,28 @@ func TestNativeInstallSetsBundledNeovimRuntime(t *testing.T) {
 	if shellContent, err := os.ReadFile(shellFile); err != nil || !strings.Contains(string(shellContent), "zoxide init") {
 		t.Fatalf("managed shell source was not installed: %v\n%s", err, shellContent)
 	}
+	root = New("v2.0.2", "abc1234")
+	var statusOutput bytes.Buffer
+	root.SetOut(&statusOutput)
+	root.SetArgs([]string{"status"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	for _, expected := range []string{"Recorded components:", "binary — " + launcher, "not found on PATH", "file — " + shellFile} {
+		if !strings.Contains(statusOutput.String(), expected) {
+			t.Fatalf("status is missing %q: %s", expected, statusOutput.String())
+		}
+	}
+	root = New("v2.0.2", "abc1234")
+	var doctorOutput bytes.Buffer
+	root.SetOut(&doctorOutput)
+	root.SetArgs([]string{"doctor"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(doctorOutput.String(), "run nvim") {
+		t.Fatalf("doctor did not run the installed Neovim binary: %s", doctorOutput.String())
+	}
 	userFile := filepath.Join(home, ".config", "nvim", "after-install.lua")
 	if err := os.WriteFile(userFile, []byte("-- user file\n"), 0644); err != nil {
 		t.Fatal(err)
