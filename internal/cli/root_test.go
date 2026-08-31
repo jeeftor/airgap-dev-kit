@@ -53,6 +53,56 @@ func TestKitRootErrorExplainsDiscoveryAndExpectedLayout(t *testing.T) {
 	}
 }
 
+func TestCopyPayloadBinariesSkipsSupportFilesAndWrapsAppImages(t *testing.T) {
+	payload := t.TempDir()
+	binDir := filepath.Join(t.TempDir(), ".local", "bin")
+	for name, mode := range map[string]os.FileMode{
+		"usable-tool":            0755,
+		"README":                 0644,
+		"tmux.1":                 0644,
+		"lua-language-server":    0755,
+		"wezterm.AppImage":       0755,
+		"tmux-3.4-static-x86_64": 0755,
+	} {
+		if err := os.WriteFile(filepath.Join(payload, name), []byte("#!/bin/sh\nexit 0\n"), mode); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
+	}
+	if err := os.MkdirAll(binDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	var record installRecord
+	if err := copyPayloadBinaries(payload, binDir, false, &record); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"usable-tool", "wezterm", "tmux"} {
+		if _, err := os.Stat(filepath.Join(binDir, name)); err != nil {
+			t.Errorf("missing installed command %s: %v", name, err)
+		}
+	}
+	for _, name := range []string{"README", "tmux.1", "lua-language-server", "wezterm.AppImage", "tmux-3.4-static-x86_64"} {
+		if _, err := os.Stat(filepath.Join(binDir, name)); !os.IsNotExist(err) {
+			t.Errorf("support artifact %s was installed as a command", name)
+		}
+	}
+	for _, name := range []string{"wezterm", "tmux"} {
+		content, err := os.ReadFile(filepath.Join(binDir, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(content), "--appimage-extract-and-run") {
+			t.Errorf("%s wrapper is missing FUSE-free fallback: %s", name, content)
+		}
+	}
+	for _, path := range record.Paths {
+		if strings.HasSuffix(path, ".AppImage") {
+			if got := inspectInstalledPath(path).Kind; got != "application image" {
+				t.Errorf("raw AppImage kind = %q, want application image", got)
+			}
+		}
+	}
+}
+
 func TestManagedShellInitializesZoxideLast(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "shell.sh")
 	if err := writeAirgapShellFile(path); err != nil {

@@ -85,6 +85,11 @@ func inspectInstalledPath(path string) installedComponent {
 	switch {
 	case info.IsDir():
 		component.Kind = "directory"
+	case strings.HasSuffix(path, ".AppImage"):
+		// AppImages are stored as implementation data behind their user-facing
+		// wrappers. Do not classify them as commands: doctor probes recorded
+		// binaries, while a raw AppImage may require FUSE.
+		component.Kind = "application image"
 	case info.Mode()&0111 != 0:
 		component.Kind = "binary"
 		if resolved, err := exec.LookPath(filepath.Base(path)); err == nil {
@@ -134,13 +139,10 @@ func (r *statusReport) addKitApplications() error {
 	binDir := filepath.Join(home, ".local", "bin")
 	for _, entry := range entries {
 		info, err := entry.Info()
-		if err != nil || entry.IsDir() || !info.Mode().IsRegular() || info.Mode()&0111 == 0 || entry.Name() == "airgap-dev-kit" {
+		if err != nil || entry.IsDir() || !info.Mode().IsRegular() || info.Mode()&0111 == 0 || entry.Name() == "airgap-dev-kit" || !installablePayloadName(entry.Name(), false) {
 			continue
 		}
-		name, destination := entry.Name(), entry.Name()
-		if name == "wezterm.AppImage" {
-			destination = "wezterm"
-		}
+		name, destination := entry.Name(), installedPayloadName(entry.Name())
 		if name == "nvim-static-x86_64" {
 			name, destination = "nvim", "nvim-airgap"
 		}

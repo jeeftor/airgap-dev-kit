@@ -345,10 +345,14 @@ func installPlan(root, payload, binDir, dataHome string, options installOptions)
 	paths := []string{binDir}
 	entries, _ := os.ReadDir(payload)
 	for _, entry := range entries {
-		if entry.IsDir() || entry.Name() == "nvim-static-x86_64" || entry.Name() == "airgap-dev-kit" || (options.CLIOnly && entry.Name() == "wezterm.AppImage") {
+		if entry.IsDir() || entry.Name() == "nvim-static-x86_64" || entry.Name() == "airgap-dev-kit" || !installablePayloadName(entry.Name(), options.CLIOnly) {
 			continue
 		}
-		paths = append(paths, filepath.Join(binDir, entry.Name()))
+		info, err := entry.Info()
+		if err != nil || !info.Mode().IsRegular() || info.Mode()&0111 == 0 {
+			continue
+		}
+		paths = append(paths, filepath.Join(binDir, installedPayloadName(entry.Name())))
 	}
 	paths = append(paths, filepath.Join(binDir, "nvim"), filepath.Join(binDir, "nvim-airgap"))
 	paths = append(paths, filepath.Join(dataHome, "nvim", "runtime"), "~/.config/nvim")
@@ -361,16 +365,22 @@ func copyPayloadBinaries(payload, binDir string, cliOnly bool, record *installRe
 		return err
 	}
 	for _, entry := range entries {
-		if entry.IsDir() || entry.Name() == "nvim-static-x86_64" || entry.Name() == "airgap-dev-kit" || (cliOnly && entry.Name() == "wezterm.AppImage") {
+		if entry.IsDir() || entry.Name() == "nvim-static-x86_64" || entry.Name() == "airgap-dev-kit" || !installablePayloadName(entry.Name(), cliOnly) {
 			continue
 		}
 		info, err := entry.Info()
-		if err != nil || !info.Mode().IsRegular() {
+		if err != nil || !info.Mode().IsRegular() || info.Mode()&0111 == 0 {
 			continue
 		}
 		name := entry.Name()
 		if name == "wezterm.AppImage" {
 			if err := installWezTermAppImage(filepath.Join(payload, entry.Name()), binDir, record); err != nil {
+				return err
+			}
+			continue
+		}
+		if name == "tmux-3.4-static-x86_64" {
+			if err := installTmuxAppImage(filepath.Join(payload, name), binDir, record); err != nil {
 				return err
 			}
 			continue
@@ -383,15 +393,47 @@ func copyPayloadBinaries(payload, binDir string, cliOnly bool, record *installRe
 	return nil
 }
 
+// installablePayloadName filters payload support files that would otherwise be
+// copied as executable commands. LuaLS's top-level launcher needs its adjacent
+// distribution tree, which v2 does not package, so exposing it would create a
+// broken command. Non-executable documents and man pages are filtered by the
+// caller's mode check.
+func installablePayloadName(name string, cliOnly bool) bool {
+	if name == "lua-language-server" {
+		return false
+	}
+	return !(cliOnly && name == "wezterm.AppImage")
+}
+
+func installedPayloadName(name string) string {
+	if name == "wezterm.AppImage" {
+		return "wezterm"
+	}
+	if name == "tmux-3.4-static-x86_64" {
+		return "tmux"
+	}
+	return name
+}
+
 // installWezTermAppImage adds a FUSE-free fallback for minimal Linux hosts.
 func installWezTermAppImage(source, binDir string, record *installRecord) error {
+	return installAppImage(source, binDir, "wezterm.AppImage", "wezterm", record)
+}
+
+// installTmuxAppImage exposes the bundled tmux AppImage as tmux and uses its
+// extraction mode when a minimal host has no fusermount helper.
+func installTmuxAppImage(source, binDir string, record *installRecord) error {
+	return installAppImage(source, binDir, "tmux.AppImage", "tmux", record)
+}
+
+func installAppImage(source, binDir, imageName, command string, record *installRecord) error {
 	home := filepath.Dir(filepath.Dir(binDir))
-	image := filepath.Join(home, ".local", "share", "airgap-dev-kit", "wezterm.AppImage")
+	image := filepath.Join(home, ".local", "share", "airgap-dev-kit", imageName)
 	if err := copyExecutable(source, image); err != nil {
 		return err
 	}
 	wrapper := "#!/bin/sh\nset -eu\nimage=\"" + image + "\"\nif command -v fusermount >/dev/null 2>&1 || command -v fusermount3 >/dev/null 2>&1; then\n  exec \"$image\" \"$@\"\nfi\nexec \"$image\" --appimage-extract-and-run \"$@\"\n"
-	destination := filepath.Join(binDir, "wezterm")
+	destination := filepath.Join(binDir, command)
 	if err := writeAtomic(destination, []byte(wrapper), 0755); err != nil {
 		return err
 	}
