@@ -128,7 +128,11 @@ func kitRoot() (string, error) {
 	if root, ok := discoveredKitRoot(); ok {
 		return root, nil
 	}
-	return "", fmt.Errorf("cannot find kit root; run from an extracted kit or set AIRGAP_KIT_DIR")
+	return "", kitRootNotFoundError()
+}
+
+func kitRootNotFoundError() error {
+	return fmt.Errorf("cannot find kit root: searched AIRGAP_KIT_DIR, the airgap executable's directory tree, and the current directory tree; run this command from an extracted kit (containing kit-manifest.json and offline-packages/linux/) or set AIRGAP_KIT_DIR=/path/to/kit")
 }
 
 func discoveredKitRoot() (string, bool) {

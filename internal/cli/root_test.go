@@ -44,6 +44,15 @@ func TestDoctorHelpShowsVerificationOptions(t *testing.T) {
 	}
 }
 
+func TestKitRootErrorExplainsDiscoveryAndExpectedLayout(t *testing.T) {
+	err := kitRootNotFoundError()
+	for _, expected := range []string{"AIRGAP_KIT_DIR", "executable's directory tree", "current directory tree", "kit-manifest.json", "offline-packages/linux"} {
+		if !strings.Contains(err.Error(), expected) {
+			t.Errorf("kit root error is missing %q: %s", expected, err)
+		}
+	}
+}
+
 func TestManagedShellInitializesZoxideLast(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "shell.sh")
 	if err := writeAirgapShellFile(path); err != nil {
