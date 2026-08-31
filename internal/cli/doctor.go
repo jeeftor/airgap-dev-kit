@@ -368,7 +368,7 @@ func addNerdFontCheck(report *doctorReport) {
 		report.add("Nerd Fonts", "warn", "cannot resolve the user home directory")
 		return
 	}
-	fontDir := filepath.Join(home, ".local", "share", "fonts")
+	fontDir := filepath.Join(home, ".local", "share", "fonts", "JetBrainsMono")
 	if info, err := os.Stat(fontDir); err != nil || !info.IsDir() {
 		report.add("Nerd Fonts", "warn", fontDir+" is not installed")
 		return

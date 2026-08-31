@@ -1,11 +1,13 @@
 package cli
 
 import (
+	"archive/zip"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -131,6 +133,11 @@ func installKit(cmd *cobra.Command, options installOptions) error {
 			return installFZFIntegration(payload, home, &record)
 		}},
 	)
+	if !options.CLIOnly {
+		steps = append(steps, installStep{label: "Install JetBrainsMono Nerd Font", result: "Installed", details: "Font files copied to ~/.local/share/fonts/JetBrainsMono", action: func() error {
+			return installNerdFonts(root, home, &record)
+		}})
+	}
 	if options.ConfigureShell {
 		steps = append(steps, installStep{label: "Configure Bash and Zsh", result: "Installed", details: "Managed, removable shell integration", action: func() error {
 			return configureShells(home, &record)
@@ -154,6 +161,62 @@ func installKit(cmd *cobra.Command, options installOptions) error {
 		fmt.Fprintln(cmd.OutOrStdout(), "  Neovim: "+styled(cmd, pathStyle, filepath.Join(binDir, "nvim")))
 	}
 	fmt.Fprintln(cmd.OutOrStdout(), "  Next: restart your shell, then run airgap status")
+	return nil
+}
+
+// installNerdFonts extracts the bundled Nerd Font without requiring unzip on
+// the target. Fontconfig refresh is best-effort because GUI/font tools vary.
+func installNerdFonts(root, home string, record *installRecord) error {
+	archive := filepath.Join(root, "fonts", "JetBrainsMono.zip")
+	if _, err := os.Stat(archive); os.IsNotExist(err) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	destination := filepath.Join(home, ".local", "share", "fonts", "JetBrainsMono")
+	reader, err := zip.OpenReader(archive)
+	if err != nil {
+		return fmt.Errorf("open bundled Nerd Font archive: %w", err)
+	}
+	defer reader.Close()
+	for _, entry := range reader.File {
+		if entry.FileInfo().IsDir() || !strings.HasSuffix(strings.ToLower(entry.Name), ".ttf") {
+			continue
+		}
+		name := filepath.Base(entry.Name)
+		if name == "." || name == string(filepath.Separator) {
+			continue
+		}
+		input, err := entry.Open()
+		if err != nil {
+			return err
+		}
+		if err := os.MkdirAll(destination, 0755); err != nil {
+			input.Close()
+			return err
+		}
+		output, err := os.OpenFile(filepath.Join(destination, name), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+		if err != nil {
+			input.Close()
+			return err
+		}
+		_, copyErr := io.Copy(output, input)
+		closeErr := output.Close()
+		input.Close()
+		if copyErr != nil {
+			return copyErr
+		}
+		if closeErr != nil {
+			return closeErr
+		}
+	}
+	if _, err := os.Stat(destination); err != nil {
+		return fmt.Errorf("bundled Nerd Font archive contains no TTF files")
+	}
+	record.Paths = append(record.Paths, destination)
+	if fcCache, err := exec.LookPath("fc-cache"); err == nil {
+		_ = exec.Command(fcCache, "-f", destination).Run()
+	}
 	return nil
 }
 
