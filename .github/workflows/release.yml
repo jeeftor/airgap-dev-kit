@@ -107,6 +107,17 @@ jobs:
           cache: true
           cache-dependency-path: go.sum
 
+      # Reuse the version-pinned binaries and font archive prepared by the test
+      # workflow. `make update-*` still runs below, so a partial or stale cache
+      # is repaired before the final release archive is verified.
+      - name: Restore Linux payload cache
+        uses: actions/cache@v6
+        with:
+          path: |
+            offline-packages/linux
+            fonts/JetBrainsMono.zip
+          key: linux-payload-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Makefile') }}
+
       - name: Restore LazyVim payload cache
         id: lazy-payload-cache
         uses: actions/cache@v6
