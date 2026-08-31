@@ -370,13 +370,32 @@ func copyPayloadBinaries(payload, binDir string, cliOnly bool, record *installRe
 		}
 		name := entry.Name()
 		if name == "wezterm.AppImage" {
-			name = "wezterm"
+			if err := installWezTermAppImage(filepath.Join(payload, entry.Name()), binDir, record); err != nil {
+				return err
+			}
+			continue
 		}
 		if err := copyExecutable(filepath.Join(payload, entry.Name()), filepath.Join(binDir, name)); err != nil {
 			return err
 		}
 		record.Paths = append(record.Paths, filepath.Join(binDir, name))
 	}
+	return nil
+}
+
+// installWezTermAppImage adds a FUSE-free fallback for minimal Linux hosts.
+func installWezTermAppImage(source, binDir string, record *installRecord) error {
+	home := filepath.Dir(filepath.Dir(binDir))
+	image := filepath.Join(home, ".local", "share", "airgap-dev-kit", "wezterm.AppImage")
+	if err := copyExecutable(source, image); err != nil {
+		return err
+	}
+	wrapper := "#!/bin/sh\nset -eu\nimage=\"" + image + "\"\nif command -v fusermount >/dev/null 2>&1 || command -v fusermount3 >/dev/null 2>&1; then\n  exec \"$image\" \"$@\"\nfi\nexec \"$image\" --appimage-extract-and-run \"$@\"\n"
+	destination := filepath.Join(binDir, "wezterm")
+	if err := writeAtomic(destination, []byte(wrapper), 0755); err != nil {
+		return err
+	}
+	record.Paths = append(record.Paths, image, destination)
 	return nil
 }
 
