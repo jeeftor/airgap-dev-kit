@@ -208,6 +208,34 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: Air-Gap Dev Kit ${{ github.ref_name }}
           generate_release_notes: true
+          body: |
+            ## Download and verify (Linux x86_64)
+
+            Download the release archive and its matching checksum file before
+            moving them to an air-gapped target.
+
+            **curl**
+            ```sh
+            curl -fLO https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/airgap-dev-kit-linux-x86_64.tar.gz
+            curl -fLO https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/checksums.txt
+            sha256sum -c checksums.txt
+            ```
+
+            **wget**
+            ```sh
+            wget https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/airgap-dev-kit-linux-x86_64.tar.gz
+            wget https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/checksums.txt
+            sha256sum -c checksums.txt
+            ```
+
+            After verification:
+            ```sh
+            tar -xzf airgap-dev-kit-linux-x86_64.tar.gz
+            cd airgap-dev-kit
+            ./airgap doctor --verify
+            ./airgap install --yes
+            ```
+
           files: |
             airgap-dev-kit-linux-x86_64.tar.gz
             checksums.txt
