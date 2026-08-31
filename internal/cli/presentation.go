@@ -9,6 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"golang.org/x/term"
 )
 
@@ -75,22 +76,34 @@ func writeHelp(cmd *cobra.Command) error {
 	if _, err := fmt.Fprintf(out, "\n%s\n  %s\n", styled(cmd, accentStyle, "Usage"), name+" [command] [flags]"); err != nil {
 		return err
 	}
-	if cmd.Name() == "install" {
-		if _, err := fmt.Fprintln(out, styled(cmd, accentStyle, "Installer options")); err != nil {
+	if cmd.HasAvailableSubCommands() {
+		if _, err := fmt.Fprintln(out, styled(cmd, accentStyle, "Commands")); err != nil {
 			return err
 		}
-		_, err := fmt.Fprintln(out, "  --yes, -y             Confirm a non-interactive install\n  --dry-run, -n          Preview without changing files\n  --nvim-mode MODE       preserve, replace, or overwrite the Neovim profile\n  --cli-only             Skip GUI payloads\n  --configure-shell BOOL Add or skip managed Bash/Zsh integration")
-		return err
-	}
-	if _, err := fmt.Fprintln(out, styled(cmd, accentStyle, "Commands")); err != nil {
-		return err
-	}
-	for _, child := range cmd.Commands() {
-		if child.IsAvailableCommand() && !child.Hidden {
-			if _, err := fmt.Fprintf(out, "  %-14s %s\n", child.Name(), child.Short); err != nil {
-				return err
+		for _, child := range cmd.Commands() {
+			if child.IsAvailableCommand() && !child.Hidden {
+				if _, err := fmt.Fprintf(out, "  %-14s %s\n", child.Name(), child.Short); err != nil {
+					return err
+				}
 			}
 		}
+	} else if cmd.NonInheritedFlags().HasAvailableFlags() {
+		if _, err := fmt.Fprintln(out, styled(cmd, accentStyle, "Options")); err != nil {
+			return err
+		}
+		cmd.NonInheritedFlags().VisitAll(func(flag *pflag.Flag) {
+			if flag.Hidden {
+				return
+			}
+			name := "--" + flag.Name
+			if flag.Shorthand != "" {
+				name = "-" + flag.Shorthand + ", " + name
+			}
+			if flag.Value.Type() != "bool" {
+				name += " " + strings.ToUpper(flag.Value.Type())
+			}
+			fmt.Fprintf(out, "  %-27s %s\n", name, flag.Usage)
+		})
 	}
 	if _, err := fmt.Fprintf(out, "\n%s\n  %s\n", styled(cmd, accentStyle, "Global flags"), "--output text|json"); err != nil {
 		return err
