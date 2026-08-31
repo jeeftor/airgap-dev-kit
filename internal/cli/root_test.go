@@ -57,12 +57,14 @@ func TestCopyPayloadBinariesSkipsSupportFilesAndWrapsAppImages(t *testing.T) {
 	payload := t.TempDir()
 	binDir := filepath.Join(t.TempDir(), ".local", "bin")
 	for name, mode := range map[string]os.FileMode{
-		"usable-tool":            0755,
-		"README":                 0644,
-		"tmux.1":                 0644,
-		"lua-language-server":    0755,
-		"wezterm.AppImage":       0755,
-		"tmux-3.4-static-x86_64": 0755,
+		"usable-tool":         0755,
+		"README":              0644,
+		"tmux.1":              0644,
+		"lua-language-server": 0755,
+		"wezterm.AppImage":    0755,
+		// GitHub Actions artifacts do not retain this mode, but the installer
+		// makes the copied AppImage executable before exposing its wrapper.
+		"tmux-3.4-static-x86_64": 0644,
 	} {
 		if err := os.WriteFile(filepath.Join(payload, name), []byte("#!/bin/sh\nexit 0\n"), mode); err != nil {
 			t.Fatalf("write %s: %v", name, err)
@@ -72,7 +74,7 @@ func TestCopyPayloadBinariesSkipsSupportFilesAndWrapsAppImages(t *testing.T) {
 		t.Fatal(err)
 	}
 	var record installRecord
-	if err := copyPayloadBinaries(payload, binDir, false, &record); err != nil {
+	if err := copyPayloadBinaries(payload, binDir, false, nil, &record); err != nil {
 		t.Fatal(err)
 	}
 	for _, name := range []string{"usable-tool", "wezterm", "tmux"} {
@@ -267,7 +269,9 @@ func TestNativeInstallSetsBundledNeovimRuntime(t *testing.T) {
 		t.Fatal(err)
 	}
 	for path, content := range map[string]string{
-		"kit-manifest.json": `{"schema_version":1,"version":"v2.0.2","target":"linux/amd64","payload_dir":"offline-packages/linux/amd64"}`,
+		"kit-manifest.json":                   `{"schema_version":1,"version":"v2.0.2","target":"linux/amd64","payload_dir":"offline-packages/linux/amd64"}`,
+		"airgap":                              "#!/bin/sh\nexit 0\n",
+		"offline-packages/linux/amd64/airgap": "#!/bin/sh\nexit 0\n",
 		"offline-packages/linux/amd64/nvim-static-x86_64":             "#!/bin/sh\nprintf '%s' \"$VIMRUNTIME\"\n",
 		"offline-packages/linux/amd64/nvim-runtime/syntax/syntax.vim": "runtime\n",
 		"config/nvim/.config/nvim/init.lua":                           "-- kit config\n",

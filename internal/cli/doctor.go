@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -307,13 +308,13 @@ func diagnoseKit(root string, found bool, runtimeVersion, runtimeCommit string) 
 	} else {
 		report.add("root launcher", "warn", "./airgap is unavailable; use the payload path or build a fresh v2 release")
 	}
-	addInstalledBinaryChecks(&report)
+	addInstalledBinaryChecks(&report, payloadDir)
 	return report
 }
 
 // addInstalledBinaryChecks verifies every executable recorded by the native
 // installer, including whether the user's current PATH resolves that command.
-func addInstalledBinaryChecks(report *doctorReport) {
+func addInstalledBinaryChecks(report *doctorReport, payloadDir string) {
 	status, err := installationStatus()
 	if err != nil {
 		report.add("installation record", "warn", "cannot inspect installed components: "+err.Error())
@@ -324,8 +325,26 @@ func addInstalledBinaryChecks(report *doctorReport) {
 		// installation record there are no installed binaries to assess.
 		return
 	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		report.add("installation record", "warn", "cannot resolve the user home directory")
+		return
+	}
+	binDir := filepath.Join(home, ".local", "bin")
+	fontDir := filepath.Join(home, ".local", "share", "fonts", "JetBrainsMono")
+	fontInstalled := false
+	expected := expectedPayloadCommands(payloadDir)
+	components := make(map[string]installedComponent)
 	for _, component := range status.Components {
-		if component.Kind != "binary" {
+		components[component.Path] = component
+		if component.Path == fontDir && component.Status == "installed" {
+			fontInstalled = true
+		}
+	}
+	for _, name := range expected {
+		component, ok := components[filepath.Join(binDir, name)]
+		if !ok {
+			report.add("installed binary "+name, "fail", filepath.Join(binDir, name)+" is missing; rerun airgap install to install it")
 			continue
 		}
 		name := filepath.Base(component.Path)
@@ -340,7 +359,33 @@ func addInstalledBinaryChecks(report *doctorReport) {
 		}
 		addBinaryRunCheck(report, component.Path)
 	}
-	addNerdFontCheck(report)
+	if fontInstalled {
+		addNerdFontCheck(report)
+	}
+}
+
+func expectedPayloadCommands(payloadDir string) []string {
+	entries, err := os.ReadDir(payloadDir)
+	if err != nil {
+		return nil
+	}
+	commands := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() || entry.Name() == "airgap-dev-kit" || !installablePayloadName(entry.Name(), false) {
+			continue
+		}
+		info, err := entry.Info()
+		if err != nil || !info.Mode().IsRegular() || (!isAppImagePayload(entry.Name()) && info.Mode()&0111 == 0) {
+			continue
+		}
+		if entry.Name() == "nvim-static-x86_64" {
+			commands = append(commands, "nvim", "nvim-airgap")
+		} else {
+			commands = append(commands, installedPayloadName(entry.Name()))
+		}
+	}
+	sort.Strings(commands)
+	return commands
 }
 
 // addBinaryRunCheck executes a safe version probe rather than opening an

@@ -73,7 +73,7 @@ download() {
   gh release download "$tag" --repo "$repo" --dir "$target_dir" --pattern "$asset" --pattern checksums.txt --clobber
   (
     cd "$target_dir"
-    if command -v sha256sum >/dev/null 2>&1; then sha256sum -c checksums.txt; else shasum -a 256 -c checksums.txt; fi
+    if command -v sha256sum >/dev/null 2>&1; then grep " $asset$" checksums.txt | sha256sum -c -; else grep " $asset$" checksums.txt | shasum -a 256 -c -; fi
   )
   gh attestation verify "$target_dir/$asset" --repo "$repo"
   printf 'Verified release assets: %s\n' "$target_dir"

@@ -51,6 +51,7 @@ case "$1 $2" in
     mkdir -p "$target_dir"
     printf 'test release payload\n' > "$target_dir/airgap-dev-kit-linux-x86_64.tar.gz"
     (cd "$target_dir" && shasum -a 256 airgap-dev-kit-linux-x86_64.tar.gz) > "$target_dir/checksums.txt"
+    printf '%064d  %s\n' 0 install-latest.sh >> "$target_dir/checksums.txt"
     ;;
   'attestation verify') ;;
   *) echo "unexpected gh call: $*" >&2; exit 1 ;;

@@ -174,7 +174,7 @@ jobs:
         run: |
           set -euo pipefail
           make release KIT_VERSION="$GITHUB_REF_NAME"
-          sha256sum -c checksums.txt
+          grep ' airgap-dev-kit-linux-x86_64.tar.gz$' checksums.txt | sha256sum -c -
           tar -tzf airgap-dev-kit-linux-x86_64.tar.gz | grep -Fx 'airgap-dev-kit/airgap'
           tar -tzf airgap-dev-kit-linux-x86_64.tar.gz | grep -Fx 'airgap-dev-kit/offline-packages/lazy-plugins.tar.gz'
           tar -tzf airgap-dev-kit-linux-x86_64.tar.gz | grep -Fx 'airgap-dev-kit/offline-packages/mason-lsp.tar.gz'
@@ -205,15 +205,6 @@ jobs:
             --version "$GITHUB_REF_NAME" \
             --archive airgap-dev-kit-linux-x86_64.tar.gz
 
-      - name: Bind bootstrap installer to release tag
-        env:
-          TAG: ${{ github.ref_name }}
-        run: |
-          set -euo pipefail
-          sed "s/@RELEASE_TAG@/$TAG/g" scripts/install-latest.sh > install-latest.sh
-          chmod 0755 install-latest.sh
-          sha256sum install-latest.sh >> checksums.txt
-
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v3
         with:
@@ -230,14 +221,14 @@ jobs:
             ```sh
             curl -fLO https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/airgap-dev-kit-linux-x86_64.tar.gz
             curl -fLO https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/checksums.txt
-            sha256sum -c checksums.txt
+            grep ' airgap-dev-kit-linux-x86_64.tar.gz$' checksums.txt | sha256sum -c -
             ```
 
             **wget**
             ```sh
             wget https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/airgap-dev-kit-linux-x86_64.tar.gz
             wget https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/checksums.txt
-            sha256sum -c checksums.txt
+            grep ' airgap-dev-kit-linux-x86_64.tar.gz$' checksums.txt | sha256sum -c -
             ```
 
             After verification:
@@ -245,13 +236,13 @@ jobs:
             tar -xzf airgap-dev-kit-linux-x86_64.tar.gz
             cd airgap-dev-kit
             ./airgap doctor --verify
-            ./airgap install --yes
+            ./airgap install
+            ./airgap doctor --verify
             ```
 
           files: |
             airgap-dev-kit-linux-x86_64.tar.gz
             checksums.txt
-            install-latest.sh
             release-manifest.json
             release-manifest.sig
 
@@ -265,11 +256,6 @@ jobs:
         with:
           subject-path: checksums.txt
 
-      - name: Attest bootstrap installer
-        uses: actions/attest@v4
-        with:
-          subject-path: install-latest.sh
-
       - name: Attest signed release manifest
         uses: actions/attest@v4
         with:
@@ -282,7 +268,6 @@ jobs:
           path: |
             airgap-dev-kit-linux-x86_64.tar.gz
             checksums.txt
-            install-latest.sh
             release-manifest.json
             release-manifest.sig
           retention-days: 30

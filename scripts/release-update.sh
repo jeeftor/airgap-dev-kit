@@ -14,8 +14,8 @@ Usage: release-update.sh <check|download|apply> [options]
 Commands:
   check                         Compare the installed kit with the latest release.
   download [--dir DIR]          Download and checksum-verify the Linux package.
-  apply --archive FILE --checksums FILE [-- <install.sh options>]
-                                Verify, safely extract, and run that release's installer.
+  apply --archive FILE --checksums FILE [-- <airgap install options>]
+                                Verify, safely extract, and run that release's airgap installer.
 
 Environment:
   AIRGAP_DEV_KIT_REPO           GitHub repository (default: jeeftor/airgap-dev-kit)
@@ -140,14 +140,14 @@ command_apply() {
   trap 'rm -rf "$stage"' RETURN
   tar -xzf "$archive" -C "$stage"
   top=$(find "$stage" -mindepth 1 -maxdepth 1 -type d -print -quit)
-  [[ -n "$top" && -f "$top/install.sh" ]] || die "Archive does not contain an Air-Gap Dev Kit root"
+  [[ -n "$top" && -x "$top/airgap" && -f "$top/kit-manifest.json" ]] || die "Archive does not contain a runnable Air-Gap v2 kit"
   kit_id="$(basename "$archive" .tar.gz)-$(date +%Y%m%d-%H%M%S)"
   kit_root="$kit_store/$kit_id"
   mv "$top" "$kit_root"
   trap - RETURN
   rmdir "$stage"
   echo "✓ Verified release extracted to $kit_root"
-  (cd "$kit_root" && ./install.sh "$@")
+  (cd "$kit_root" && ./airgap install "$@")
 }
 
 case "${1:-}" in

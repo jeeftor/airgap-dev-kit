@@ -302,7 +302,7 @@ func wantsTUI(args []string) bool {
 	return true
 }
 
-func planInstall(cmd *cobra.Command, options installOptions, existingNvim bool) (installOptions, bool, error) {
+func planInstall(cmd *cobra.Command, options installOptions, existingNvim bool, _ []toolChoice) (installOptions, bool, error) {
 	model := installModel{options: options, existingNvim: existingNvim}
 	model.choice = model.selectedChoice()
 	program := tea.NewProgram(model, tea.WithInput(cmd.InOrStdin()), tea.WithOutput(cmd.OutOrStdout()))

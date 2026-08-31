@@ -101,9 +101,6 @@ jobs:
       - name: Verify release downloads are checksum-gated
         run: bash test/scripts/test-release-update.sh
 
-      - name: Verify bootstrap is release-bound
-        run: bash test/scripts/test-install-latest.sh
-
   test-build-linux:
     name: Build & Verify Linux Package
     runs-on: ubuntu-latest

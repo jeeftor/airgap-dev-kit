@@ -71,6 +71,39 @@ func TestProbeFailureDetailCompactsAndBoundsOutput(t *testing.T) {
 	}
 }
 
+func TestDoctorOnlyProbesCommandsInstalledInLocalBin(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	binDir := filepath.Join(home, ".local", "bin")
+	if err := os.MkdirAll(binDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	bat := writeProbeScript(t, "bat", "exit 0")
+	if err := os.Rename(bat, filepath.Join(binDir, "bat")); err != nil {
+		t.Fatal(err)
+	}
+	config := filepath.Join(home, ".config", "nvim", "LICENSE")
+	if err := os.MkdirAll(filepath.Dir(config), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(config, []byte("license"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	payload := t.TempDir()
+	if err := os.WriteFile(filepath.Join(payload, "bat"), []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	record := installRecord{Paths: []string{filepath.Join(binDir, "bat"), config}}
+	if err := saveInstallRecord(record); err != nil {
+		t.Fatal(err)
+	}
+	var report doctorReport
+	addInstalledBinaryChecks(&report, payload)
+	if len(report.Checks) != 2 || report.Checks[0].Name != "installed binary bat" || report.Checks[1].Name != "run bat" {
+		t.Fatalf("doctor checks = %#v, want only bat", report.Checks)
+	}
+}
+
 func writeProbeScript(t *testing.T, name, body string) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), name)

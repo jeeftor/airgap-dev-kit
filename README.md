@@ -12,37 +12,25 @@ A complete, offline-ready terminal development environment for Linux, designed f
 | Package | Use When | Includes |
 | --- | --- | --- |
 | `airgap-dev-kit-linux-x86_64.tar.gz` | You want the full desktop-friendly kit | WezTerm, fonts, CLI tools, Neovim, config |
-| `airgap-dev-kit-cli.tar.gz` | You want headless Linux/SSH installs with no GUI prompts | CLI tools, tmux, Neovim, config; no WezTerm or fonts |
+| `airgap-dev-kit-cli-linux-x86_64.tar.gz` | You want headless Linux/SSH installs with no GUI prompts | CLI tools, tmux, Neovim, config; no WezTerm or fonts |
 
-`airgap-dev-kit.tar.gz` is the default full Linux package alias. For servers, CI workers, and air-gapped boxes accessed over SSH, use `airgap-dev-kit-cli.tar.gz`.
+Published releases use the `-linux-x86_64` archive names above. For servers, CI workers, and air-gapped boxes accessed over SSH, use the CLI archive.
 
 ### Install the Latest Release
 
 Do not pipe a release archive directly into `tar` or the installer. Download the archive and its checksum first, verify them, then extract. The kit's `make download-release` target resolves one release, downloads both assets to temporary names, validates SHA-256, and only then writes them to the destination directory.
-
-**Linux x86_64:**
-```bash
-curl -fsSL https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/install-latest.sh | bash
-```
-
-The bootstrapper is downloaded as a GitHub Release asset, rather than from the
-mutable `master` branch. It is bound to that release tag, downloads only that
-release's kit, verifies its SHA-256 from the matching `checksums.txt`, validates
-the extracted kit, and installs it. It requires Linux x86_64 plus `bash`,
-`curl`, `python3`, `tar`, and `sha256sum`. For an air-gapped target, use the
-verified transfer instructions below.
 
 **Download the latest full kit for transfer:**
 ```bash
 # curl
 curl -fLO https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/airgap-dev-kit-linux-x86_64.tar.gz
 curl -fLO https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/checksums.txt
-sha256sum -c checksums.txt
+grep ' airgap-dev-kit-linux-x86_64.tar.gz$' checksums.txt | sha256sum -c -
 
 # Or wget
 wget https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/airgap-dev-kit-linux-x86_64.tar.gz
 wget https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/checksums.txt
-sha256sum -c checksums.txt
+grep ' airgap-dev-kit-linux-x86_64.tar.gz$' checksums.txt | sha256sum -c -
 ```
 
 `releases/latest/download` resolves the newest published non-prerelease release.
@@ -55,7 +43,7 @@ Transfer both verified files, then follow the air-gapped-machine steps below.
 # then extract and run ./airgap install. The .airgap-cli-only marker enables this mode.
 ```
 
-The CLI-only package skips WezTerm and fonts. `./airgap install` creates `~/.config/airgap-dev-kit/shell.sh` and appends one idempotent, clearly marked `source` block to detected Bash/Zsh startup files; use `--configure-shell=false` to opt out.
+The CLI-only package skips WezTerm and fonts. `./airgap install` creates `~/.config/airgap-dev-kit/shell.sh` and appends one idempotent, clearly marked `source` block to detected Bash/Zsh startup files; use `--configure-shell=false` to opt out. Running it without `--yes` lets you choose the full or CLI-only profile. For automation, `--yes` uses the full profile; add `--cli-only` to skip GUI payloads and fonts.
 
 ### Maintainer Build From Source
 
@@ -96,7 +84,8 @@ cd airgap-dev-kit
 
 # 4. Validate and install
 ./airgap doctor --verify
-./airgap install --yes
+./airgap install
+./airgap doctor --verify
 
 # 5. Launch your environment
 wezterm start -- tmux new-session nvim
@@ -114,10 +103,10 @@ shortcuts: tmux owns terminal splits, navigation, and resizing.
 
 **CLI-only package:**
 ```bash
-# 1. Transfer airgap-dev-kit-cli.tar.gz
+# 1. Transfer airgap-dev-kit-cli-linux-x86_64.tar.gz
 
 # 2. Extract
-tar -xzf airgap-dev-kit-cli.tar.gz
+tar -xzf airgap-dev-kit-cli-linux-x86_64.tar.gz
 cd airgap-dev-kit
 
 # 3. Install without GUI prompts
@@ -425,7 +414,7 @@ other legacy files yourself rather than relying on a broad fallback delete.
 
 ## 🔐 Security
 
-- Verify the package you downloaded, for example: `grep ' airgap-dev-kit-cli.tar.gz$' checksums.txt | sha256sum -c -`
+- Verify the package you downloaded, for example: `grep ' airgap-dev-kit-cli-linux-x86_64.tar.gz$' checksums.txt | sha256sum -c -`
 - All binaries from official GitHub releases
 - Use write-protected media for transfer to air-gap
 - Scan with antivirus before deployment

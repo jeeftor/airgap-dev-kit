@@ -27,6 +27,7 @@ type installOptions struct {
 	DryRun         bool
 	Yes            bool
 	CLIOnly        bool
+	Tools          map[string]bool
 	NvimMode       string
 	ConfigureShell bool
 }
@@ -95,7 +96,7 @@ func installKit(cmd *cobra.Command, options installOptions) error {
 		if !wantsTUI(nil) {
 			return fmt.Errorf("install requires --yes when input is not interactive")
 		}
-		planned, confirmed, err := planInstall(cmd, options, nvimStateExists(home, dataHome))
+		planned, confirmed, err := planInstall(cmd, options, nvimStateExists(home, dataHome), availableCLIChoices(payload))
 		if err != nil {
 			return err
 		}
@@ -115,7 +116,7 @@ func installKit(cmd *cobra.Command, options installOptions) error {
 			return os.MkdirAll(binDir, 0755)
 		}},
 		{label: "Copy command-line payload", result: "Installed", details: "Offline binaries copied to ~/.local/bin", action: func() error {
-			return copyPayloadBinaries(payload, binDir, options.CLIOnly, &record)
+			return copyPayloadBinaries(payload, binDir, options.CLIOnly, options.Tools, &record)
 		}},
 	}
 	if installNvim {
@@ -154,6 +155,13 @@ func installKit(cmd *cobra.Command, options installOptions) error {
 		}
 	} else if err := runInstallText(cmd, steps); err != nil {
 		return err
+	}
+	report := diagnoseKit(root, true, "", "")
+	if err := writeDoctorReport(cmd, report); err != nil {
+		return err
+	}
+	if report.Failures > 0 {
+		return fmt.Errorf("post-install doctor found %d failed check(s)", report.Failures)
 	}
 	fmt.Fprintln(cmd.OutOrStdout(), styled(cmd, okStyle, "✓ Installed offline kit payload"))
 	fmt.Fprintln(cmd.OutOrStdout(), "  Binaries: "+styled(cmd, pathStyle, binDir))
@@ -349,7 +357,7 @@ func installPlan(root, payload, binDir, dataHome string, options installOptions)
 			continue
 		}
 		info, err := entry.Info()
-		if err != nil || !info.Mode().IsRegular() || info.Mode()&0111 == 0 {
+		if err != nil || !info.Mode().IsRegular() || (!isAppImagePayload(entry.Name()) && info.Mode()&0111 == 0) {
 			continue
 		}
 		paths = append(paths, filepath.Join(binDir, installedPayloadName(entry.Name())))
@@ -359,7 +367,7 @@ func installPlan(root, payload, binDir, dataHome string, options installOptions)
 	return paths
 }
 
-func copyPayloadBinaries(payload, binDir string, cliOnly bool, record *installRecord) error {
+func copyPayloadBinaries(payload, binDir string, cliOnly bool, tools map[string]bool, record *installRecord) error {
 	entries, err := os.ReadDir(payload)
 	if err != nil {
 		return err
@@ -369,10 +377,14 @@ func copyPayloadBinaries(payload, binDir string, cliOnly bool, record *installRe
 			continue
 		}
 		info, err := entry.Info()
-		if err != nil || !info.Mode().IsRegular() || info.Mode()&0111 == 0 {
+		if err != nil || !info.Mode().IsRegular() || (!isAppImagePayload(entry.Name()) && info.Mode()&0111 == 0) {
 			continue
 		}
 		name := entry.Name()
+		installedName := installedPayloadName(name)
+		if installedName != "airgap" && len(tools) > 0 && !tools[installedName] {
+			continue
+		}
 		if name == "wezterm.AppImage" {
 			if err := installWezTermAppImage(filepath.Join(payload, entry.Name()), binDir, record); err != nil {
 				return err
@@ -393,16 +405,54 @@ func copyPayloadBinaries(payload, binDir string, cliOnly bool, record *installRe
 	return nil
 }
 
+type toolChoice struct {
+	Name        string
+	Description string
+}
+
+func availableCLIChoices(payload string) []toolChoice {
+	entries, err := os.ReadDir(payload)
+	if err != nil {
+		return nil
+	}
+	descriptions := map[string]string{
+		"bat": "syntax-highlighted cat", "broot": "interactive directory navigator", "btop": "resource monitor", "delta": "Git pager", "difft": "structural diff", "direnv": "directory environment loader", "dust": "disk usage summary", "fastfetch": "system information", "fd": "fast file finder", "fzf": "fuzzy finder", "gdu": "disk usage analyzer", "glow": "Markdown reader", "gping": "ping graph", "gum": "interactive shell UI", "jq": "JSON processor", "lazygit": "Git TUI", "lsd": "modern ls", "mkcert": "local development certificates", "rg": "fast text search", "shellcheck": "shell linter", "starship": "shell prompt", "svu": "semantic-version utility", "tmux": "terminal multiplexer", "usbtree": "USB device inspector", "wezterm": "GPU terminal emulator", "zoxide": "smart directory jump",
+	}
+	var choices []toolChoice
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || name == "airgap" || name == "airgap-dev-kit" || name == "nvim-static-x86_64" || !installablePayloadName(name, false) {
+			continue
+		}
+		info, err := entry.Info()
+		if err != nil || !info.Mode().IsRegular() || (!isAppImagePayload(name) && info.Mode()&0111 == 0) {
+			continue
+		}
+		installedName := installedPayloadName(name)
+		if installedName == "wezterm" {
+			continue
+		}
+		choices = append(choices, toolChoice{Name: installedName, Description: descriptions[installedName]})
+	}
+	sort.Slice(choices, func(i, j int) bool { return choices[i].Name < choices[j].Name })
+	return choices
+}
+
 // installablePayloadName filters payload support files that would otherwise be
 // copied as executable commands. LuaLS's top-level launcher needs its adjacent
 // distribution tree, which v2 does not package, so exposing it would create a
 // broken command. Non-executable documents and man pages are filtered by the
 // caller's mode check.
 func installablePayloadName(name string, cliOnly bool) bool {
-	if name == "lua-language-server" {
+	upper := strings.ToUpper(name)
+	if name == "lua-language-server" || strings.HasSuffix(name, ".md") || strings.HasSuffix(name, ".1") || upper == "COPYING" || upper == "UNLICENSE" || strings.HasPrefix(upper, "LICENSE") {
 		return false
 	}
 	return !(cliOnly && name == "wezterm.AppImage")
+}
+
+func isAppImagePayload(name string) bool {
+	return name == "wezterm.AppImage" || name == "tmux-3.4-static-x86_64"
 }
 
 func installedPayloadName(name string) string {
