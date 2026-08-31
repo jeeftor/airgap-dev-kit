@@ -27,6 +27,22 @@ func TestRootHelpIsUsefulWithoutColor(t *testing.T) {
 	}
 }
 
+func TestDoctorHelpShowsVerificationOptions(t *testing.T) {
+	t.Setenv("NO_COLOR", "1")
+	root := New("v2.0.0-test", "abc1234")
+	var output bytes.Buffer
+	root.SetOut(&output)
+	root.SetArgs([]string{"doctor", "--help"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	for _, expected := range []string{"--verify", "--strict", "Fail if a required kit component"} {
+		if !strings.Contains(output.String(), expected) {
+			t.Fatalf("doctor help is missing %q: %s", expected, output.String())
+		}
+	}
+}
+
 func TestManagedShellInitializesZoxideLast(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "shell.sh")
 	if err := writeAirgapShellFile(path); err != nil {
@@ -369,7 +385,7 @@ func TestInstallHelpDocumentsNativeOptions(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	for _, expected := range []string{"--yes, -y", "--nvim-mode MODE", "--cli-only"} {
+	for _, expected := range []string{"-y, --yes", "--nvim-mode STRING", "--cli-only"} {
 		if !strings.Contains(output.String(), expected) {
 			t.Fatalf("install help does not document %q: %s", expected, output.String())
 		}
