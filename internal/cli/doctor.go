@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -8,11 +9,18 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+)
+
+const (
+	versionProbeTimeout     = 10 * time.Second
+	versionProbeOutputLimit = 4096
+	versionProbeDetailLimit = 280
 )
 
 type doctorCheck struct {
@@ -345,21 +353,92 @@ func addBinaryRunCheck(report *doctorReport, path string) {
 	} else if name == "airgap" {
 		args = []string{"version"}
 	}
-	if err := runVersionProbe(path, args...); err == nil {
+	direct := runVersionProbe(path, args...)
+	if direct.Err == nil {
 		report.add("run "+name, "pass", path+" completed "+strings.Join(args, " "))
 		return
-	} else if name == "wezterm" && runVersionProbe(path, "--appimage-extract-and-run", "--version") == nil {
-		report.add("run "+name, "warn", path+" runs with --appimage-extract-and-run; install FUSE to run it normally")
-		return
-	} else {
-		report.add("run "+name, "fail", path+" failed "+strings.Join(args, " ")+": "+err.Error())
 	}
+	if name == "wezterm" {
+		fallbackArgs := []string{"--appimage-extract-and-run", "--version"}
+		fallback := runVersionProbe(path, fallbackArgs...)
+		if fallback.Err == nil {
+			report.add("run "+name, "warn", path+" needs FUSE for normal AppImage execution; "+strings.Join(fallbackArgs, " ")+" completed. Direct probe: "+probeFailureDetail(direct)+". Remediation: install an AppImage-compatible FUSE runtime to enable normal execution.")
+			return
+		}
+		report.add("run "+name, "fail", path+" failed "+strings.Join(args, " ")+": "+probeFailureDetail(direct)+". FUSE-free fallback failed: "+probeFailureDetail(fallback)+". Remediation: install an AppImage-compatible FUSE runtime, then run "+path+" "+strings.Join(args, " ")+" directly for full output.")
+		return
+	}
+	report.add("run "+name, "fail", path+" failed "+strings.Join(args, " ")+": "+probeFailureDetail(direct)+". Remediation: run "+path+" "+strings.Join(args, " ")+" directly for full output; reinstall the component if it still fails.")
 }
 
-func runVersionProbe(path string, args ...string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+type versionProbeResult struct {
+	Err             error
+	Output          string
+	OutputTruncated bool
+}
+
+// runVersionProbe runs a bounded, non-interactive version command and captures
+// a small output excerpt for diagnostics.
+func runVersionProbe(path string, args ...string) versionProbeResult {
+	ctx, cancel := context.WithTimeout(context.Background(), versionProbeTimeout)
 	defer cancel()
-	return exec.CommandContext(ctx, path, args...).Run()
+	var output cappedOutput
+	command := exec.CommandContext(ctx, path, args...)
+	command.Stdout = &output
+	command.Stderr = &output
+	err := command.Run()
+	if ctx.Err() == context.DeadlineExceeded {
+		err = fmt.Errorf("timed out after %s", versionProbeTimeout)
+	}
+	return versionProbeResult{Err: err, Output: output.String(), OutputTruncated: output.truncated}
+}
+
+// cappedOutput prevents a broken binary from making doctor retain unbounded output.
+type cappedOutput struct {
+	buffer    bytes.Buffer
+	mu        sync.Mutex
+	truncated bool
+}
+
+func (w *cappedOutput) Write(data []byte) (int, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	remaining := versionProbeOutputLimit - w.buffer.Len()
+	if remaining <= 0 {
+		w.truncated = true
+		return len(data), nil
+	}
+	if len(data) > remaining {
+		_, _ = w.buffer.Write(data[:remaining])
+		w.truncated = true
+		return len(data), nil
+	}
+	_, _ = w.buffer.Write(data)
+	return len(data), nil
+}
+
+func (w *cappedOutput) String() string {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.buffer.String()
+}
+
+// probeFailureDetail converts process output to a concise one-line excerpt.
+func probeFailureDetail(result versionProbeResult) string {
+	detail := "unknown error"
+	if result.Err != nil {
+		detail = result.Err.Error()
+	}
+	if output := strings.Join(strings.Fields(result.Output), " "); output != "" {
+		if len(output) > versionProbeDetailLimit {
+			output = output[:versionProbeDetailLimit] + "..."
+		}
+		detail += "; output: " + output
+	}
+	if result.OutputTruncated {
+		detail += " (output truncated)"
+	}
+	return detail
 }
 
 func addNerdFontCheck(report *doctorReport) {
