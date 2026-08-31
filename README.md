@@ -22,13 +22,15 @@ Do not pipe a release archive directly into `tar` or the installer. Download the
 
 **Linux x86_64:**
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jeeftor/airgap-dev-kit/master/scripts/install-latest.sh | bash
+curl -fsSL https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/install-latest.sh | bash
 ```
 
-The bootstrapper downloads exactly one published release, verifies its SHA-256
-from that release's `checksums.txt`, validates the extracted kit, and installs
-it. It requires Linux x86_64 plus `bash`, `curl`, `python3`, `tar`, and
-`sha256sum`. For an air-gapped target, use the verified transfer instructions below.
+The bootstrapper is downloaded as a GitHub Release asset, rather than from the
+mutable `master` branch. It is bound to that release tag, downloads only that
+release's kit, verifies its SHA-256 from the matching `checksums.txt`, validates
+the extracted kit, and installs it. It requires Linux x86_64 plus `bash`,
+`curl`, `python3`, `tar`, and `sha256sum`. For an air-gapped target, use the
+verified transfer instructions below.
 
 **CLI-only Linux x86_64:**
 ```bash

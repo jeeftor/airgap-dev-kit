@@ -551,6 +551,7 @@ test-cli-package:
 
 test-update-tools:
 	@bash test/scripts/test-release-update.sh
+	@bash test/scripts/test-install-latest.sh
 	@bash test/scripts/test-check-updates-json.sh
 	@bash test/scripts/test-close-superseded-update-prs.sh
 

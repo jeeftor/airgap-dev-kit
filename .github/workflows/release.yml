@@ -193,6 +193,15 @@ jobs:
             --version "$GITHUB_REF_NAME" \
             --archive airgap-dev-kit-linux-x86_64.tar.gz
 
+      - name: Bind bootstrap installer to release tag
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          sed "s/@RELEASE_TAG@/$TAG/g" scripts/install-latest.sh > install-latest.sh
+          chmod 0755 install-latest.sh
+          sha256sum install-latest.sh >> checksums.txt
+
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v3
         with:
@@ -202,6 +211,7 @@ jobs:
           files: |
             airgap-dev-kit-linux-x86_64.tar.gz
             checksums.txt
+            install-latest.sh
             release-manifest.json
             release-manifest.sig
 
@@ -215,6 +225,11 @@ jobs:
         with:
           subject-path: checksums.txt
 
+      - name: Attest bootstrap installer
+        uses: actions/attest@v4
+        with:
+          subject-path: install-latest.sh
+
       - name: Attest signed release manifest
         uses: actions/attest@v4
         with:
@@ -227,6 +242,7 @@ jobs:
           path: |
             airgap-dev-kit-linux-x86_64.tar.gz
             checksums.txt
+            install-latest.sh
             release-manifest.json
             release-manifest.sig
           retention-days: 30
