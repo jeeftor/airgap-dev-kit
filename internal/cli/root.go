@@ -137,20 +137,32 @@ func discoveredKitRoot() (string, bool) {
 	}
 	exe, err := os.Executable()
 	if err == nil {
-		root := filepath.Dir(filepath.Dir(exe))
-		if isKitRoot(root) {
+		if root, ok := findKitRootAtOrAbove(filepath.Dir(exe)); ok {
 			return root, true
 		}
 	}
 	if cwd, err := os.Getwd(); err == nil {
-		if isKitRoot(cwd) {
-			return cwd, true
+		if root, ok := findKitRootAtOrAbove(cwd); ok {
+			return root, true
 		}
 	}
 	if state, err := loadUpdateState(); err == nil && isKitRoot(state.KitDir) {
 		return state.KitDir, true
 	}
 	return "", false
+}
+
+// findKitRootAtOrAbove finds an extracted kit at path or one of its parents.
+func findKitRootAtOrAbove(path string) (string, bool) {
+	for path = filepath.Clean(path); ; path = filepath.Dir(path) {
+		if isKitRoot(path) {
+			return path, true
+		}
+		parent := filepath.Dir(path)
+		if parent == path {
+			return "", false
+		}
+	}
 }
 
 func isKitRoot(root string) bool {

@@ -308,6 +308,22 @@ func TestStatusReportsWhenNoKitIsAvailable(t *testing.T) {
 	}
 }
 
+func TestFindKitRootAtOrAboveFindsExtractedKit(t *testing.T) {
+	kit := t.TempDir()
+	if err := os.WriteFile(filepath.Join(kit, "kit-manifest.json"), []byte(`{"schema_version":1}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	for _, start := range []string{kit, filepath.Join(kit, "tools", "nested")} {
+		if err := os.MkdirAll(start, 0755); err != nil {
+			t.Fatal(err)
+		}
+		root, found := findKitRootAtOrAbove(start)
+		if !found || root != kit {
+			t.Fatalf("findKitRootAtOrAbove(%q) = (%q, %t), want (%q, true)", start, root, found, kit)
+		}
+	}
+}
+
 func TestStatusTerminalReportIncludesComponentTables(t *testing.T) {
 	report := statusReport{
 		Target:        "linux/amd64",
