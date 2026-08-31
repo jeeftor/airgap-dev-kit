@@ -159,6 +159,9 @@ func (r *statusReport) addKitApplications() error {
 }
 
 func (r statusReport) text(kitDir string) string {
+	if statusTableEnabled() {
+		return r.terminalText(kitDir)
+	}
 	var b strings.Builder
 	fmt.Fprintln(&b, "Airgap status")
 	fmt.Fprintln(&b, "Executable: "+r.Executable)

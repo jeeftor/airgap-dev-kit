@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"archive/zip"
 	"bytes"
 	"os"
 	"os/exec"
@@ -307,6 +308,47 @@ func TestStatusReportsWhenNoKitIsAvailable(t *testing.T) {
 	}
 }
 
+func TestStatusTerminalReportIncludesComponentTables(t *testing.T) {
+	report := statusReport{
+		Target:        "linux/amd64",
+		RecordFound:   true,
+		Version:       "v2.2.4",
+		InstalledFrom: "/opt/airgap-dev-kit",
+		Components: []installedComponent{{
+			Path:    "/home/example/.local/bin/tmux",
+			Kind:    "binary",
+			Status:  "installed",
+			PathHit: "/home/example/.local/bin/tmux",
+		}},
+		Applications: []kitApplication{{
+			Name:        "wezterm",
+			Destination: "/home/example/.local/bin/wezterm",
+			Status:      "not installed",
+		}},
+		Fonts: []installedComponent{{
+			Path:   "/home/example/.local/share/fonts/JetBrainsMono",
+			Kind:   "directory",
+			Status: "installed",
+		}},
+	}
+
+	output := report.terminalText("/opt/airgap-dev-kit")
+	for _, expected := range []string{
+		"Airgap Status",
+		"Recorded components",
+		"Kit applications",
+		"Nerd Fonts",
+		"STATUS",
+		"tmux",
+		"wezterm",
+		"JetBrainsMono",
+	} {
+		if !strings.Contains(output, expected) {
+			t.Fatalf("terminal status report is missing %q: %s", expected, output)
+		}
+	}
+}
+
 func TestDoctorReportsIncompleteKit(t *testing.T) {
 	t.Setenv("NO_COLOR", "1")
 	kit := t.TempDir()
@@ -390,4 +432,99 @@ func TestInstallHelpDocumentsNativeOptions(t *testing.T) {
 			t.Fatalf("install help does not document %q: %s", expected, output.String())
 		}
 	}
+}
+
+func TestInstallNerdFontsExtractsTTFsAndRecordsDestination(t *testing.T) {
+	t.Setenv("PATH", "")
+	root := t.TempDir()
+	home := t.TempDir()
+	writeTestFontArchive(t, root, map[string]string{
+		"JetBrainsMonoNerdFont-Regular.ttf":     "regular font",
+		"nested/JetBrainsMonoNerdFont-Bold.TTF": "bold font",
+		"LICENSE.txt":                           "license",
+	})
+
+	record := installRecord{}
+	if err := installNerdFonts(root, home, &record); err != nil {
+		t.Fatalf("install Nerd Fonts: %v", err)
+	}
+	destination := filepath.Join(home, ".local", "share", "fonts", "JetBrainsMono")
+	if got, want := record.Paths, []string{destination}; !equalStrings(got, want) {
+		t.Fatalf("recorded paths = %#v, want %#v", got, want)
+	}
+	for name, want := range map[string]string{
+		"JetBrainsMonoNerdFont-Regular.ttf": "regular font",
+		"JetBrainsMonoNerdFont-Bold.TTF":    "bold font",
+	} {
+		contents, err := os.ReadFile(filepath.Join(destination, name))
+		if err != nil {
+			t.Fatalf("read extracted %s: %v", name, err)
+		}
+		if got := string(contents); got != want {
+			t.Errorf("contents of %s = %q, want %q", name, got, want)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(destination, "LICENSE.txt")); !os.IsNotExist(err) {
+		t.Fatalf("non-font archive member was extracted: %v", err)
+	}
+}
+
+func TestInstallNerdFontsRejectsArchiveWithoutTTFs(t *testing.T) {
+	t.Setenv("PATH", "")
+	root := t.TempDir()
+	home := t.TempDir()
+	writeTestFontArchive(t, root, map[string]string{"LICENSE.txt": "license"})
+
+	record := installRecord{}
+	err := installNerdFonts(root, home, &record)
+	if err == nil || !strings.Contains(err.Error(), "contains no TTF files") {
+		t.Fatalf("install Nerd Fonts error = %v, want missing TTF error", err)
+	}
+	destination := filepath.Join(home, ".local", "share", "fonts", "JetBrainsMono")
+	if _, statErr := os.Stat(destination); !os.IsNotExist(statErr) {
+		t.Fatalf("font destination created for archive without fonts: %v", statErr)
+	}
+	if len(record.Paths) != 0 {
+		t.Fatalf("recorded paths = %#v, want none", record.Paths)
+	}
+}
+
+func writeTestFontArchive(t *testing.T, root string, files map[string]string) {
+	t.Helper()
+	archive := filepath.Join(root, "fonts", "JetBrainsMono.zip")
+	if err := os.MkdirAll(filepath.Dir(archive), 0755); err != nil {
+		t.Fatalf("create font archive directory: %v", err)
+	}
+	file, err := os.Create(archive)
+	if err != nil {
+		t.Fatalf("create font archive: %v", err)
+	}
+	writer := zip.NewWriter(file)
+	for name, contents := range files {
+		entry, err := writer.Create(name)
+		if err != nil {
+			t.Fatalf("create archive entry %s: %v", name, err)
+		}
+		if _, err := entry.Write([]byte(contents)); err != nil {
+			t.Fatalf("write archive entry %s: %v", name, err)
+		}
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close font archive writer: %v", err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatalf("close font archive: %v", err)
+	}
+}
+
+func equalStrings(got, want []string) bool {
+	if len(got) != len(want) {
+		return false
+	}
+	for i := range got {
+		if got[i] != want[i] {
+			return false
+		}
+	}
+	return true
 }
