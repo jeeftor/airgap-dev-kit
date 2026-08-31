@@ -101,6 +101,9 @@ jobs:
       - name: Verify release downloads are checksum-gated
         run: bash test/scripts/test-release-update.sh
 
+      - name: Verify bootstrap is release-bound
+        run: bash test/scripts/test-install-latest.sh
+
   test-build-linux:
     name: Build & Verify Linux Package
     runs-on: ubuntu-latest
@@ -269,6 +272,53 @@ jobs:
           test -x /usr/local/bin/rg
           rg --version
           echo "✓ Legacy installer completes on Ubuntu 20.04"
+
+  test-install-rhel:
+    name: Test Installation (AlmaLinux 9)
+    runs-on: ubuntu-latest
+    container: quay.io/almalinuxorg/almalinux:9
+    needs: test-build-linux
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Install RHEL font and archive dependencies
+        run: |
+          dnf -y install --setopt=install_weak_deps=False \
+            fontconfig tar gzip
+
+      - name: Download packaged kit
+        uses: actions/download-artifact@v8
+        with:
+          name: airgap-dev-kit-linux
+          path: release
+
+      - name: Install and diagnose the packaged kit
+        run: |
+          set -euo pipefail
+          work_dir=$(mktemp -d)
+          export HOME="$work_dir/home"
+          export XDG_DATA_HOME="$HOME/.local/share"
+          export XDG_STATE_HOME="$HOME/.local/state"
+          mkdir -p "$HOME"
+          tar -xzf release/airgap-dev-kit-linux-x86_64.tar.gz -C "$work_dir"
+          cd "$work_dir/airgap-dev-kit"
+
+          ./airgap doctor --verify
+          ./airgap install --yes --nvim-mode=replace --configure-shell=false
+          ./airgap doctor --verify
+          ./airgap status
+
+          export PATH="$HOME/.local/bin:$PATH"
+          nvim --version | head -1
+          tmux -V
+          rg --version
+
+          font_dir="$HOME/.local/share/fonts/JetBrainsMono"
+          test -d "$font_dir"
+          find "$font_dir" -type f -name '*.ttf' -print -quit | rg -q .
+          fc-cache -f "$font_dir"
+          fc-match 'JetBrainsMono Nerd Font' | rg -qi 'JetBrainsMono|JetBrains Mono'
 
   test-config-copy-fallback:
     name: Test Config Copy Fallback
