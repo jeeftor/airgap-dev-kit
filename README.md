@@ -32,6 +32,22 @@ the extracted kit, and installs it. It requires Linux x86_64 plus `bash`,
 `curl`, `python3`, `tar`, and `sha256sum`. For an air-gapped target, use the
 verified transfer instructions below.
 
+**Download the latest full kit for transfer:**
+```bash
+# curl
+curl -fLO https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/airgap-dev-kit-linux-x86_64.tar.gz
+curl -fLO https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/checksums.txt
+sha256sum -c checksums.txt
+
+# Or wget
+wget https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/airgap-dev-kit-linux-x86_64.tar.gz
+wget https://github.com/jeeftor/airgap-dev-kit/releases/latest/download/checksums.txt
+sha256sum -c checksums.txt
+```
+
+`releases/latest/download` resolves the newest published non-prerelease release.
+Transfer both verified files, then follow the air-gapped-machine steps below.
+
 **CLI-only Linux x86_64:**
 ```bash
 # Use the full package unless you intentionally need the headless build.
