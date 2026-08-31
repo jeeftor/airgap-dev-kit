@@ -158,13 +158,16 @@ func runInstallProgress(cmd *cobra.Command, steps []installStep) error {
 
 func runInstallText(cmd *cobra.Command, steps []installStep) error {
 	for index, step := range steps {
-		if _, err := fmt.Fprintf(cmd.OutOrStdout(), "[%d/%d] %s...\n", index+1, len(steps), step.label); err != nil {
+		progress := fmt.Sprintf("[%d/%d]", index+1, len(steps))
+		line := styled(cmd, dimStyle, progress) + " " + styled(cmd, accentStyle, step.label) + styled(cmd, dimStyle, "...")
+		if _, err := fmt.Fprintln(cmd.OutOrStdout(), line); err != nil {
 			return err
 		}
 		if err := step.action(); err != nil {
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), "  "+styled(cmd, failStyle, "✗ Failed"))
 			return fmt.Errorf("install %s: %w", step.label, err)
 		}
-		if _, err := fmt.Fprintf(cmd.OutOrStdout(), "  ✓ %s\n", step.result); err != nil {
+		if _, err := fmt.Fprintln(cmd.OutOrStdout(), "  "+styled(cmd, okStyle, "✓ "+step.result)); err != nil {
 			return err
 		}
 	}

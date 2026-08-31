@@ -434,6 +434,19 @@ func TestTextOutputRemainsPlainWhenColorIsDisabled(t *testing.T) {
 	}
 }
 
+func TestInstallTextOutputRemainsPlainWhenRedirected(t *testing.T) {
+	root := New("v2.0.0-test", "abc1234")
+	var output bytes.Buffer
+	root.SetOut(&output)
+	steps := []installStep{{label: "Copy payload", result: "Installed", action: func() error { return nil }}}
+	if err := runInstallText(root, steps); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := output.String(), "[1/1] Copy payload...\n  ✓ Installed\n"; got != want {
+		t.Fatalf("redirected install output = %q, want %q", got, want)
+	}
+}
+
 func TestInstallHelpDocumentsNativeOptions(t *testing.T) {
 	t.Setenv("NO_COLOR", "1")
 	root := New("v2.0.0-test", "abc1234")
