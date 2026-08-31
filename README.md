@@ -16,24 +16,19 @@ A complete, offline-ready terminal development environment for Linux, designed f
 
 `airgap-dev-kit.tar.gz` is the default full Linux package alias. For servers, CI workers, and air-gapped boxes accessed over SSH, use `airgap-dev-kit-cli.tar.gz`.
 
-### Verified Install
+### Install the Latest Release
 
 Do not pipe a release archive directly into `tar` or the installer. Download the archive and its checksum first, verify them, then extract. The kit's `make download-release` target resolves one release, downloads both assets to temporary names, validates SHA-256, and only then writes them to the destination directory.
 
-**Full Linux x86_64:**
+**Linux x86_64:**
 ```bash
-# Download and verify one resolved GitHub release
-make download-release RELEASE_DIR="$HOME/Downloads/airgap-dev-kit"
-cd "$HOME/Downloads/airgap-dev-kit"
-
-# Optional provenance verification on the connected machine
-gh attestation verify airgap-dev-kit-linux-x86_64.tar.gz --repo jeeftor/airgap-dev-kit
-
-# Extract and install
-tar -xzf airgap-dev-kit-linux-x86_64.tar.gz
-cd airgap-dev-kit
-./airgap install
+curl -fsSL https://raw.githubusercontent.com/jeeftor/airgap-dev-kit/master/scripts/install-latest.sh | bash
 ```
+
+The bootstrapper downloads exactly one published release, verifies its SHA-256
+from that release's `checksums.txt`, validates the extracted kit, and installs
+it. It requires Linux x86_64 plus `bash`, `curl`, `python3`, `tar`, and
+`sha256sum`. For an air-gapped target, use the verified transfer instructions below.
 
 **CLI-only Linux x86_64:**
 ```bash
@@ -44,7 +39,7 @@ cd airgap-dev-kit
 
 The CLI-only package skips WezTerm and fonts. `./airgap install` creates `~/.config/airgap-dev-kit/shell.sh` and appends one idempotent, clearly marked `source` block to detected Bash/Zsh startup files; use `--configure-shell=false` to opt out.
 
-### Build From Source
+### Maintainer Build From Source
 
 ```bash
 # Clone repository
@@ -71,7 +66,7 @@ make package-cli
 
 **Full package:**
 ```bash
-# 1. On the connected machine, use the verified-install process above.
+# 1. On the connected machine, download and verify a published release.
 #    Transfer the verified archive AND checksums.txt on write-protected media.
 
 # 2. On the air-gapped machine, re-check the archive after transfer.
@@ -81,11 +76,9 @@ grep ' airgap-dev-kit-linux-x86_64.tar.gz$' checksums.txt | sha256sum -c -
 tar -xzf airgap-dev-kit-linux-x86_64.tar.gz
 cd airgap-dev-kit
 
-# 4. Install
-./airgap install
-
-# 4. Add to PATH (add to ~/.bashrc or ~/.zshrc)
-export PATH="$HOME/bin:$PATH"
+# 4. Validate and install
+./airgap doctor --verify
+./airgap install --yes
 
 # 5. Launch your environment
 wezterm start -- tmux new-session nvim
@@ -252,7 +245,7 @@ different release and cannot operate on the extracted kit.
 ./airgap version             # Show this extracted kit's version
 ./airgap doctor              # Validate this extracted kit before installing
 ./airgap install             # Install the extracted offline payload
-./airgap status              # Show this extracted kit's status
+./airgap status              # Show every kit application and installed component
 ```
 
 After installation, restart your shell. `airgap update`, `airgap status`, and
