@@ -285,7 +285,7 @@ func TestNativeInstallSetsBundledNeovimRuntime(t *testing.T) {
 	}
 	t.Setenv("AIRGAP_KIT_DIR", kit)
 	root := New("v2.0.2", "abc1234")
-	root.SetArgs([]string{"install", "--yes", "--nvim-mode=replace"})
+	root.SetArgs([]string{"install", "--yes", "--cli-only", "--nvim-mode=replace"})
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}

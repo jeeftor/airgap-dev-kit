@@ -177,7 +177,7 @@ func installKit(cmd *cobra.Command, options installOptions) error {
 func installNerdFonts(root, home string, record *installRecord) error {
 	archive := filepath.Join(root, "fonts", "JetBrainsMono.zip")
 	if _, err := os.Stat(archive); os.IsNotExist(err) {
-		return nil
+		return fmt.Errorf("bundled Nerd Font archive is missing: %s", archive)
 	} else if err != nil {
 		return err
 	}
