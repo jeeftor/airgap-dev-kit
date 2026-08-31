@@ -154,7 +154,7 @@ func (r *statusReport) addKitApplications() error {
 		r.Applications = append(r.Applications, kitApplication{Name: name, Source: filepath.Join(payload, entry.Name()), Destination: path, Status: status})
 	}
 	sort.Slice(r.Applications, func(i, j int) bool { return r.Applications[i].Name < r.Applications[j].Name })
-	r.Fonts = append(r.Fonts, inspectInstalledPath(filepath.Join(home, ".local", "share", "fonts")))
+	r.Fonts = append(r.Fonts, inspectInstalledPath(filepath.Join(home, ".local", "share", "fonts", "JetBrainsMono")))
 	return nil
 }
 
