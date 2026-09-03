@@ -104,7 +104,7 @@ func (m installProgressModel) View() tea.View {
 
 	if m.done {
 		content.WriteString(okStyle.Render("✓ Installation complete") + "\n")
-		content.WriteString(dimStyle.Render("Everything below is user-local and tracked for safe uninstall.") + "\n\n")
+		content.WriteString(dimStyle.Render("Everything below is tracked for safe uninstall.") + "\n\n")
 		content.WriteString(m.resultTable().View() + "\n\n")
 		content.WriteString(accentStyle.Render("Next") + "  Restart your shell, then run airgap status.\n\n")
 		content.WriteString(dimStyle.Render("Enter, q, or Esc closes this summary."))

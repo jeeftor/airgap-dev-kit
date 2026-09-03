@@ -19,6 +19,7 @@ import (
 type installRecord struct {
 	Version  string   `json:"version"`
 	KitDir   string   `json:"kit_dir"`
+	Scope    string   `json:"scope"`
 	Paths    []string `json:"paths"`
 	ShellRCs []string `json:"shell_rcs"`
 }
@@ -30,6 +31,8 @@ type installOptions struct {
 	Tools          map[string]bool
 	NvimMode       string
 	ConfigureShell bool
+	Scope          string
+	Demo           bool
 }
 
 // installCmd installs only the payload in an extracted v2 kit. It deliberately
@@ -44,6 +47,8 @@ func installCmd() *cobra.Command {
 	c.Flags().BoolVar(&options.CLIOnly, "cli-only", false, "Skip GUI payloads and fonts")
 	c.Flags().StringVar(&options.NvimMode, "nvim-mode", "preserve", "Neovim state handling: preserve, replace, or overwrite")
 	c.Flags().BoolVar(&options.ConfigureShell, "configure-shell", true, "Add an idempotent Airgap block to Bash or Zsh")
+	c.Flags().StringVar(&options.Scope, "scope", "user", "Install command binaries to: user or system")
+	c.Flags().BoolVar(&options.Demo, "demo", false, "Walk through the interactive installer without writing files")
 	return c
 }
 
@@ -61,6 +66,15 @@ func uninstallCmd() *cobra.Command {
 }
 
 func installKit(cmd *cobra.Command, options installOptions) error {
+	if options.Scope != "user" && options.Scope != "system" {
+		return fmt.Errorf("unsupported --scope %q; use user or system", options.Scope)
+	}
+	if options.Demo && options.DryRun {
+		return fmt.Errorf("--demo already previews the install; do not combine it with --dry-run")
+	}
+	if options.Demo && options.Yes {
+		return fmt.Errorf("--demo is interactive; do not combine it with --yes")
+	}
 	if options.NvimMode != "preserve" && options.NvimMode != "replace" && options.NvimMode != "overwrite" {
 		return fmt.Errorf("unsupported --nvim-mode %q; use preserve, replace, or overwrite", options.NvimMode)
 	}
@@ -79,24 +93,19 @@ func installKit(cmd *cobra.Command, options installOptions) error {
 	if err != nil {
 		return err
 	}
-	binDir := filepath.Join(home, ".local", "bin")
 	dataHome := os.Getenv("XDG_DATA_HOME")
 	if dataHome == "" {
 		dataHome = filepath.Join(home, ".local", "share")
 	}
-	paths := installPlan(root, payload, binDir, dataHome, options)
 	if options.DryRun {
-		fmt.Fprintln(cmd.OutOrStdout(), "Airgap install (dry run)")
-		for _, path := range paths {
-			fmt.Fprintln(cmd.OutOrStdout(), "  would install "+path)
-		}
+		writeInstallPlan(cmd, root, payload, home, dataHome, options, "dry run")
 		return nil
 	}
 	if !options.Yes {
 		if !wantsTUI(nil) {
 			return fmt.Errorf("install requires --yes when input is not interactive")
 		}
-		planned, confirmed, err := planInstall(cmd, options, nvimStateExists(home, dataHome), availableCLIChoices(payload))
+		planned, confirmed, err := planInstall(cmd, options, nvimStateExists(home, dataHome), availableCLIChoices(payload), manifest.Version)
 		if err != nil {
 			return err
 		}
@@ -106,22 +115,31 @@ func installKit(cmd *cobra.Command, options installOptions) error {
 		}
 		options = planned
 	}
+	if options.Demo {
+		writeInstallPlan(cmd, root, payload, home, dataHome, options, "interactive dry run")
+		return nil
+	}
+	binDir, appDataDir := installLocations(home, options.Scope)
+	nvimDataDir := dataHome
+	if options.Scope == "system" {
+		nvimDataDir = appDataDir
+	}
 
 	fmt.Fprintln(cmd.OutOrStdout(), styled(cmd, titleStyle, "Airgap install"))
-	fmt.Fprintln(cmd.OutOrStdout(), styled(cmd, dimStyle, "Offline payload · user-local installation"))
-	record := installRecord{Version: manifest.Version, KitDir: root}
+	fmt.Fprintln(cmd.OutOrStdout(), styled(cmd, dimStyle, "Offline payload · "+options.Scope+" command installation"))
+	record := installRecord{Version: manifest.Version, KitDir: root, Scope: options.Scope}
 	installNvim := options.NvimMode == "replace" || options.NvimMode == "overwrite" || !nvimStateExists(home, dataHome)
 	steps := []installStep{
-		{label: "Prepare user-local directories", result: "Installed", details: "Created ~/.local/bin", action: func() error {
-			return os.MkdirAll(binDir, 0755)
+		{label: "Prepare command directories", result: "Installed", details: "Created " + binDir, action: func() error {
+			return makeInstallDir(binDir, options.Scope)
 		}},
-		{label: "Copy command-line payload", result: "Installed", details: "Offline binaries copied to ~/.local/bin", action: func() error {
-			return copyPayloadBinaries(payload, binDir, options.CLIOnly, options.Tools, &record)
+		{label: "Copy command-line payload", result: "Installed", details: "Offline binaries copied to " + binDir, action: func() error {
+			return copyPayloadBinaries(payload, binDir, appDataDir, options.Scope, options.CLIOnly, options.Tools, &record)
 		}},
 	}
 	if installNvim {
 		steps = append(steps, installStep{label: "Install Neovim and editor payload", result: "Installed", details: "Bundled Neovim, LazyVim, and Mason payload", action: func() error {
-			return installNvimPayload(root, payload, home, dataHome, options.NvimMode, &record)
+			return installNvimPayload(root, payload, home, dataHome, binDir, nvimDataDir, options.Scope, options.NvimMode, &record)
 		}})
 	} else {
 		steps = append(steps, installStep{label: "Keep existing Neovim profile", result: "Preserved", details: "No Neovim files were changed", action: func() error { return nil }})
@@ -170,6 +188,18 @@ func installKit(cmd *cobra.Command, options installOptions) error {
 	}
 	fmt.Fprintln(cmd.OutOrStdout(), "  Next: restart your shell, then run airgap status")
 	return nil
+}
+
+func writeInstallPlan(cmd *cobra.Command, root, payload, home, dataHome string, options installOptions, mode string) {
+	binDir, appDataDir := installLocations(home, options.Scope)
+	nvimDataDir := dataHome
+	if options.Scope == "system" {
+		nvimDataDir = appDataDir
+	}
+	fmt.Fprintf(cmd.OutOrStdout(), "Airgap install (%s)\n", mode)
+	for _, path := range installPlan(root, payload, binDir, nvimDataDir, options) {
+		fmt.Fprintln(cmd.OutOrStdout(), "  would install "+path)
+	}
 }
 
 // installNerdFonts extracts the bundled Nerd Font without requiring unzip on
@@ -349,7 +379,7 @@ func readKitManifest(root string) (kitManifest, string, error) {
 	return manifest, payload, nil
 }
 
-func installPlan(root, payload, binDir, dataHome string, options installOptions) []string {
+func installPlan(root, payload, binDir, appDataDir string, options installOptions) []string {
 	paths := []string{binDir}
 	entries, _ := os.ReadDir(payload)
 	for _, entry := range entries {
@@ -363,11 +393,67 @@ func installPlan(root, payload, binDir, dataHome string, options installOptions)
 		paths = append(paths, filepath.Join(binDir, installedPayloadName(entry.Name())))
 	}
 	paths = append(paths, filepath.Join(binDir, "nvim"), filepath.Join(binDir, "nvim-airgap"))
-	paths = append(paths, filepath.Join(dataHome, "nvim", "runtime"), "~/.config/nvim")
+	paths = append(paths, filepath.Join(appDataDir, "nvim", "runtime"), "~/.config/nvim")
 	return paths
 }
 
-func copyPayloadBinaries(payload, binDir string, cliOnly bool, tools map[string]bool, record *installRecord) error {
+func installLocations(home, scope string) (string, string) {
+	if scope == "system" {
+		return "/usr/local/bin", "/usr/local/share/airgap-dev-kit"
+	}
+	return filepath.Join(home, ".local", "bin"), filepath.Join(home, ".local", "share", "airgap-dev-kit")
+}
+
+func makeInstallDir(path, scope string) error {
+	if scope == "system" {
+		return runSudo("mkdir", "-p", path)
+	}
+	return os.MkdirAll(path, 0755)
+}
+
+func runSudo(args ...string) error {
+	command := "sudo"
+	if os.Geteuid() == 0 {
+		command = args[0]
+		args = args[1:]
+	}
+	if len(args) == 0 {
+		return fmt.Errorf("missing privileged command")
+	}
+	if output, err := exec.Command(command, args...).CombinedOutput(); err != nil {
+		return fmt.Errorf("%s: %w: %s", command, err, strings.TrimSpace(string(output)))
+	}
+	return nil
+}
+
+func copyExecutableForScope(source, destination, scope string) error {
+	if scope == "system" {
+		return runSudo("install", "-D", "-m", "0755", source, destination)
+	}
+	return copyExecutable(source, destination)
+}
+
+func writeFileForScope(destination string, data []byte, mode fs.FileMode, scope string) error {
+	if scope != "system" {
+		return writeAtomic(destination, data, mode)
+	}
+	temp, err := os.CreateTemp("", "airgap-install-*")
+	if err != nil {
+		return err
+	}
+	tempPath := temp.Name()
+	defer os.Remove(tempPath)
+	if _, err := temp.Write(data); err != nil {
+		temp.Close()
+		return err
+	}
+	if err := temp.Close(); err != nil {
+		return err
+	}
+	return runSudo("install", "-D", "-m", fmt.Sprintf("%#o", mode.Perm()), tempPath, destination)
+}
+
+func copyPayloadBinaries(payload, binDir, appDataDir, scope string, cliOnly bool, tools map[string]bool, record *installRecord) error {
 	entries, err := os.ReadDir(payload)
 	if err != nil {
 		return err
@@ -382,22 +468,22 @@ func copyPayloadBinaries(payload, binDir string, cliOnly bool, tools map[string]
 		}
 		name := entry.Name()
 		installedName := installedPayloadName(name)
-		if installedName != "airgap" && len(tools) > 0 && !tools[installedName] {
+		if installedName != "airgap" && tools != nil && !tools[installedName] {
 			continue
 		}
 		if name == "wezterm.AppImage" {
-			if err := installWezTermAppImage(filepath.Join(payload, entry.Name()), binDir, record); err != nil {
+			if err := installWezTermAppImage(filepath.Join(payload, entry.Name()), binDir, appDataDir, scope, record); err != nil {
 				return err
 			}
 			continue
 		}
 		if name == "tmux-3.4-static-x86_64" {
-			if err := installTmuxAppImage(filepath.Join(payload, name), binDir, record); err != nil {
+			if err := installTmuxAppImage(filepath.Join(payload, name), binDir, appDataDir, scope, record); err != nil {
 				return err
 			}
 			continue
 		}
-		if err := copyExecutable(filepath.Join(payload, entry.Name()), filepath.Join(binDir, name)); err != nil {
+		if err := copyExecutableForScope(filepath.Join(payload, entry.Name()), filepath.Join(binDir, name), scope); err != nil {
 			return err
 		}
 		record.Paths = append(record.Paths, filepath.Join(binDir, name))
@@ -429,9 +515,6 @@ func availableCLIChoices(payload string) []toolChoice {
 			continue
 		}
 		installedName := installedPayloadName(name)
-		if installedName == "wezterm" {
-			continue
-		}
 		choices = append(choices, toolChoice{Name: installedName, Description: descriptions[installedName]})
 	}
 	sort.Slice(choices, func(i, j int) bool { return choices[i].Name < choices[j].Name })
@@ -466,32 +549,31 @@ func installedPayloadName(name string) string {
 }
 
 // installWezTermAppImage adds a FUSE-free fallback for minimal Linux hosts.
-func installWezTermAppImage(source, binDir string, record *installRecord) error {
-	return installAppImage(source, binDir, "wezterm.AppImage", "wezterm", record)
+func installWezTermAppImage(source, binDir, appDataDir, scope string, record *installRecord) error {
+	return installAppImage(source, binDir, appDataDir, scope, "wezterm.AppImage", "wezterm", record)
 }
 
 // installTmuxAppImage exposes the bundled tmux AppImage as tmux and uses its
 // extraction mode when a minimal host has no fusermount helper.
-func installTmuxAppImage(source, binDir string, record *installRecord) error {
-	return installAppImage(source, binDir, "tmux.AppImage", "tmux", record)
+func installTmuxAppImage(source, binDir, appDataDir, scope string, record *installRecord) error {
+	return installAppImage(source, binDir, appDataDir, scope, "tmux.AppImage", "tmux", record)
 }
 
-func installAppImage(source, binDir, imageName, command string, record *installRecord) error {
-	home := filepath.Dir(filepath.Dir(binDir))
-	image := filepath.Join(home, ".local", "share", "airgap-dev-kit", imageName)
-	if err := copyExecutable(source, image); err != nil {
+func installAppImage(source, binDir, appDataDir, scope, imageName, command string, record *installRecord) error {
+	image := filepath.Join(appDataDir, imageName)
+	if err := copyExecutableForScope(source, image, scope); err != nil {
 		return err
 	}
 	wrapper := "#!/bin/sh\nset -eu\nimage=\"" + image + "\"\nif command -v fusermount >/dev/null 2>&1 || command -v fusermount3 >/dev/null 2>&1; then\n  exec \"$image\" \"$@\"\nfi\nexec \"$image\" --appimage-extract-and-run \"$@\"\n"
 	destination := filepath.Join(binDir, command)
-	if err := writeAtomic(destination, []byte(wrapper), 0755); err != nil {
+	if err := writeFileForScope(destination, []byte(wrapper), 0755, scope); err != nil {
 		return err
 	}
 	record.Paths = append(record.Paths, image, destination)
 	return nil
 }
 
-func installNvimPayload(root, payload, home, dataHome, mode string, record *installRecord) error {
+func installNvimPayload(root, payload, home, dataHome, binDir, nvimDataDir, scope, mode string, record *installRecord) error {
 	paths := nvimProfilePaths(home, dataHome)
 	if mode == "replace" {
 		backup := filepath.Join(dataHome, "airgap-dev-kit", "backups", "nvim-"+time.Now().UTC().Format("20060102-150405"))
@@ -513,21 +595,20 @@ func installNvimPayload(root, payload, home, dataHome, mode string, record *inst
 			}
 		}
 	}
-	binDir := filepath.Join(home, ".local", "bin")
-	if err := copyExecutable(filepath.Join(payload, "nvim-static-x86_64"), filepath.Join(binDir, "nvim-airgap")); err != nil {
+	if err := copyExecutableForScope(filepath.Join(payload, "nvim-static-x86_64"), filepath.Join(binDir, "nvim-airgap"), scope); err != nil {
 		return err
 	}
 	record.Paths = append(record.Paths, filepath.Join(binDir, "nvim-airgap"))
-	runtimeDestination := filepath.Join(dataHome, "nvim", "runtime")
-	if err := copyTree(filepath.Join(payload, "nvim-runtime"), runtimeDestination); err != nil {
+	runtimeDestination := filepath.Join(nvimDataDir, "nvim", "runtime")
+	if err := copyTreeForScope(filepath.Join(payload, "nvim-runtime"), runtimeDestination, scope); err != nil {
 		return err
 	}
 	if _, err := os.Stat(filepath.Join(runtimeDestination, "syntax", "syntax.vim")); err != nil {
 		return fmt.Errorf("bundled Neovim runtime is incomplete: %w", err)
 	}
 	record.Paths = append(record.Paths, runtimeDestination)
-	launcher := "#!/bin/sh\nset -eu\nexport VIMRUNTIME=\"${XDG_DATA_HOME:-$HOME/.local/share}/nvim/runtime\"\nexec \"" + filepath.Join(binDir, "nvim-airgap") + "\" \"$@\"\n"
-	if err := writeAtomic(filepath.Join(binDir, "nvim"), []byte(launcher), 0755); err != nil {
+	launcher := "#!/bin/sh\nset -eu\nexport VIMRUNTIME=\"" + runtimeDestination + "\"\nexec \"" + filepath.Join(binDir, "nvim-airgap") + "\" \"$@\"\n"
+	if err := writeFileForScope(filepath.Join(binDir, "nvim"), []byte(launcher), 0755, scope); err != nil {
 		return err
 	}
 	record.Paths = append(record.Paths, filepath.Join(binDir, "nvim"))
@@ -652,6 +733,29 @@ func copyTree(source, destination string) error {
 	})
 }
 
+func copyTreeForScope(source, destination, scope string) error {
+	if scope != "system" {
+		return copyTree(source, destination)
+	}
+	return filepath.WalkDir(source, func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		rel, err := filepath.Rel(source, path)
+		if err != nil {
+			return err
+		}
+		target := filepath.Join(destination, rel)
+		if entry.IsDir() {
+			return runSudo("mkdir", "-p", target)
+		}
+		if !entry.Type().IsRegular() {
+			return fmt.Errorf("unsupported payload entry %s", path)
+		}
+		return runSudo("install", "-D", "-m", "0644", path, target)
+	})
+}
+
 func extractPayloadDirectory(archive, directory, destination string) error {
 	stage, err := os.MkdirTemp(filepath.Dir(destination), ".airgap-extract-")
 	if err != nil {
@@ -717,7 +821,7 @@ func uninstallRecorded(cmd *cobra.Command, dryRun bool) error {
 			fmt.Fprintln(cmd.OutOrStdout(), "would remove "+item)
 			continue
 		}
-		if err := os.RemoveAll(item); err != nil && !os.IsNotExist(err) {
+		if err := removeInstalledPath(item, record.Scope); err != nil && !os.IsNotExist(err) {
 			return err
 		}
 		fmt.Fprintln(cmd.OutOrStdout(), "removed "+item)
@@ -739,4 +843,18 @@ func uninstallRecorded(cmd *cobra.Command, dryRun bool) error {
 		return os.Remove(path)
 	}
 	return nil
+}
+
+func removeInstalledPath(path, scope string) error {
+	if scope != "system" {
+		return os.RemoveAll(path)
+	}
+	clean := filepath.Clean(path)
+	if strings.HasPrefix(clean, "/usr/local/bin/") || strings.HasPrefix(clean, "/usr/local/share/airgap-dev-kit/") {
+		return runSudo("rm", "-rf", clean)
+	}
+	if strings.HasPrefix(clean, "/usr/local/") {
+		return fmt.Errorf("refusing to remove system path outside the Airgap install roots: %s", path)
+	}
+	return os.RemoveAll(clean)
 }

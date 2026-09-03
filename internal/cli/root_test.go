@@ -28,6 +28,14 @@ func TestRootHelpIsUsefulWithoutColor(t *testing.T) {
 	}
 }
 
+func TestRootDemoShortcutIsAvailable(t *testing.T) {
+	root := New("v2.0.0-test", "abc1234")
+	flag := root.Flags().Lookup("demo")
+	if flag == nil || flag.Usage != "Walk through the interactive installer without writing files" {
+		t.Fatalf("root demo shortcut flag = %#v", flag)
+	}
+}
+
 func TestDoctorHelpShowsVerificationOptions(t *testing.T) {
 	t.Setenv("NO_COLOR", "1")
 	root := New("v2.0.0-test", "abc1234")
@@ -74,7 +82,7 @@ func TestCopyPayloadBinariesSkipsSupportFilesAndWrapsAppImages(t *testing.T) {
 		t.Fatal(err)
 	}
 	var record installRecord
-	if err := copyPayloadBinaries(payload, binDir, false, nil, &record); err != nil {
+	if err := copyPayloadBinaries(payload, binDir, filepath.Join(filepath.Dir(filepath.Dir(binDir)), ".local", "share", "airgap-dev-kit"), "user", false, nil, &record); err != nil {
 		t.Fatal(err)
 	}
 	for _, name := range []string{"usable-tool", "wezterm", "tmux"} {
@@ -127,13 +135,15 @@ func TestInstallPlannerSelectsRecoverableReplaceAndNoShellChanges(t *testing.T) 
 		existingNvim: true,
 	}
 
+	model = updateInstallPlanner(t, model, "enter") // User-local full kit.
 	model = updateInstallPlanner(t, model, "enter") // Full kit.
+	model = updateInstallPlanner(t, model, "enter") // All components.
 	model = updateInstallPlanner(t, model, "down")
 	model = updateInstallPlanner(t, model, "enter") // Back up and replace.
 	model = updateInstallPlanner(t, model, "down")
 	model = updateInstallPlanner(t, model, "enter") // Do not change shell files.
 
-	if model.step != 3 || model.options.NvimMode != "replace" || model.options.ConfigureShell {
+	if model.step != 5 || model.options.NvimMode != "replace" || model.options.ConfigureShell || model.options.Scope != "user" {
 		t.Fatalf("unexpected install plan: %#v", model)
 	}
 	view := model.View()
@@ -147,20 +157,130 @@ func TestInstallPlannerPreservesExistingNeovimByDefault(t *testing.T) {
 		options:      installOptions{ConfigureShell: true, NvimMode: "preserve"},
 		existingNvim: true,
 	}
-	model = updateInstallPlanner(t, model, "enter")
-	model = updateInstallPlanner(t, model, "enter")
+	model = updateInstallPlanner(t, model, "enter") // User-local full kit.
+	model = updateInstallPlanner(t, model, "enter") // Full kit.
+	model = updateInstallPlanner(t, model, "enter") // All components.
+	model = updateInstallPlanner(t, model, "enter") // Preserve Neovim.
 	if model.options.NvimMode != "preserve" {
 		t.Fatalf("default Neovim choice = %q, want preserve", model.options.NvimMode)
 	}
 }
 
+func TestInstallPlannerSelectsSystemScope(t *testing.T) {
+	model := installModel{options: installOptions{Scope: "user", ConfigureShell: true, NvimMode: "preserve"}}
+	model = updateInstallPlanner(t, model, "down")
+	model = updateInstallPlanner(t, model, "enter")
+	if model.options.Scope != "system" || model.step != 1 {
+		t.Fatalf("system location selection = %#v", model)
+	}
+	view := model.View()
+	if !strings.Contains(view.Content, "Choose package profile") {
+		t.Fatalf("profile selection was not shown after target selection: %s", view.Content)
+	}
+}
+
+func TestInstallPlannerTogglesComponents(t *testing.T) {
+	model := installModel{
+		options: installOptions{Scope: "user", ConfigureShell: true, NvimMode: "preserve"},
+		tools:   []toolChoice{{Name: "fzf", Description: "fuzzy finder"}, {Name: "rg", Description: "fast text search"}},
+	}
+	model.selectCompatibleTools()
+	model.step = 2
+	model = updateInstallPlanner(t, model, " ")
+	if model.options.Tools["fzf"] {
+		t.Fatal("space did not deselect the focused component")
+	}
+	model = updateInstallPlanner(t, model, "a")
+	if !model.options.Tools["fzf"] || !model.options.Tools["rg"] {
+		t.Fatalf("select-all did not restore components: %#v", model.options.Tools)
+	}
+	if view := model.View(); !strings.Contains(view.Content, "[x] fzf") || !strings.Contains(view.Content, "Space toggle") {
+		t.Fatalf("component selection view is incomplete: %s", view.Content)
+	}
+}
+
+func TestInstallPlannerUsesAlignedDecisionIcons(t *testing.T) {
+	model := installModel{options: installOptions{ConfigureShell: true}, step: 4}
+	view := model.View()
+	for _, expected := range []string{"🐚", "⏭️", "Configure shell integration?"} {
+		if !strings.Contains(view.Content, expected) {
+			t.Fatalf("shell choice is missing %q: %s", expected, view.Content)
+		}
+	}
+}
+
+func TestInstallPlannerAnimatesUplinkPulse(t *testing.T) {
+	model := installModel{}
+	updated, command := model.Update(installerPulseMsg{})
+	result, ok := updated.(installModel)
+	if !ok {
+		t.Fatalf("pulse update returned %T", updated)
+	}
+	if result.pulse != 1 || command == nil {
+		t.Fatalf("pulse result = %#v, command = %v", result, command)
+	}
+	if view := result.View(); !strings.Contains(view.Content, installerPulseFrames[1]) {
+		t.Fatalf("animated frame is missing from view: %s", view.Content)
+	}
+}
+
+func TestInstallPlannerDemoReviewStatesNoFilesWillChange(t *testing.T) {
+	model := installModel{options: installOptions{Scope: "user", ConfigureShell: true, NvimMode: "preserve", Demo: true}, version: "v2.4.0"}
+	model.step = 5
+	view := model.View()
+	for _, expected := range []string{"Interactive dry run: no files will be copied, changed, or removed.", "preview", "v2.4.0"} {
+		if !strings.Contains(view.Content, expected) {
+			t.Fatalf("demo review is missing %q: %s", expected, view.Content)
+		}
+	}
+	if airgapLogo == "" || !strings.Contains(view.Content, strings.Split(airgapLogo, "\n")[0]) {
+		t.Fatalf("Figlet logo is missing from demo review: %s", view.Content)
+	}
+}
+
+func TestInstallRejectsConflictingDemoFlags(t *testing.T) {
+	root := New("v2.0.0-test", "abc1234")
+	root.SetArgs([]string{"install", "--demo", "--yes"})
+	if err := root.Execute(); err == nil || !strings.Contains(err.Error(), "--demo is interactive") {
+		t.Fatalf("demo with --yes error = %v", err)
+	}
+}
+
+func TestInstallLocationsAreScopeSpecific(t *testing.T) {
+	home := "/home/alex"
+	if bin, data := installLocations(home, "user"); bin != "/home/alex/.local/bin" || data != "/home/alex/.local/share/airgap-dev-kit" {
+		t.Fatalf("user locations = %q, %q", bin, data)
+	}
+	if bin, data := installLocations(home, "system"); bin != "/usr/local/bin" || data != "/usr/local/share/airgap-dev-kit" {
+		t.Fatalf("system locations = %q, %q", bin, data)
+	}
+}
+
+func TestSystemUninstallKeepsUserPathsUnprivileged(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "user-config")
+	if err := os.WriteFile(path, []byte("managed\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := removeInstalledPath(path, "system"); err != nil {
+		t.Fatalf("remove user path from system install: %v", err)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("user path remains after removal: %v", err)
+	}
+	if err := removeInstalledPath("/usr/local/lib/not-airgap", "system"); err == nil {
+		t.Fatal("system removal outside Airgap roots succeeded")
+	}
+}
+
 func TestInstallPlannerSelectsDestructiveNeovimOverwrite(t *testing.T) {
 	model := installModel{options: installOptions{ConfigureShell: true, NvimMode: "preserve"}, existingNvim: true}
-	model = updateInstallPlanner(t, model, "enter")
+	model = updateInstallPlanner(t, model, "enter") // User-local full kit.
+	model = updateInstallPlanner(t, model, "enter") // Full kit.
+	model = updateInstallPlanner(t, model, "enter") // All components.
 	model = updateInstallPlanner(t, model, "down")
 	model = updateInstallPlanner(t, model, "down")
-	model = updateInstallPlanner(t, model, "enter")
-	model = updateInstallPlanner(t, model, "enter")
+	model = updateInstallPlanner(t, model, "enter") // Overwrite Neovim.
+	model = updateInstallPlanner(t, model, "enter") // Keep shell integration.
 	if model.options.NvimMode != "overwrite" {
 		t.Fatalf("Neovim mode = %q, want overwrite", model.options.NvimMode)
 	}
@@ -194,7 +314,7 @@ func TestInstallNvimPayloadOverwriteDeletesExistingProfile(t *testing.T) {
 		}
 	}
 	record := installRecord{}
-	if err := installNvimPayload(t.TempDir(), payload, home, dataHome, "overwrite", &record); err != nil {
+	if err := installNvimPayload(t.TempDir(), payload, home, dataHome, filepath.Join(home, ".local", "bin"), dataHome, "user", "overwrite", &record); err != nil {
 		t.Fatalf("overwrite Neovim profile: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(home, ".config", "nvim")); !os.IsNotExist(err) {
@@ -242,10 +362,16 @@ func TestInstallProgressRendersRecoveryPanel(t *testing.T) {
 func updateInstallPlanner(t *testing.T, model installModel, key string) installModel {
 	t.Helper()
 	keyType := tea.KeyEnter
+	keyText := ""
 	if key == "down" {
 		keyType = tea.KeyDown
+	} else if key == " " {
+		keyType = tea.KeySpace
+	} else if key == "a" {
+		keyType = 'a'
+		keyText = "a"
 	}
-	updated, _ := model.Update(tea.KeyPressMsg{Code: keyType})
+	updated, _ := model.Update(tea.KeyPressMsg{Code: keyType, Text: keyText})
 	result, ok := updated.(installModel)
 	if !ok {
 		t.Fatalf("planner update returned %T", updated)

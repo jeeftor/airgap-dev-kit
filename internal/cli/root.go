@@ -16,13 +16,21 @@ import (
 // New builds the command tree for an extracted v2 kit.
 func New(version, commit string) *cobra.Command {
 	var output string
+	var demo bool
 	root := &cobra.Command{
 		Use:           "airgap",
 		Short:         "Manage an offline Air-Gap Development Kit",
 		SilenceUsage:  true,
 		SilenceErrors: true,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if demo {
+				return installKit(cmd, installOptions{ConfigureShell: true, NvimMode: "preserve", Scope: "user", Demo: true})
+			}
+			return writeHelp(cmd)
+		},
 	}
 	root.PersistentFlags().StringVar(&output, "output", "text", "Output format: text or json")
+	root.Flags().BoolVar(&demo, "demo", false, "Walk through the interactive installer without writing files")
 	_ = viper.BindPFlag("output", root.PersistentFlags().Lookup("output"))
 	root.SetHelpFunc(func(command *cobra.Command, _ []string) { _ = writeHelp(command) })
 	root.AddCommand(versionCmd(version, commit), statusCmd(&output), doctorCmd(&output, version, commit))

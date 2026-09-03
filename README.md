@@ -251,7 +251,10 @@ different release and cannot operate on the extracted kit.
 ```bash
 ./airgap version             # Show this extracted kit's version
 ./airgap doctor              # Validate this extracted kit before installing
-./airgap install             # Install the extracted offline payload
+./airgap install             # Install the extracted offline payload to ~/.local/bin
+./airgap install --scope=system # Install shared commands to /usr/local/bin
+./airgap install --demo      # Walk through the interactive setup without changing files
+./airgap --demo              # Shortcut for the same interactive walkthrough
 ./airgap status              # Show every kit application and installed component
 ```
 
@@ -290,7 +293,7 @@ fi
 
 ### What `./airgap install` Does
 
-1. **Installs user-local binaries** - Copies the extracted payload to `~/.local/bin` without network access
+1. **Installs commands at your selected scope** - Copies the extracted payload to `~/.local/bin` by default, or `/usr/local/bin` with `--scope=system`, without network access
 2. **Makes Neovim self-contained** - The `nvim` launcher sets `VIMRUNTIME` to the bundled runtime before starting Neovim
 3. **Protects existing Neovim state** - Preserves it by default, or backs up the complete profile before `--nvim-mode=replace`
 4. **Activates offline LazyVim and Mason** - Extracts the matching bundled plugin and LSP payloads
