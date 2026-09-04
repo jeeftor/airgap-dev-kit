@@ -645,7 +645,7 @@ func copyManagedConfig(root, home string, nvim bool, record *installRecord) erro
 		return err
 	}
 	for _, pkg := range packages {
-		if !pkg.IsDir() || (pkg.Name() == "nvim" && !nvim) {
+		if !pkg.IsDir() || pkg.Name() == "starship-presets" || (pkg.Name() == "nvim" && !nvim) {
 			continue
 		}
 		if err := filepath.WalkDir(filepath.Join(configRoot, pkg.Name()), func(path string, entry fs.DirEntry, walkErr error) error {

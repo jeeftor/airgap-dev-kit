@@ -119,6 +119,21 @@ export PATH="$HOME/.local/bin:$PATH"
 tmux new-session nvim
 ```
 
+### Choose a Starship prompt
+
+The kit includes four offline prompt presets: `minimal`, `developer`, `ops`, and
+`plain` (ASCII-safe). Choose interactively, inspect a preset, or activate one
+non-interactively. Activating a preset backs up an existing
+`~/.config/starship.toml` first.
+
+```bash
+./airgap prompt
+./airgap prompt list
+./airgap prompt preview developer
+./airgap prompt set developer --dry-run
+./airgap prompt set developer --yes
+```
+
 ## 🎯 What's Included
 
 ### Core Tools

@@ -36,6 +36,60 @@ func TestRootDemoShortcutIsAvailable(t *testing.T) {
 	}
 }
 
+func TestPromptListShowsBundledPresets(t *testing.T) {
+	root := New("v2.0.0-test", "abc1234")
+	var output bytes.Buffer
+	root.SetOut(&output)
+	root.SetArgs([]string{"prompt", "list"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	for _, preset := range []string{"minimal", "developer", "ops", "plain"} {
+		if !strings.Contains(output.String(), preset) {
+			t.Fatalf("prompt list missing %q: %s", preset, output.String())
+		}
+	}
+}
+
+func TestPromptSetDryRunDoesNotWrite(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	var output bytes.Buffer
+	if err := setPromptPreset(&output, "minimal", true, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(home, ".config", "starship.toml")); !os.IsNotExist(err) {
+		t.Fatalf("dry run wrote Starship config: %v", err)
+	}
+	if !strings.Contains(output.String(), "would activate") {
+		t.Fatalf("dry run output = %s", output.String())
+	}
+}
+
+func TestPromptSetBacksUpExistingConfig(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	destination := filepath.Join(home, ".config", "starship.toml")
+	if err := os.MkdirAll(filepath.Dir(destination), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(destination, []byte("old prompt\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	var output bytes.Buffer
+	if err := setPromptPreset(&output, "plain", false, true); err != nil {
+		t.Fatal(err)
+	}
+	content, err := os.ReadFile(destination)
+	if err != nil || !strings.Contains(string(content), "git:") {
+		t.Fatalf("activated config = %q, %v", content, err)
+	}
+	backups, err := filepath.Glob(destination + ".airgap-backup-*")
+	if err != nil || len(backups) != 1 {
+		t.Fatalf("backups = %v, %v", backups, err)
+	}
+}
+
 func TestDoctorHelpShowsVerificationOptions(t *testing.T) {
 	t.Setenv("NO_COLOR", "1")
 	root := New("v2.0.0-test", "abc1234")

@@ -1,0 +1,22 @@
+add_newline = false
+format = "$username$directory$git_branch$git_status$golang$python$nodejs$rust$cmd_duration$character"
+
+[character]
+success_symbol = "[❯](bold green) "
+error_symbol = "[❯](bold red) "
+
+[directory]
+style = "bold cyan"
+truncation_length = 3
+truncate_to_repo = true
+
+[git_branch]
+symbol = " "
+style = "bold purple"
+
+[git_status]
+style = "bold yellow"
+
+[cmd_duration]
+min_time = 1_000
+format = "[took $duration](dimmed yellow) "

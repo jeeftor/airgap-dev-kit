@@ -1,0 +1,18 @@
+add_newline = false
+format = "$username$directory$git_branch$git_status$character"
+
+[character]
+success_symbol = "[>](bold green) "
+error_symbol = "[>](bold red) "
+
+[directory]
+style = "bold cyan"
+truncation_length = 3
+truncate_to_repo = true
+
+[git_branch]
+symbol = "git:"
+style = "bold purple"
+
+[git_status]
+style = "bold yellow"

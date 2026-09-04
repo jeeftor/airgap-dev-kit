@@ -34,7 +34,7 @@ func New(version, commit string) *cobra.Command {
 	_ = viper.BindPFlag("output", root.PersistentFlags().Lookup("output"))
 	root.SetHelpFunc(func(command *cobra.Command, _ []string) { _ = writeHelp(command) })
 	root.AddCommand(versionCmd(version, commit), statusCmd(&output), doctorCmd(&output, version, commit))
-	root.AddCommand(installCmd(), uninstallCmd())
+	root.AddCommand(installCmd(), uninstallCmd(), promptCmd())
 	root.AddCommand(cleanCmd())
 	root.AddCommand(updateCmd(version))
 	root.AddCommand(completionCmd(root))
