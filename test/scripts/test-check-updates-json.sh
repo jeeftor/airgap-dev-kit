@@ -128,4 +128,17 @@ AIRGAP_DEV_KIT_RELEASES_DIR="$RELEASES_DIR" \
   --json-file "$UPDATES_JSON" --fail-on-outdated >/dev/null
 test "$(cat "$UPDATES_JSON")" = '[]'
 
+# A failed upstream lookup must not report the remaining tools as a complete check.
+rm "$RELEASES_DIR/jqlang__jq.json"
+if AIRGAP_DEV_KIT_RELEASES_DIR="$RELEASES_DIR" \
+  bash "$ROOT_DIR/scripts/check-updates.sh" --makefile "$MAKEFILE_FIXTURE" > "$TMP_DIR/incomplete.out"; then
+  echo "incomplete version check unexpectedly succeeded" >&2
+  exit 1
+fi
+grep -q 'version check is incomplete' "$TMP_DIR/incomplete.out"
+if grep -q 'All tracked tools are up-to-date' "$TMP_DIR/incomplete.out"; then
+  echo "incomplete version check reported all tools as current" >&2
+  exit 1
+fi
+
 echo "check-updates JSON and single-tool apply tests passed"

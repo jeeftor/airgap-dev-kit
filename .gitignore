@@ -30,6 +30,7 @@ sha256sums.txt
 # Extracted font directories
 fonts/JetBrainsMonoNerdFont-*/
 fonts/JetBrainsMono/
+fonts/.version
 VERSION
 
 # macOS

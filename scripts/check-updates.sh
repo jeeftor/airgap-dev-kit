@@ -123,7 +123,12 @@ fetch_latest_tag() {
     tag=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8")).get("tag_name",""))' \
       "${AIRGAP_DEV_KIT_RELEASES_DIR}/${repo_key}.json" 2>/dev/null || true)
   else
-    tag=$(curl -fsSL "https://api.github.com/repos/${repo}/releases/latest" \
+    local token="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
+    local curl_args=()
+    if [[ -n "$token" ]]; then
+      curl_args=(-H "Authorization: Bearer $token")
+    fi
+    tag=$(curl -fsSL "${curl_args[@]}" "https://api.github.com/repos/${repo}/releases/latest" \
       | python3 -c 'import json,sys; print(json.load(sys.stdin).get("tag_name",""))' 2>/dev/null || true)
   fi
   strip_whitespace "${tag:-}"
@@ -192,6 +197,7 @@ report_header=$'| Tool | Current | Latest | Status |\n| --- | --- | --- | --- |'
 report_rows=()
 json_args=()
 outdated_count=0
+failed_count=0
 
 for entry in "${TOOLS[@]}"; do
   IFS="|" read -r slug var pretty repo transform <<<"$entry"
@@ -199,12 +205,14 @@ for entry in "${TOOLS[@]}"; do
   current_version=$(read_version_from_makefile "$var")
   if [[ -z "$current_version" ]]; then
     report_rows+=("| $pretty | (missing) | ? | ⚠️ could not read $var |")
+    ((failed_count += 1))
     continue
   fi
 
   latest_tag=$(fetch_latest_tag "$repo")
   if [[ -z "$latest_tag" ]]; then
     report_rows+=("| $pretty | $current_version | (unknown) | ⚠️ failed to fetch |")
+    ((failed_count += 1))
     continue
   fi
 
@@ -233,7 +241,9 @@ echo "Version check summary"
 echo "====================="
 echo "$output"
 echo ""
-if [[ $outdated_count -gt 0 ]]; then
+if [[ $failed_count -gt 0 ]]; then
+  echo "Could not check $failed_count tool(s); the version check is incomplete."
+elif [[ $outdated_count -gt 0 ]]; then
   echo "Found $outdated_count tool(s) with newer releases."
 else
   echo "All tracked tools are up-to-date."
@@ -242,7 +252,9 @@ fi
 if [[ -n "$SUMMARY_FILE" ]]; then
   printf "## Airgap Dev Kit Version Check\n\n" > "$SUMMARY_FILE"
   printf "%s\n\n" "$output" >> "$SUMMARY_FILE"
-  if [[ $outdated_count -gt 0 ]]; then
+  if [[ $failed_count -gt 0 ]]; then
+    printf "Could not check %d tool(s); the version check is incomplete.\n" "$failed_count" >> "$SUMMARY_FILE"
+  elif [[ $outdated_count -gt 0 ]]; then
     printf "Found %d tool(s) with updates available.\n" "$outdated_count" >> "$SUMMARY_FILE"
   else
     printf "All tracked tools are up-to-date.\n" >> "$SUMMARY_FILE"
@@ -272,6 +284,6 @@ with open(output_path, "w", encoding="utf-8") as handle:
 PY
 fi
 
-if [[ $outdated_count -gt 0 && $FAIL_ON_OUTDATED -eq 1 ]]; then
+if [[ $failed_count -gt 0 || ( $outdated_count -gt 0 && $FAIL_ON_OUTDATED -eq 1 ) ]]; then
   exit 1
 fi

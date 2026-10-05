@@ -32,6 +32,7 @@ LAZYGIT_VERSION := 0.65.1
 JQ_VERSION := 1.8.2
 LUA_LS_VERSION := 3.19.1
 SHELLCHECK_VERSION := 0.11.0
+LINUX_PAYLOAD_VERSIONS := $(WEZTERM_VERSION) $(FZF_VERSION) $(TMUX_VERSION) $(NVIM_VERSION) $(BTOP_VERSION) $(LSD_VERSION) $(ZOX_VERSION) $(DELTA_VERSION) $(DIFFTASTIC_VERSION) $(GUM_VERSION) $(GLOW_VERSION) $(BROOT_VERSION) $(FASTFETCH_VERSION) $(DUST_VERSION) $(GDU_VERSION) $(USBTREE_VERSION) $(MKCERT_VERSION) $(DIRENV_VERSION) $(SVU_VERSION) $(GPING_VERSION) $(FD_VERSION) $(RG_VERSION) $(BAT_VERSION) $(STARSHIP_VERSION) $(LAZYGIT_VERSION) $(JQ_VERSION) $(LUA_LS_VERSION) $(SHELLCHECK_VERSION)
 RELEASE_DIR ?= .
 FLAVOR ?= full
 OUTPUT ?= .
@@ -88,6 +89,13 @@ update: update-linux update-fonts
 update-linux:
 	@echo "Downloading Linux binaries..."
 	@mkdir -p offline-packages/linux
+	@# A version change must replace existing binaries, including old tracked copies.
+	@if [ "$$(cat offline-packages/linux/.versions 2>/dev/null)" != "$(LINUX_PAYLOAD_VERSIONS)" ]; then \
+		for tool in wezterm.AppImage tmux-3.4-static-x86_64 nvim-static-x86_64 fzf fd rg bat starship btop lsd zoxide direnv dust gdu mkcert usbtree gping delta difft gum glow broot fastfetch lazygit jq svu lua-language-server shellcheck; do \
+			rm -f "offline-packages/linux/$$tool"; \
+		done; \
+		rm -f offline-packages/linux/fzf-scripts/key-bindings.* offline-packages/linux/fzf-scripts/completion.*; \
+	fi
 
 	@# WezTerm AppImage
 	@if [ ! -f offline-packages/linux/wezterm.AppImage ] || [ $$(stat -f%z offline-packages/linux/wezterm.AppImage 2>/dev/null || stat -c%s offline-packages/linux/wezterm.AppImage 2>/dev/null) -lt 1000 ]; then \
@@ -432,17 +440,19 @@ update-linux:
 	else \
 		echo "  ✓ shellcheck already present"; \
 	fi
+	@printf '%s\n' "$(LINUX_PAYLOAD_VERSIONS)" > offline-packages/linux/.versions
 
 update-fonts:
 	@echo "Checking fonts..."
 	@mkdir -p fonts
-	@if [ ! -f fonts/JetBrainsMono.zip ] || [ $$(stat -f%z fonts/JetBrainsMono.zip 2>/dev/null || stat -c%s fonts/JetBrainsMono.zip 2>/dev/null) -lt 1000000 ]; then \
+	@if [ "$$(cat fonts/.version 2>/dev/null)" != "$(NERD_FONT_VERSION)" ] || [ ! -f fonts/JetBrainsMono.zip ] || [ $$(stat -f%z fonts/JetBrainsMono.zip 2>/dev/null || stat -c%s fonts/JetBrainsMono.zip 2>/dev/null) -lt 1000000 ]; then \
 		echo "  → JetBrainsMono Nerd Font..."; \
 		curl -fsSL "https://github.com/ryanoasis/nerd-fonts/releases/download/$(NERD_FONT_VERSION)/JetBrainsMono.zip" \
 			-o fonts/JetBrainsMono.zip; \
 	else \
 		echo "  ✓ JetBrainsMono Nerd Font already present"; \
 	fi
+	@printf '%s\n' "$(NERD_FONT_VERSION)" > fonts/.version
 
 verify:
 	@./scripts/verify-packages.sh
