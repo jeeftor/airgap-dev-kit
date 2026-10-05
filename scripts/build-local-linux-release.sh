@@ -69,7 +69,6 @@ EOF
     export NPM_CONFIG_STRICT_SSL=false
     export NODE_TLS_REJECT_UNAUTHORIZED=0
   fi
-  npm install --global tree-sitter-cli
   cd /workspace
   make update
   make build-editor-payloads

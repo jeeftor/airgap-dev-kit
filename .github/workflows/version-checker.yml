@@ -76,7 +76,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: offline-packages/lazy-plugins.tar.gz
-          key: release-lazy-payload-linux-v1-${{ hashFiles('config/plugin-manifest.lua', 'config/nvim/.config/nvim/lazy-lock.json') }}
+          key: release-lazy-payload-linux-v2-${{ hashFiles('Makefile', 'config/plugin-manifest.lua', 'config/nvim/**', 'scripts/build-lazy-payload.sh') }}
 
       - name: Restore Mason payload cache
         uses: actions/cache@v6

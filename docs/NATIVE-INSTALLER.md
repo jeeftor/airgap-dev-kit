@@ -110,3 +110,57 @@ them. Other health warnings need their own reported remediation.
 The legacy shell installers remain temporarily while their historical install
 log migration and release/test cleanup are completed. New release archives use
 the native installer only; do not add new behavior to `install.sh`.
+
+### Try WezTerm presets
+
+Use `airgap wez list` to list the presets, then open a separate window:
+
+```sh
+airgap wez start current  # Your existing configuration
+airgap wez start kit      # Bundled configuration, including middle-click paste
+airgap wez start plain    # WezTerm defaults, without configuration
+airgap wez start x11      # Bundled configuration with Wayland disabled
+airgap wez start x11 --dry-run
+```
+
+These commands select a preset for the new window without changing your saved
+configuration or existing windows. `kit` and `x11` require the extracted kit to
+remain available. Run them on your Linux desktop, rather than inside a remote
+SSH session. The X11 preset requires an X11/XWayland display; compare it with
+`kit` when testing window-edge resizing. CI verifies X11 launch and mouse paste;
+it does not prove behavior on your GNOME/KDE Wayland desktop.
+
+### Editor health and offline prerequisites
+
+New editor payloads include the manifest's compiled Tree-sitter parsers, matching
+queries, and a checksum-verified Tree-sitter CLI. The connected Linux builder
+compiles them; editor startup does not install or update parsers. LuaRocks is
+disabled because the bundled plugin set does not require it. Existing Neovim
+profiles are preserved by default: choose `--nvim-mode=replace` to back up your
+profile and install the kit configuration and payloads.
+
+Git remains a host prerequisite for Git integrations, including LazyGit and
+LazyVim. Install the `git` package from your distribution's offline repository
+(`dnf install git` on Red Hat, `apt install git` on Debian/Ubuntu). `airgap doctor`
+warns when it cannot find Git. A C compiler, curl, and tar are needed to build
+additional parsers, not to use the bundled compiled parsers. Upstream health
+checks may still report these build prerequisites on minimal targets.
+
+A local desktop clipboard provider requires `wl-clipboard` on Wayland or
+`xclip`/`xsel` on X11. Installing one on an SSH server does not expose your local
+desktop clipboard. WezTerm's terminal paste can insert text without a Neovim
+clipboard provider. Clipboard history belongs to your desktop clipboard manager.
+
+Capture your actual profile's diagnostics with:
+
+```sh
+nvim --headless '+checkhealth' '+write! /tmp/nvim-health.txt' '+qa!' \
+  > /tmp/nvim-health-startup.txt 2>&1
+```
+
+Checkhealth reports problems; it does not repair them. Headless runs can report
+UI initialization warnings. Missing optional remote-plugin providers, Mason
+runtimes for languages you do not use, or dependencies of disabled image
+features do not mean the offline editor is unusable. CI retains the complete
+report and separately gates real offline parser loading, queries, highlighting,
+the bundled CLI, and internal yank behavior.

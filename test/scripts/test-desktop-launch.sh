@@ -92,10 +92,13 @@ LUA
 
 launch_entry() {
   local entry="$1" label="$2" window=""
-  desktop-file-validate "$entry"
-  if [[ "$label" == menu ]]; then
+  if [[ "$label" == preset-* ]]; then
+    PATH="$HOME/.local/bin:$PATH" ./airgap wez start "${label#preset-}" > "$logs_dir/$label.log" 2>&1 &
+  elif [[ "$label" == menu ]]; then
+    desktop-file-validate "$entry"
     timeout 15s gtk-launch airgap-wezterm.desktop > "$logs_dir/$label.log" 2>&1
   else
+    desktop-file-validate "$entry"
     timeout 15s gio launch "$entry" > "$logs_dir/$label.log" 2>&1
   fi
   for _ in {1..20}; do
@@ -131,6 +134,9 @@ launch_entry() {
 # Each entry must create its own window; an earlier launch cannot satisfy both.
 launch_entry "$menu" menu
 launch_entry "$shortcut" desktop
+for preset in current kit plain x11; do
+  launch_entry "" "preset-$preset"
+done
 
 # Confirm a broken Exec is rejected rather than counted as a successful launch.
 sed 's|^Exec=.*|Exec=/airgap-test/nonexistent-command|' "$menu" > "$logs_dir/broken.desktop"

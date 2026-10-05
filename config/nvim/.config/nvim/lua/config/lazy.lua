@@ -39,6 +39,9 @@ require("lazy").setup({
     enabled = false, -- CRITICAL: Disable update checking (air-gap mode)
     notify = false, -- notify on update
   },
+  rocks = {
+    enabled = false, -- Bundled plugins do not require LuaRocks on the offline host.
+  },
   change_detection = {
     enabled = false, -- CRITICAL: Don't watch for config changes (air-gap mode)
   },

@@ -250,6 +250,9 @@ func diagnoseKit(root string, found bool, runtimeVersion, runtimeCommit string) 
 		return report
 	}
 	report.add("kit root", "pass", root)
+	if _, err := exec.LookPath("git"); err != nil {
+		report.add("host Git", "warn", "Git is not bundled; install the git package from your distribution's offline repository for LazyVim Git features (dnf install git or apt install git)")
+	}
 
 	versionPath := filepath.Join(root, "VERSION")
 	version, err := os.ReadFile(versionPath)

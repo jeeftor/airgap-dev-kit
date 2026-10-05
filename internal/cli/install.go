@@ -670,19 +670,20 @@ func installNvimPayload(root, payload, home, dataHome, binDir, nvimDataDir, scop
 		return fmt.Errorf("bundled Neovim runtime is incomplete: %w", err)
 	}
 	record.Paths = append(record.Paths, runtimeDestination)
-	launcher := "#!/bin/sh\nset -eu\nexport VIMRUNTIME=\"" + runtimeDestination + "\"\nexport PATH=\"" + filepath.Join(dataHome, "nvim", "mason", "node", "bin") + ":$PATH\"\nexec \"" + filepath.Join(binDir, "nvim-airgap") + "\" \"$@\"\n"
+	launcher := "#!/bin/sh\nset -eu\nexport VIMRUNTIME=\"" + runtimeDestination + "\"\nexport PATH=\"" + filepath.Join(dataHome, "nvim", "mason", "node", "bin") + ":" + filepath.Join(dataHome, "nvim", "site", "bin") + ":$PATH\"\nexec \"" + filepath.Join(binDir, "nvim-airgap") + "\" \"$@\"\n"
 	if err := writeFileForScope(filepath.Join(binDir, "nvim"), []byte(launcher), 0755, scope); err != nil {
 		return err
 	}
 	record.Paths = append(record.Paths, filepath.Join(binDir, "nvim"))
-	for _, archive := range []struct{ file, directory string }{{"lazy-plugins.tar.gz", "lazy"}, {"mason-lsp.tar.gz", "mason"}} {
+	for _, archive := range []struct {
+		file        string
+		directories []string
+	}{{"lazy-plugins.tar.gz", []string{"lazy", "site"}}, {"mason-lsp.tar.gz", []string{"mason"}}} {
 		path := filepath.Join(root, "offline-packages", archive.file)
 		if _, err := os.Stat(path); err == nil {
-			destination := filepath.Join(dataHome, "nvim", archive.directory)
-			if err := extractPayloadDirectory(path, archive.directory, destination); err != nil {
+			if err := installEditorPayload(path, archive.directories, filepath.Join(dataHome, "nvim"), record); err != nil {
 				return err
 			}
-			record.Paths = append(record.Paths, destination)
 		}
 	}
 	return nil
@@ -819,7 +820,10 @@ func copyTreeForScope(source, destination, scope string) error {
 	})
 }
 
-func extractPayloadDirectory(archive, directory, destination string) error {
+func installEditorPayload(archive string, directories []string, destination string, record *installRecord) error {
+	if err := os.MkdirAll(destination, 0755); err != nil {
+		return err
+	}
 	stage, err := os.MkdirTemp(filepath.Dir(destination), ".airgap-extract-")
 	if err != nil {
 		return err
@@ -828,12 +832,34 @@ func extractPayloadDirectory(archive, directory, destination string) error {
 	if err := extractSafeTarGz(archive, stage); err != nil {
 		return err
 	}
-	source := filepath.Join(stage, directory)
-	if info, err := os.Stat(source); err != nil || !info.IsDir() {
-		return fmt.Errorf("%s has no %s directory", archive, directory)
+	for _, directory := range directories {
+		source := filepath.Join(stage, directory)
+		info, err := os.Stat(source)
+		// Older archives contain plugin sources only.
+		if directory == "site" && os.IsNotExist(err) {
+			continue
+		}
+		if err != nil || !info.IsDir() {
+			return fmt.Errorf("%s has no %s directory", archive, directory)
+		}
+		target := filepath.Join(destination, directory)
+		if err := os.RemoveAll(target); err != nil {
+			return err
+		}
+		if err := os.Rename(source, target); err != nil {
+			return err
+		}
+		record.Paths = append(record.Paths, target)
 	}
-	_ = os.RemoveAll(destination)
-	return os.Rename(source, destination)
+	lock := filepath.Join(stage, "lazy-lock.json")
+	if _, err := os.Stat(lock); err == nil {
+		target := filepath.Join(destination, "lazy-lock.json")
+		if err := copyFile(lock, target, 0644); err != nil {
+			return err
+		}
+		record.Paths = append(record.Paths, target)
+	}
+	return nil
 }
 
 func installRecordPath() (string, error) {

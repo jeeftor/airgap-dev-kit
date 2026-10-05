@@ -32,6 +32,8 @@ LAZYGIT_VERSION := 0.65.1
 JQ_VERSION := 1.8.2
 LUA_LS_VERSION := 3.19.1
 SHELLCHECK_VERSION := 0.11.0
+TREE_SITTER_VERSION := v0.26.6
+TREE_SITTER_SHA256 := 2b9595064a7d9dbe208c6f09f521d73061f8039e4ffcc2fd08979d249aeabb54
 LINUX_PAYLOAD_VERSIONS := $(WEZTERM_VERSION) $(FZF_VERSION) $(TMUX_VERSION) $(NVIM_VERSION) $(BTOP_VERSION) $(LSD_VERSION) $(ZOX_VERSION) $(DELTA_VERSION) $(DIFFTASTIC_VERSION) $(GUM_VERSION) $(GLOW_VERSION) $(BROOT_VERSION) $(FASTFETCH_VERSION) $(DUST_VERSION) $(GDU_VERSION) $(USBTREE_VERSION) $(MKCERT_VERSION) $(DIRENV_VERSION) $(SVU_VERSION) $(GPING_VERSION) $(FD_VERSION) $(RG_VERSION) $(BAT_VERSION) $(STARSHIP_VERSION) $(LAZYGIT_VERSION) $(JQ_VERSION) $(LUA_LS_VERSION) $(SHELLCHECK_VERSION)
 RELEASE_DIR ?= .
 FLAVOR ?= full
@@ -507,7 +509,7 @@ build-editor-payloads:
 	@exit 2
 else
 build-editor-payloads: update-linux
-	@NVIM="$(CURDIR)/offline-packages/linux/nvim-static-x86_64" VIMRUNTIME="$(CURDIR)/offline-packages/linux/nvim-runtime" LAZY_CONFIG="$(CURDIR)/config/nvim/.config/nvim" LAZY_OUTPUT="$(CURDIR)/offline-packages/lazy-plugins.tar.gz" bash scripts/build-lazy-payload.sh
+	@NVIM="$(CURDIR)/offline-packages/linux/nvim-static-x86_64" VIMRUNTIME="$(CURDIR)/offline-packages/linux/nvim-runtime" LAZY_CONFIG="$(CURDIR)/config/nvim/.config/nvim" LAZY_OUTPUT="$(CURDIR)/offline-packages/lazy-plugins.tar.gz" PARSER_MANIFEST="$(CURDIR)/config/plugin-manifest.lua" TREE_SITTER_VERSION="$(TREE_SITTER_VERSION)" TREE_SITTER_SHA256="$(TREE_SITTER_SHA256)" bash scripts/build-lazy-payload.sh
 	@NVIM="$(CURDIR)/offline-packages/linux/nvim-static-x86_64" VIMRUNTIME="$(CURDIR)/offline-packages/linux/nvim-runtime" MASON_MANIFEST="$(CURDIR)/config/plugin-manifest.lua" MASON_OUTPUT="$(CURDIR)/offline-packages/mason-lsp.tar.gz" bash scripts/build-mason-payload.sh
 endif
 
