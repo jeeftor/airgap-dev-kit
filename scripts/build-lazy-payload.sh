@@ -8,6 +8,7 @@ set -euo pipefail
 : "${PARSER_MANIFEST:?Set PARSER_MANIFEST to config/plugin-manifest.lua}"
 : "${TREE_SITTER_VERSION:?Set the pinned Tree-sitter CLI release}"
 : "${TREE_SITTER_SOURCE_SHA256:?Set the Tree-sitter source archive checksum}"
+: "${TREE_SITTER_BUILD_SHA256:?Set the connected-builder Tree-sitter asset checksum}"
 
 for tool in cargo musl-gcc readelf; do
   command -v "$tool" >/dev/null 2>&1 || { echo "Connected Linux builder requires $tool for the portable Tree-sitter CLI" >&2; exit 1; }
@@ -98,6 +99,16 @@ printf '%s\n' '{"name":"airgap_probe","rules":{"source_file":{"type":"STRING","v
   test -s src/parser.c
 )
 
+# Parser compilation also loads the resulting shared library. Static musl
+# cannot dlopen it, so keep the full GNU CLI confined to the connected builder.
+build_bin="$work_dir/build-bin"
+mkdir -p "$build_bin"
+curl -fsSL "https://github.com/tree-sitter/tree-sitter/releases/download/${TREE_SITTER_VERSION}/tree-sitter-linux-x64.gz" -o "$work_dir/tree-sitter-build.gz"
+printf '%s  %s\n' "$TREE_SITTER_BUILD_SHA256" "$work_dir/tree-sitter-build.gz" | sha256sum -c -
+gzip -dc "$work_dir/tree-sitter-build.gz" > "$build_bin/tree-sitter"
+chmod 0755 "$build_bin/tree-sitter"
+"$build_bin/tree-sitter" --version
+
 cat > "$work_dir/build-parsers.lua" <<'LUA'
 local expected = vim.json.decode(table.concat(vim.fn.readfile(vim.env.AIRGAP_LOCKFILE), "\n"))
 for name, entry in pairs(expected) do
@@ -116,7 +127,7 @@ for _, language in ipairs(languages) do
   assert(vim.treesitter.query.get(language, "highlights"), "Missing highlight queries: " .. language)
 end
 LUA
-PATH="$site_dir/bin:$PATH" \
+PATH="$build_bin:$PATH" \
 AIRGAP_LOCKFILE="$LAZY_CONFIG/lazy-lock.json" AIRGAP_LAZY_DIR="$lazy_dir" \
 AIRGAP_TS_PLUGIN="$lazy_dir/nvim-treesitter" AIRGAP_TS_SITE="$site_dir" \
   "$NVIM" --headless -u NONE -i NONE -l "$work_dir/build-parsers.lua"

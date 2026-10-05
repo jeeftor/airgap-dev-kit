@@ -33,6 +33,12 @@ for _, tool in ipairs({ "fd", "fzf", "rg", "lazygit" }) do
 end
 local cli = vim.system({ "tree-sitter", "--version" }, { text = true }):wait()
 assert(cli.code == 0, cli.stderr)
+local formatted = vim.system({ "stylua", "--stdin-filepath", "airgap-health.lua", "-" }, {
+	text = true,
+	stdin = "local answer=42\n",
+}):wait(15000)
+assert(formatted.code == 0, "Bundled Lua formatter failed: " .. tostring(formatted.stderr))
+assert(formatted.stdout == "local answer = 42\n", "Bundled Lua formatter returned unexpected output")
 assert(require("lazy.core.config").options.rocks.enabled == false, "Unused LuaRocks enabled")
 local plugin = require("lazy.core.config").plugins["nvim-treesitter"]
 local opts = require("lazy.core.plugin").values(plugin, "opts", false)

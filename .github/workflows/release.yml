@@ -60,6 +60,7 @@ jobs:
           PARSER_MANIFEST="$GITHUB_WORKSPACE/config/plugin-manifest.lua" \
           TREE_SITTER_VERSION=$(awk '/^TREE_SITTER_VERSION :=/ {print $3}' Makefile) \
           TREE_SITTER_SOURCE_SHA256=$(awk '/^TREE_SITTER_SOURCE_SHA256 :=/ {print $3}' Makefile) \
+          TREE_SITTER_BUILD_SHA256=$(awk '/^TREE_SITTER_BUILD_SHA256 :=/ {print $3}' Makefile) \
             bash scripts/build-lazy-payload.sh
 
       - name: Bundle pinned Mason LSP payload
@@ -147,6 +148,7 @@ jobs:
           PARSER_MANIFEST="$GITHUB_WORKSPACE/config/plugin-manifest.lua" \
           TREE_SITTER_VERSION=$(awk '/^TREE_SITTER_VERSION :=/ {print $3}' Makefile) \
           TREE_SITTER_SOURCE_SHA256=$(awk '/^TREE_SITTER_SOURCE_SHA256 :=/ {print $3}' Makefile) \
+          TREE_SITTER_BUILD_SHA256=$(awk '/^TREE_SITTER_BUILD_SHA256 :=/ {print $3}' Makefile) \
             bash scripts/build-lazy-payload.sh
 
       - name: Bundle pinned Mason LSP payload

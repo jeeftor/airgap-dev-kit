@@ -158,6 +158,10 @@ and generates a sample parser before packaging. Native Linux builders need a
 current Rust toolchain, the `x86_64-unknown-linux-musl` Rust target, `musl-gcc`,
 and `readelf`; the Docker and GitHub builders prepare these dependencies in
 their disposable environments. Cargo uses upstream's lockfile with `--locked`.
+The connected builder uses a separately checksum-verified upstream GNU CLI to
+compile and validate the shared parser libraries. That executable stays in the
+temporary build directory; the kit contains only the portable generation CLI
+and the compiled parsers.
 This CLI supports parser generation; standalone `tree-sitter parse` loading
 shared parser libraries is unavailable with static musl. Neovim loads and uses
 the bundled shared parsers directly, which CI verifies separately.
