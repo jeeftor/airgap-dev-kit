@@ -47,7 +47,14 @@ jobs:
         uses: actions/cache@v6
         with:
           path: offline-packages/mason-lsp.tar.gz
-          key: release-mason-payload-linux-v1-${{ hashFiles('config/plugin-manifest.lua', 'scripts/build-mason-payload.sh') }}
+          key: release-mason-payload-linux-v1-${{ hashFiles('Makefile', 'config/plugin-manifest.lua', 'scripts/build-mason-payload.sh') }}
+
+      - name: Build missing editor payloads
+        run: |
+          set -euo pipefail
+          if [[ ! -f offline-packages/lazy-plugins.tar.gz || ! -f offline-packages/mason-lsp.tar.gz ]]; then
+            make build-editor-payloads
+          fi
 
       - name: Upload immutable payload for this workflow run
         uses: actions/upload-artifact@v7
@@ -115,6 +122,15 @@ jobs:
           name: ${{ env.LINUX_PAYLOAD_ARTIFACT }}
           path: .
 
+      - name: Restore executable permissions lost by artifact transfer
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' binary; do
+            if file "$binary" | grep -q executable; then
+              chmod +x "$binary"
+            fi
+          done < <(find offline-packages/linux -maxdepth 1 -type f -print0)
+
       - name: Set up Go for the embedded lifecycle binary
         uses: actions/setup-go@v7
         with:
@@ -162,6 +178,9 @@ jobs:
           test -x ./airgap
           ./airgap doctor --verify
       
+      - name: Smoke test v2 installation and bundled commands
+        run: bash scripts/docker-smoke-test airgap-dev-kit-linux-x86_64.tar.gz
+
       - name: Upload package as artifact
         uses: actions/upload-artifact@v7
         with:

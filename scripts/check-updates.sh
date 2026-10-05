@@ -98,6 +98,10 @@ TOOLS=(
   "ripgrep|RG_VERSION|ripgrep|BurntSushi/ripgrep|none"
   "bat|BAT_VERSION|bat|sharkdp/bat|strip_v"
   "starship|STARSHIP_VERSION|starship|starship/starship|strip_v"
+  "lazygit|LAZYGIT_VERSION|lazygit|jesseduffield/lazygit|strip_v"
+  "jq|JQ_VERSION|jq|jqlang/jq|strip_jq"
+  "lua-language-server|LUA_LS_VERSION|Lua language server|LuaLS/lua-language-server|none"
+  "shellcheck|SHELLCHECK_VERSION|ShellCheck|koalaman/shellcheck|strip_v"
 )
 
 strip_whitespace() {
@@ -209,6 +213,8 @@ for entry in "${TOOLS[@]}"; do
     latest_version="${latest_tag#v}"
   elif [[ "$transform" == "strip_gping_v" ]]; then
     latest_version="${latest_tag#gping-v}"
+  elif [[ "$transform" == "strip_jq" ]]; then
+    latest_version="${latest_tag#jq-}"
   fi
 
   if [[ "$latest_version" == "$current_version" ]]; then

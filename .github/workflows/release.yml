@@ -38,7 +38,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: offline-packages/mason-lsp.tar.gz
-          key: release-mason-payload-linux-v1-${{ hashFiles('config/plugin-manifest.lua', 'scripts/build-mason-payload.sh') }}
+          key: release-mason-payload-linux-v1-${{ hashFiles('Makefile', 'config/plugin-manifest.lua', 'scripts/build-mason-payload.sh') }}
 
       - name: Download Linux payload inputs
         if: steps.lazy-payload-cache.outputs.cache-hit != 'true' || steps.mason-payload-cache.outputs.cache-hit != 'true'
@@ -130,7 +130,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: offline-packages/mason-lsp.tar.gz
-          key: release-mason-payload-linux-v1-${{ hashFiles('config/plugin-manifest.lua', 'scripts/build-mason-payload.sh') }}
+          key: release-mason-payload-linux-v1-${{ hashFiles('Makefile', 'config/plugin-manifest.lua', 'scripts/build-mason-payload.sh') }}
 
       - name: Download Linux payload inputs
         run: |

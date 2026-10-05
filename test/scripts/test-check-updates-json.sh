@@ -36,6 +36,10 @@ FD_VERSION := 10.2.0
 RG_VERSION := 14.1.1
 BAT_VERSION := 0.25.0
 STARSHIP_VERSION := 1.22.1
+LAZYGIT_VERSION := 0.43.1
+JQ_VERSION := 1.7.1
+LUA_LS_VERSION := 3.10.5
+SHELLCHECK_VERSION := 0.10.0
 EOF
 
 write_release() {
@@ -69,6 +73,10 @@ write_release sharkdp__fd v10.2.0
 write_release BurntSushi__ripgrep 14.1.1
 write_release sharkdp__bat v0.25.0
 write_release starship__starship v1.22.1
+write_release jesseduffield__lazygit v0.65.1
+write_release jqlang__jq jq-1.8.2
+write_release LuaLS__lua-language-server 3.19.1
+write_release koalaman__shellcheck v0.11.0
 
 AIRGAP_DEV_KIT_RELEASES_DIR="$RELEASES_DIR" \
   bash "$ROOT_DIR/scripts/check-updates.sh" \
@@ -82,7 +90,7 @@ import sys
 with open(sys.argv[1], encoding="utf-8") as handle:
     updates = json.load(handle)
 
-assert len(updates) == 1, updates
+assert len(updates) == 5, updates
 update = updates[0]
 assert update["tool"] == "fzf", update
 assert update["pretty"] == "fzf", update
@@ -90,6 +98,8 @@ assert update["var"] == "FZF_VERSION", update
 assert update["current"] == "0.66.1", update
 assert update["latest"] == "0.73.1", update
 assert update["repo"] == "junegunn/fzf", update
+expected = {"lazygit": "0.65.1", "jq": "1.8.2", "lua-language-server": "3.19.1", "shellcheck": "0.11.0"}
+assert {item["tool"]: item["latest"] for item in updates[1:]} == expected, updates
 PY
 
 bash "$ROOT_DIR/scripts/check-updates.sh" \
@@ -106,5 +116,16 @@ if ! grep -q '^BTOP_VERSION := v1.4.7$' "$MAKEFILE_FIXTURE"; then
   echo "unrelated version changed" >&2
   exit 1
 fi
+
+for tool_version in 'lazygit 0.65.1' 'jq 1.8.2' 'lua-language-server 3.19.1' 'shellcheck 0.11.0'; do
+  read -r tool version <<< "$tool_version"
+  bash "$ROOT_DIR/scripts/check-updates.sh" --makefile "$MAKEFILE_FIXTURE" \
+    --apply-tool "$tool" --version "$version" >/dev/null
+done
+
+AIRGAP_DEV_KIT_RELEASES_DIR="$RELEASES_DIR" \
+  bash "$ROOT_DIR/scripts/check-updates.sh" --makefile "$MAKEFILE_FIXTURE" \
+  --json-file "$UPDATES_JSON" --fail-on-outdated >/dev/null
+test "$(cat "$UPDATES_JSON")" = '[]'
 
 echo "check-updates JSON and single-tool apply tests passed"
