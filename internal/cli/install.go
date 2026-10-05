@@ -155,7 +155,7 @@ func installKit(cmd *cobra.Command, options installOptions) error {
 				return err
 			}
 			path := filepath.Join(binDir, "vim-empty")
-			if err := writeFileForScope(path, []byte("#!/bin/sh\nexec nvim --clean --noplugin \"$@\"\n"), 0755, options.Scope); err != nil {
+			if err := writeFileForScope(path, []byte("#!/bin/sh\nexec nvim -u NONE -i NONE \"$@\"\n"), 0755, options.Scope); err != nil {
 				return err
 			}
 			record.Paths = append(record.Paths, path)

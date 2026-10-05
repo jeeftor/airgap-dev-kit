@@ -63,10 +63,10 @@ item or `a` to select or clear the complete list.
 
 ## Clipboard and mouse paste
 
-Use `vim-empty file.txt` to run `nvim` from your PATH with `--clean --noplugin`:
+Use `vim-empty file.txt` to run `nvim` from your PATH with `-u NONE -i NONE`:
 no user configuration, plugins, or ShaDa history. It also installs when you
 preserve your existing Neovim profile and is tracked for uninstall. Before
-upgrading, you can use `nvim --clean --noplugin file.txt` directly.
+upgrading, you can use `nvim -u NONE -i NONE file.txt` directly.
 
 To capture health diagnostics for your configured LazyVim installation:
 
