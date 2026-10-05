@@ -15,8 +15,16 @@ The installer separates shared commands from per-user state.
   progress, so your password prompt has normal terminal input.
 - Neovim configuration, fonts, FZF integration, and shell startup changes are
   always owned by the invoking user, in either scope.
-- WezTerm adds a `WezTerm (Airgap)` applications-menu entry for the selected
-  scope. Uninstall removes that entry.
+- When you select WezTerm, the interactive installer shows your Linux
+  distribution and desktop session and offers an applications-menu entry,
+  a menu entry plus an optional desktop shortcut, or no shortcuts. CLI-only
+  installs skip this question. Distribution detection uses `os-release`;
+  menu entries use the common Linux desktop-entry format.
+- The applications-menu entry defaults to `WezTerm (Airgap)` in the selected
+  scope. User menu entries honor `XDG_DATA_HOME`. Desktop shortcuts always
+  belong to the invoking user and honor `XDG_DESKTOP_DIR` in your
+  `user-dirs.dirs` configuration, including localized desktop directories.
+  Uninstall removes the recorded menu entry and shortcut.
 - Neovim uses the bundled Node runtime for Mason's JavaScript language tools.
   Mason launchers resolve their installed package rather than a build-host path.
 
@@ -27,6 +35,23 @@ review screen. Noninteractive system installs use:
 ./airgap install --yes --scope=system
 ```
 
+AppImage launchers use extraction mode so they also work when FUSE libraries or
+device access are unavailable. They still require the application's normal Linux
+graphics libraries.
+
+For automation, choose GUI registration explicitly:
+
+```sh
+./airgap install --yes --desktop-integration=menu              # default
+./airgap install --yes --desktop-integration=menu-and-desktop  # optional shortcut
+./airgap install --yes --desktop-integration=none              # no shortcuts
+```
+
+A desktop shortcut requires desktop icons to be enabled. Your desktop may
+also require you to choose **Allow Launching** or trust the launcher before
+opening it. The installer creates an executable shortcut; it does not change
+your desktop's trust policy or install desktop extensions.
+
 Use `./airgap --demo` (or `./airgap install --demo`) for an interactive dry
 run: it exercises the full setup without writing files or requesting sudo.
 `--dry-run` prints the default or flag-based
@@ -35,6 +60,38 @@ plan without starting the TUI, which is better suited to automation.
 The interactive flow separates location, package profile, and individual
 components. Every compatible component starts selected; use Space to toggle an
 item or `a` to select or clear the complete list.
+
+## Clipboard and mouse paste
+
+Use `vim-empty file.txt` to run `nvim` from your PATH with `-u NONE -i NONE`:
+no user configuration, plugins, or ShaDa history. It also installs when you
+preserve your existing Neovim profile and is tracked for uninstall. Before
+upgrading, you can use `nvim -u NONE -i NONE file.txt` directly.
+
+To capture health diagnostics for your configured LazyVim installation:
+
+```sh
+nvim --headless '+checkhealth' '+write! /tmp/nvim-health.txt' '+qa!' \
+  > /tmp/nvim-health-startup.txt 2>&1
+cat /tmp/nvim-health.txt
+```
+
+If startup fails before writing the report, inspect `/tmp/nvim-health-startup.txt`.
+Use normal `nvim` for this report so your configured plugins are checked.
+
+The bundled WezTerm handles middle-click itself, including inside LazyVim, and
+pastes the desktop primary selection at the editor cursor. Existing WezTerm
+configuration is preserved by installation; to use this behavior there, add the
+`mouse_bindings` entry from the kit's WezTerm configuration. With default WezTerm
+bindings, holding Shift while middle-clicking provides the same bypass.
+
+Neovim's `"+` and `"*` clipboard registers require a desktop clipboard provider.
+Install `wl-clipboard` for a Wayland session or `xclip` for X11 from your approved
+distribution repositories or offline package media, then restart Neovim. These
+desktop packages are not bundled. The kit enables automatic clipboard registers
+only when Neovim detects a provider; editing without one uses internal registers.
+`:checkhealth vim.provider` diagnoses providers and does not install or repair
+them. Other health warnings need their own reported remediation.
 
 ## Safety rules
 

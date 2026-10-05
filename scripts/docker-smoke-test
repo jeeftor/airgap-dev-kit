@@ -100,9 +100,12 @@ rm -rf /tmp/smoke
 mkdir /tmp/smoke
 tar -xzf /tmp/airgap-dev-kit.tar.gz -C /tmp/smoke >/tmp/extract.out 2>/tmp/extract.err
 cd /tmp/smoke/airgap-dev-kit
-./airgap install --yes --nvim-mode=replace > /tmp/install.out 2>&1
+mkdir -p "$HOME/.config"
+printf "XDG_DESKTOP_DIR=\"\$HOME/Your Desktop\"\n" > "$HOME/.config/user-dirs.dirs"
+./airgap install --yes --nvim-mode=replace --desktop-integration=menu-and-desktop > /tmp/install.out 2>&1
 export PATH="$HOME/.local/bin:$PATH"
 app_smoke
+test -x "$HOME/Your Desktop/airgap-wezterm.desktop"
 airgap version > /tmp/cli-version.out
 cd /tmp
 unset AIRGAP_KIT_DIR
@@ -110,6 +113,7 @@ airgap doctor --verify > /tmp/doctor-installed.out
 airgap status > /tmp/cli-status.out
 "/tmp/smoke/airgap-dev-kit/airgap" uninstall --yes > /tmp/remove.out 2>&1
 test ! -f "$HOME/.local/share/applications/airgap-wezterm.desktop"
+test ! -f "$HOME/Your Desktop/airgap-wezterm.desktop"
 hash -r
 if command -v starship >/dev/null 2>&1; then
   echo "starship still installed"
@@ -119,6 +123,12 @@ if command -v airgap-dev-kit >/dev/null 2>&1; then
   echo "airgap-dev-kit still installed"
   exit 1
 fi
+cd /tmp/smoke/airgap-dev-kit
+./airgap install --yes --nvim-mode=replace --desktop-integration=none > /tmp/install.out 2>&1
+test -x "$HOME/.local/bin/wezterm"
+test ! -f "$HOME/.local/share/applications/airgap-wezterm.desktop"
+test ! -f "$HOME/Your Desktop/airgap-wezterm.desktop"
+./airgap uninstall --yes > /tmp/remove.out 2>&1
 '
 
 # shellcheck disable=SC2016

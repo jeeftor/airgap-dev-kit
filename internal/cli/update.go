@@ -435,7 +435,7 @@ func runKitInstaller(cmd *cobra.Command, kit string) error {
 		return err
 	}
 	defer os.Setenv("AIRGAP_KIT_DIR", previous)
-	return installKit(cmd, installOptions{Yes: true, NvimMode: "preserve"})
+	return installKit(cmd, installOptions{Yes: true, NvimMode: "preserve", Scope: "user", DesktopIntegration: "menu"})
 }
 
 func statePath() (string, error) {

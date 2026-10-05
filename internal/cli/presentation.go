@@ -126,6 +126,7 @@ type installModel struct {
 	existingNvim bool
 	tools        []toolChoice
 	version      string
+	desktopHost  string
 	step         int
 	choice       int
 	accepted     bool
@@ -163,16 +164,22 @@ func (m installModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 				m.choice++
 			}
 		case "enter":
-			if m.step == 5 {
+			if m.step == 6 {
 				m.accepted = true
 				return m, tea.Quit
 			}
 			m.applyChoice()
 			m.step++
+			if m.step == 5 && !m.hasGUI() {
+				m.step++
+			}
 			m.choice = m.selectedChoice()
 		case "b", "left":
 			if m.step > 0 {
 				m.step--
+				if m.step == 5 && !m.hasGUI() {
+					m.step--
+				}
 				m.choice = m.selectedChoice()
 			}
 		case "q", "n", "esc", "ctrl+c":
@@ -192,7 +199,7 @@ func (m installModel) View() tea.View {
 	b.WriteString(installerTitleStyle.Render(airgapLogo) + "\n")
 	b.WriteString(installerTitleStyle.Render("Airgap Setup") + "  " + accentStyle.Render(installerPulseFrames[m.pulse]) + "  " + dimStyle.Render("offline kit installer · "+m.version) + "\n")
 	b.WriteString(m.stepper() + "\n\n")
-	if m.step == 5 {
+	if m.step == 6 {
 		b.WriteString(accentStyle.Render("Ready to apply this plan") + "\n\n")
 		profile := "Full kit"
 		if m.options.CLIOnly {
@@ -238,6 +245,10 @@ func (m installModel) View() tea.View {
 	if m.step == 4 {
 		b.WriteString(dimStyle.Render("This adds one removable Airgap block to Bash/Zsh. It enables PATH, FZF keys/completion, zoxide, and Starship.") + "\n\n")
 	}
+	if m.step == 5 {
+		b.WriteString(dimStyle.Render(wrapText(m.desktopHost, 70)) + "\n\n")
+		b.WriteString(dimStyle.Render(wrapText("Register WezTerm for your applications menu. A desktop shortcut may need Allow Launching in your desktop environment.", 70)) + "\n\n")
+	}
 	for index, choice := range m.choices() {
 		if icon := m.choiceIcon(index); icon != "" {
 			choice = lipgloss.NewStyle().Width(4).Render(icon) + choice
@@ -264,18 +275,21 @@ func (m installModel) reviewTable(profile, location, nvim, shell string) table.M
 	styles.Cell = styles.Cell.Foreground(lipgloss.Color("252"))
 	return table.New(
 		table.WithColumns([]table.Column{{Title: "Decision", Width: 14}, {Title: "Selection", Width: 70}}),
-		table.WithRows([]table.Row{{"Package", profile}, {"Location", location}, {"Tools", fmt.Sprintf("%d selected", len(m.options.Tools))}, {"Neovim", nvim}, {"Shell", shell}}),
+		table.WithRows([]table.Row{{"Package", profile}, {"Location", location}, {"Tools", fmt.Sprintf("%d selected", len(m.options.Tools))}, {"Neovim", nvim}, {"Shell", shell}, {"GUI shortcuts", m.desktopSelection()}}),
 		table.WithFocused(false),
-		table.WithHeight(7),
+		table.WithHeight(8),
 		table.WithWidth(86),
 		table.WithStyles(styles),
 	)
 }
 
 func (m installModel) stepper() string {
-	steps := []string{"Location", "Profile", "Components", "Neovim", "Shell", "Review"}
+	steps := []string{"Location", "Profile", "Components", "Neovim", "Shell", "Desktop", "Review"}
 	parts := make([]string, 0, len(steps))
 	for index, step := range steps {
+		if index == 5 && !m.hasGUI() {
+			continue
+		}
 		style := installerStepStyle
 		icon := "○"
 		if index < m.step {
@@ -287,7 +301,11 @@ func (m installModel) stepper() string {
 		}
 		parts = append(parts, style.Render(icon+" "+step))
 	}
-	return strings.Join(parts, installerStepStyle.Render("  ─  "))
+	separator := installerStepStyle.Render("  ─  ")
+	if m.hasGUI() {
+		return strings.Join(parts[:4], separator) + "\n" + strings.Join(parts[4:], separator)
+	}
+	return strings.Join(parts, separator)
 }
 
 func (m installModel) question() string {
@@ -302,6 +320,8 @@ func (m installModel) question() string {
 		return "Choose Neovim configuration handling"
 	case 4:
 		return "Configure shell integration?"
+	case 5:
+		return "Register GUI apps with your desktop?"
 	default:
 		return "Review installation"
 	}
@@ -328,6 +348,8 @@ func (m installModel) choices() []string {
 			return []string{"✓  Preserve existing profile — do not change Neovim or LazyVim", "↻  Back up and replace — save the complete profile, then install a fresh kit", "!  Delete and overwrite — permanently remove the profile, then install a fresh kit"}
 		}
 		return []string{"Install the bundled Neovim and LazyVim profile"}
+	case 5:
+		return []string{"Applications menu (recommended)", "Applications menu and desktop shortcut", "No shortcuts"}
 	default:
 		return []string{"Yes — add the managed Bash/Zsh integration", "No — leave shell startup files unchanged"}
 	}
@@ -372,6 +394,8 @@ func (m *installModel) applyChoice() {
 		}
 	case 4:
 		m.options.ConfigureShell = m.choice == 0
+	case 5:
+		m.options.DesktopIntegration = []string{"menu", "menu-and-desktop", "none"}[m.choice]
 	}
 }
 
@@ -460,6 +484,12 @@ func (m installModel) selectedChoice() int {
 		if !m.options.ConfigureShell {
 			return 1
 		}
+	case 5:
+		if m.options.DesktopIntegration == "menu-and-desktop" {
+			return 1
+		} else if m.options.DesktopIntegration == "none" {
+			return 2
+		}
 	}
 	return 0
 }
@@ -479,7 +509,7 @@ func wantsTUI(args []string) bool {
 var airgapLogo = strings.TrimSuffix(figure.NewFigure("AIRGAP", "small", true).String(), "\n")
 
 func planInstall(cmd *cobra.Command, options installOptions, existingNvim bool, tools []toolChoice, version string) (installOptions, bool, error) {
-	model := installModel{options: options, existingNvim: existingNvim, tools: tools, version: version}
+	model := installModel{options: options, existingNvim: existingNvim, tools: tools, version: version, desktopHost: desktopHostDescription()}
 	model.selectCompatibleTools()
 	model.choice = model.selectedChoice()
 	program := tea.NewProgram(model, tea.WithInput(cmd.InOrStdin()), tea.WithOutput(cmd.OutOrStdout()))
@@ -492,6 +522,32 @@ func planInstall(cmd *cobra.Command, options installOptions, existingNvim bool, 
 		return options, false, fmt.Errorf("unexpected install interface result")
 	}
 	return result.options, result.accepted && !result.canceled, nil
+}
+
+func (m installModel) hasGUI() bool {
+	if !guiSelected(m.options) {
+		return false
+	}
+	for _, tool := range m.tools {
+		if tool.Name == "wezterm" {
+			return true
+		}
+	}
+	return false
+}
+
+func (m installModel) desktopSelection() string {
+	if !m.hasGUI() {
+		return "No GUI apps selected"
+	}
+	switch m.options.DesktopIntegration {
+	case "none":
+		return "No shortcuts"
+	case "menu-and-desktop":
+		return "Applications menu and your desktop shortcut"
+	default:
+		return "Applications menu"
+	}
 }
 
 func renderText(cmd *cobra.Command, value string) string {

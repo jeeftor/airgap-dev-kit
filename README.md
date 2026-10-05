@@ -94,10 +94,15 @@ wezterm start -- tmux new-session nvim
 ### WezTerm and tmux
 
 The full package installs a WezTerm configuration at `~/.config/wezterm/wezterm.lua`.
-It also adds **WezTerm (Airgap)** to your desktop's applications menu. User-local
-installs write the launcher under `~/.local/share/applications/`; system-wide
-installs use `/usr/local/share/applications/`. The launcher uses the installed
-binary's absolute path and is removed by `airgap uninstall --yes`.
+The installer detects your Linux distribution and desktop session, then offers
+**WezTerm (Airgap)** in your applications menu, an optional desktop shortcut,
+or no shortcuts. Menu registration is the default. User-local menu entries honor
+`XDG_DATA_HOME` (normally `~/.local/share/applications/`); system-wide installs
+use `/usr/local/share/applications/`. Desktop shortcuts honor your configured
+desktop directory and may require **Allow Launching** in your desktop.
+Use `--desktop-integration=menu|menu-and-desktop|none` for automation.
+The launchers use the installed binary's absolute path and are removed by
+`airgap uninstall --yes`.
 It uses JetBrainsMono Nerd Font, retains native window resizing, and shows a tab bar
 when you open more than one WezTerm tab. It intentionally does not redefine pane
 shortcuts: tmux owns terminal splits, navigation, and resizing.

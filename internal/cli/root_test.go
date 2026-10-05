@@ -197,7 +197,7 @@ func TestInstallPlannerSelectsRecoverableReplaceAndNoShellChanges(t *testing.T) 
 	model = updateInstallPlanner(t, model, "down")
 	model = updateInstallPlanner(t, model, "enter") // Do not change shell files.
 
-	if model.step != 5 || model.options.NvimMode != "replace" || model.options.ConfigureShell || model.options.Scope != "user" {
+	if model.step != 6 || model.options.NvimMode != "replace" || model.options.ConfigureShell || model.options.Scope != "user" {
 		t.Fatalf("unexpected install plan: %#v", model)
 	}
 	view := model.View()
@@ -280,7 +280,7 @@ func TestInstallPlannerAnimatesUplinkPulse(t *testing.T) {
 
 func TestInstallPlannerDemoReviewStatesNoFilesWillChange(t *testing.T) {
 	model := installModel{options: installOptions{Scope: "user", ConfigureShell: true, NvimMode: "preserve", Demo: true}, version: "v2.4.0"}
-	model.step = 5
+	model.step = 6
 	view := model.View()
 	for _, expected := range []string{"Interactive dry run: no files will be copied, changed, or removed.", "preview", "v2.4.0"} {
 		if !strings.Contains(view.Content, expected) {
@@ -289,6 +289,50 @@ func TestInstallPlannerDemoReviewStatesNoFilesWillChange(t *testing.T) {
 	}
 	if airgapLogo == "" || !strings.Contains(view.Content, strings.Split(airgapLogo, "\n")[0]) {
 		t.Fatalf("Figlet logo is missing from demo review: %s", view.Content)
+	}
+}
+
+func TestInstallPlannerOffersGUIIntegrationBeforeReview(t *testing.T) {
+	model := installModel{options: installOptions{Scope: "user", Tools: map[string]bool{"wezterm": true}}, tools: []toolChoice{{Name: "wezterm"}}, step: 4}
+	updated, _ := model.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	view := updated.(installModel).View().Content
+	for _, expected := range []string{"Register GUI apps", "Applications menu", "desktop shortcut", "No shortcuts"} {
+		if !strings.Contains(view, expected) {
+			t.Fatalf("GUI integration choice is missing %q: %s", expected, view)
+		}
+	}
+}
+
+func TestGUIPlannerShowsDetectedHostAndRetainsShortcutChoice(t *testing.T) {
+	model := installModel{options: installOptions{Scope: "user", DesktopIntegration: "menu", Tools: map[string]bool{"wezterm": true}}, tools: []toolChoice{{Name: "wezterm"}}, desktopHost: "Red Hat Enterprise Linux 10 · GNOME", step: 5}
+	if view := model.View().Content; !strings.Contains(view, model.desktopHost) {
+		t.Fatalf("detected host is missing: %s", view)
+	}
+	model = updateInstallPlanner(t, model, "down")
+	model = updateInstallPlanner(t, model, "enter")
+	if !strings.Contains(model.View().Content, "Applications menu and your desktop shortcut") {
+		t.Fatal("review does not show your optional desktop shortcut")
+	}
+	model = updateInstallPlanner(t, model, "b")
+	if model.options.DesktopIntegration != "menu-and-desktop" || model.choice != 1 {
+		t.Fatalf("back navigation lost your shortcut choice: %#v", model)
+	}
+}
+
+func TestGUIPlannerSkipsDesktopQuestionWithoutGUIApps(t *testing.T) {
+	for _, options := range []installOptions{
+		{CLIOnly: true, Tools: map[string]bool{"wezterm": true}},
+		{Tools: map[string]bool{"wezterm": false}},
+	} {
+		model := installModel{options: options, tools: []toolChoice{{Name: "wezterm"}}, step: 4}
+		model = updateInstallPlanner(t, model, "enter")
+		if !strings.Contains(model.View().Content, "Ready to apply this plan") || strings.Contains(model.View().Content, "Register GUI apps") {
+			t.Fatal("install without GUI apps must skip the desktop question")
+		}
+		model = updateInstallPlanner(t, model, "b")
+		if !strings.Contains(model.View().Content, "Configure shell integration?") {
+			t.Fatal("back navigation must skip the unused desktop question")
+		}
 	}
 }
 
@@ -424,6 +468,9 @@ func updateInstallPlanner(t *testing.T, model installModel, key string) installM
 	} else if key == "a" {
 		keyType = 'a'
 		keyText = "a"
+	} else if key == "b" {
+		keyType = 'b'
+		keyText = "b"
 	}
 	updated, _ := model.Update(tea.KeyPressMsg{Code: keyType, Text: keyText})
 	result, ok := updated.(installModel)

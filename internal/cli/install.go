@@ -25,14 +25,15 @@ type installRecord struct {
 }
 
 type installOptions struct {
-	DryRun         bool
-	Yes            bool
-	CLIOnly        bool
-	Tools          map[string]bool
-	NvimMode       string
-	ConfigureShell bool
-	Scope          string
-	Demo           bool
+	DryRun             bool
+	Yes                bool
+	CLIOnly            bool
+	Tools              map[string]bool
+	NvimMode           string
+	ConfigureShell     bool
+	Scope              string
+	Demo               bool
+	DesktopIntegration string
 }
 
 // installCmd installs only the payload in an extracted v2 kit. It deliberately
@@ -49,6 +50,7 @@ func installCmd() *cobra.Command {
 	c.Flags().BoolVar(&options.ConfigureShell, "configure-shell", true, "Add an idempotent Airgap block to Bash or Zsh")
 	c.Flags().StringVar(&options.Scope, "scope", "user", "Install command binaries to: user or system")
 	c.Flags().BoolVar(&options.Demo, "demo", false, "Walk through the interactive installer without writing files")
+	c.Flags().StringVar(&options.DesktopIntegration, "desktop-integration", "menu", "GUI shortcuts: menu, menu-and-desktop, or none")
 	return c
 }
 
@@ -66,6 +68,9 @@ func uninstallCmd() *cobra.Command {
 }
 
 func installKit(cmd *cobra.Command, options installOptions) error {
+	if options.DesktopIntegration != "menu" && options.DesktopIntegration != "menu-and-desktop" && options.DesktopIntegration != "none" {
+		return fmt.Errorf("unsupported --desktop-integration %q; use menu, menu-and-desktop, or none", options.DesktopIntegration)
+	}
 	if options.Scope != "user" && options.Scope != "system" {
 		return fmt.Errorf("unsupported --scope %q; use user or system", options.Scope)
 	}
@@ -119,6 +124,13 @@ func installKit(cmd *cobra.Command, options installOptions) error {
 		writeInstallPlan(cmd, root, payload, home, dataHome, options, "interactive dry run")
 		return nil
 	}
+	var menuPath, shortcutPath string
+	if _, err := os.Stat(filepath.Join(payload, "wezterm.AppImage")); err == nil {
+		menuPath, shortcutPath, err = desktopIntegrationPaths(home, dataHome, options)
+		if err != nil {
+			return err
+		}
+	}
 	if options.Scope == "system" {
 		if err := authenticateSudo(cmd); err != nil {
 			return err
@@ -139,8 +151,25 @@ func installKit(cmd *cobra.Command, options installOptions) error {
 			return makeInstallDir(binDir, options.Scope)
 		}},
 		{label: "Copy command-line payload", result: "Installed", details: "Offline binaries copied to " + binDir, action: func() error {
-			return copyPayloadBinaries(payload, binDir, appDataDir, options.Scope, options.CLIOnly, options.Tools, &record)
+			if err := copyPayloadBinaries(payload, binDir, appDataDir, options.Scope, options.CLIOnly, options.Tools, &record); err != nil {
+				return err
+			}
+			path := filepath.Join(binDir, "vim-empty")
+			if err := writeFileForScope(path, []byte("#!/bin/sh\nexec nvim -u NONE -i NONE \"$@\"\n"), 0755, options.Scope); err != nil {
+				return err
+			}
+			record.Paths = append(record.Paths, path)
+			return nil
 		}},
+	}
+	if menuPath != "" {
+		details := "WezTerm applications-menu entry"
+		if shortcutPath != "" {
+			details += " and your desktop shortcut; your desktop may require Allow Launching"
+		}
+		steps = append(steps, installStep{label: "Register GUI applications", result: "Registered", details: details, action: func() error {
+			return installWezTermDesktop(binDir, menuPath, shortcutPath, options.Scope, &record)
+		}})
 	}
 	if installNvim {
 		steps = append(steps, installStep{label: "Install Neovim and editor payload", result: "Installed", details: "Bundled Neovim, LazyVim, and Mason payload", action: func() error {
@@ -204,6 +233,15 @@ func writeInstallPlan(cmd *cobra.Command, root, payload, home, dataHome string, 
 	fmt.Fprintf(cmd.OutOrStdout(), "Airgap install (%s)\n", mode)
 	for _, path := range installPlan(root, payload, binDir, nvimDataDir, options) {
 		fmt.Fprintln(cmd.OutOrStdout(), "  would install "+path)
+	}
+	menuPath, shortcutPath, err := desktopIntegrationPaths(home, dataHome, options)
+	if err != nil {
+		fmt.Fprintln(cmd.OutOrStdout(), "  "+err.Error())
+	} else if _, err := os.Stat(filepath.Join(payload, "wezterm.AppImage")); err == nil && menuPath != "" {
+		fmt.Fprintln(cmd.OutOrStdout(), "  would register "+menuPath)
+		if shortcutPath != "" {
+			fmt.Fprintln(cmd.OutOrStdout(), "  would create "+shortcutPath)
+		}
 	}
 }
 
@@ -574,21 +612,7 @@ func installedPayloadName(name string) string {
 
 // installWezTermAppImage adds a FUSE-free fallback for minimal Linux hosts.
 func installWezTermAppImage(source, binDir, appDataDir, scope string, record *installRecord) error {
-	if err := installAppImage(source, binDir, appDataDir, scope, "wezterm.AppImage", "wezterm", record); err != nil {
-		return err
-	}
-	executable := filepath.Join(binDir, "wezterm")
-	// Desktop entries have separate string and command-line escaping rules.
-	executable = strings.NewReplacer("\\", "\\\\", "\"", "\\\"", "`", "\\`", "$", "\\$", "%", "%%").Replace(executable)
-	executable = strings.ReplaceAll(executable, "\\", "\\\\")
-	entry := "[Desktop Entry]\nType=Application\nName=WezTerm (Airgap)\nComment=Your offline terminal\n" +
-		"Exec=\"" + executable + "\" start\nIcon=utilities-terminal\nTerminal=false\nCategories=System;TerminalEmulator;\n"
-	destination := filepath.Join(filepath.Dir(appDataDir), "applications", "airgap-wezterm.desktop")
-	if err := writeFileForScope(destination, []byte(entry), 0644, scope); err != nil {
-		return err
-	}
-	record.Paths = append(record.Paths, destination)
-	return nil
+	return installAppImage(source, binDir, appDataDir, scope, "wezterm.AppImage", "wezterm", record)
 }
 
 // installTmuxAppImage exposes the bundled tmux AppImage as tmux and uses its
@@ -602,7 +626,8 @@ func installAppImage(source, binDir, appDataDir, scope, imageName, command strin
 	if err := copyExecutableForScope(source, image, scope); err != nil {
 		return err
 	}
-	wrapper := "#!/bin/sh\nset -eu\nimage=\"" + image + "\"\nif command -v fusermount >/dev/null 2>&1 || command -v fusermount3 >/dev/null 2>&1; then\n  exec \"$image\" \"$@\"\nfi\nexec \"$image\" --appimage-extract-and-run \"$@\"\n"
+	// A fusermount command does not guarantee compatible libraries or device access.
+	wrapper := "#!/bin/sh\nset -eu\nimage=\"" + image + "\"\nexec \"$image\" --appimage-extract-and-run \"$@\"\n"
 	destination := filepath.Join(binDir, command)
 	if err := writeFileForScope(destination, []byte(wrapper), 0755, scope); err != nil {
 		return err
