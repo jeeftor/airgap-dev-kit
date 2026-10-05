@@ -51,7 +51,7 @@ for _, language in ipairs(manifest.treesitter) do
 	assert(vim.treesitter.query.get(language, "highlights"), "Cannot load queries: " .. language)
 end
 
-local buffer = vim.api.nvim_create_buf(false, true)
+local buffer = vim.api.nvim_create_buf(false, false)
 vim.api.nvim_set_current_buf(buffer)
 local filename = vim.fn.stdpath("cache") .. "/airgap-health.lua"
 vim.fn.mkdir(vim.fs.dirname(filename), "p")
