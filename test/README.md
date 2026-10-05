@@ -14,6 +14,11 @@ registered menu item by application ID; `gio launch` opens the desktop shortcut
 independently. Each launch must produce a visible WezTerm window and a terminal
 pane. A broken `Exec` must fail. Uninstall must remove both registered files.
 
+The same job checks internal Neovim registers without a clipboard provider, then
+seeds an X11 primary selection and sends a real middle-click into Neovim inside
+WezTerm. The editor cannot find desktop clipboard tools on its PATH; the test
+requires the pasted text in its buffer and saves a screenshot.
+
 The `desktop-launch-evidence` artifact contains screenshots and diagnostic
 logs, including failed launches. This verifies application launching through
 the desktop-entry format; it does not test GNOME/KDE icon visibility, launcher

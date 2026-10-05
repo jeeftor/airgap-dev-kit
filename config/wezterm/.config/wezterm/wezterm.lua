@@ -30,4 +30,15 @@ config.command_palette_fg_color = "#c0caf5"
 config.command_palette_rows = 14
 config.ui_key_cap_rendering = "Emacs"
 
+-- Paste the desktop selection directly even when Neovim captures mouse events.
+-- This avoids requiring xclip/wl-paste just to middle-click inside the editor.
+config.mouse_bindings = {
+  {
+    event = { Down = { streak = 1, button = "Middle" } },
+    mods = "NONE",
+    mouse_reporting = true,
+    action = wezterm.action.PasteFrom("PrimarySelection"),
+  },
+}
+
 return config

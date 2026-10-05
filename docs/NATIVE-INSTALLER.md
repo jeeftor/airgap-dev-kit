@@ -61,6 +61,22 @@ The interactive flow separates location, package profile, and individual
 components. Every compatible component starts selected; use Space to toggle an
 item or `a` to select or clear the complete list.
 
+## Clipboard and mouse paste
+
+The bundled WezTerm handles middle-click itself, including inside LazyVim, and
+pastes the desktop primary selection at the editor cursor. Existing WezTerm
+configuration is preserved by installation; to use this behavior there, add the
+`mouse_bindings` entry from the kit's WezTerm configuration. With default WezTerm
+bindings, holding Shift while middle-clicking provides the same bypass.
+
+Neovim's `"+` and `"*` clipboard registers require a desktop clipboard provider.
+Install `wl-clipboard` for a Wayland session or `xclip` for X11 from your approved
+distribution repositories or offline package media, then restart Neovim. These
+desktop packages are not bundled. The kit enables automatic clipboard registers
+only when Neovim detects a provider; editing without one uses internal registers.
+`:checkhealth vim.provider` diagnoses providers and does not install or repair
+them. Other health warnings need their own reported remediation.
+
 ## Safety rules
 
 - Existing Neovim state is preserved by default; `replace` backs it up and

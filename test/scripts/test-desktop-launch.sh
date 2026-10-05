@@ -31,6 +31,51 @@ menu="$XDG_DATA_HOME/applications/airgap-wezterm.desktop"
 shortcut="$HOME/Your Desktop/airgap-wezterm.desktop"
 test -x "$shortcut"
 
+# No desktop commands on PATH: ordinary editing must use internal registers.
+mkdir "$logs_dir/empty-path"
+cat > "$logs_dir/no-provider.lua" <<'LUA'
+dofile(vim.env.HOME .. "/.config/nvim/lua/config/options.lua")
+assert(vim.fn.has("clipboard") == 0, "fixture unexpectedly has a clipboard provider")
+assert(vim.o.clipboard == "", "missing provider must not force clipboard registers")
+vim.api.nvim_buf_set_lines(0, 0, -1, false, { "internal register" })
+vim.cmd("normal! yy")
+assert(vim.fn.getreg('"') == "internal register\n", "ordinary yank failed")
+assert(vim.v.errmsg == "", vim.v.errmsg)
+LUA
+env PATH="$logs_dir/empty-path" "$HOME/.local/bin/nvim" --headless -u NONE -i NONE \
+  -l "$logs_dir/no-provider.lua" > "$logs_dir/no-provider.log" 2>&1
+
+test_middle_paste() {
+  local window="$1"
+  cat > "$logs_dir/mouse-paste.lua" <<'LUA'
+dofile(vim.env.HOME .. "/.config/nvim/lua/config/options.lua")
+assert(vim.fn.executable("xclip") == 0, "test editor can see xclip")
+assert(vim.fn.executable("wl-paste") == 0, "test editor can see wl-paste")
+vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI" }, {
+  callback = function()
+    vim.fn.writefile(vim.api.nvim_buf_get_lines(0, 0, -1, false), vim.env.AIRGAP_GUI_TEST_LOGS .. "/pasted.txt")
+  end,
+})
+LUA
+  timeout 15s "$HOME/.local/bin/wezterm" cli spawn -- /usr/bin/env \
+    PATH="$logs_dir/empty-path" "$HOME/.local/bin/nvim" -u NONE -i NONE \
+    -c 'lua dofile(vim.env.AIRGAP_GUI_TEST_LOGS .. "/mouse-paste.lua")' > "$logs_dir/mouse-pane.log"
+  sleep 3
+  printf '%s' 'airgap middle-click clipboard test' | xclip -selection primary
+  xdotool windowfocus --sync "$window"
+  xdotool mousemove --window "$window" 150 150 click 2
+  for _ in {1..10}; do
+    if [[ -f "$logs_dir/pasted.txt" ]] && grep -qx 'airgap middle-click clipboard test' "$logs_dir/pasted.txt"; then
+      import -window root "$logs_dir/middle-paste.png"
+      echo "PASS: middle-click pasted into Neovim without a desktop clipboard provider"
+      return 0
+    fi
+    sleep 1
+  done
+  echo "Middle-click did not paste the primary selection into Neovim" >&2
+  return 1
+}
+
 launch_entry() {
   local entry="$1" label="$2" window=""
   desktop-file-validate "$entry"
@@ -54,6 +99,9 @@ launch_entry() {
   timeout 15s "$HOME/.local/bin/wezterm" cli list --format json > "$logs_dir/$label-panes.log"
   "$HOME/.local/bin/jq" -e 'length > 0' "$logs_dir/$label-panes.log" >/dev/null
   import -window root "$logs_dir/$label.png"
+  if [[ "$label" == menu ]]; then
+    test_middle_paste "$window"
+  fi
   xkill -id "$window"
   for _ in {1..10}; do
     if ! xwininfo -root -tree | grep -qi wezterm; then
