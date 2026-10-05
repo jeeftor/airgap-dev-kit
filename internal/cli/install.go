@@ -151,7 +151,15 @@ func installKit(cmd *cobra.Command, options installOptions) error {
 			return makeInstallDir(binDir, options.Scope)
 		}},
 		{label: "Copy command-line payload", result: "Installed", details: "Offline binaries copied to " + binDir, action: func() error {
-			return copyPayloadBinaries(payload, binDir, appDataDir, options.Scope, options.CLIOnly, options.Tools, &record)
+			if err := copyPayloadBinaries(payload, binDir, appDataDir, options.Scope, options.CLIOnly, options.Tools, &record); err != nil {
+				return err
+			}
+			path := filepath.Join(binDir, "vim-empty")
+			if err := writeFileForScope(path, []byte("#!/bin/sh\nexec nvim --clean --noplugin \"$@\"\n"), 0755, options.Scope); err != nil {
+				return err
+			}
+			record.Paths = append(record.Paths, path)
+			return nil
 		}},
 	}
 	if menuPath != "" {

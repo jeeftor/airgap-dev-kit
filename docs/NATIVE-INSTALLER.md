@@ -63,6 +63,22 @@ item or `a` to select or clear the complete list.
 
 ## Clipboard and mouse paste
 
+Use `vim-empty file.txt` to run `nvim` from your PATH with `--clean --noplugin`:
+no user configuration, plugins, or ShaDa history. It also installs when you
+preserve your existing Neovim profile and is tracked for uninstall. Before
+upgrading, you can use `nvim --clean --noplugin file.txt` directly.
+
+To capture health diagnostics for your configured LazyVim installation:
+
+```sh
+nvim --headless '+checkhealth' '+write! /tmp/nvim-health.txt' '+qa!' \
+  > /tmp/nvim-health-startup.txt 2>&1
+cat /tmp/nvim-health.txt
+```
+
+If startup fails before writing the report, inspect `/tmp/nvim-health-startup.txt`.
+Use normal `nvim` for this report so your configured plugins are checked.
+
 The bundled WezTerm handles middle-click itself, including inside LazyVim, and
 pastes the desktop primary selection at the editor cursor. Existing WezTerm
 configuration is preserved by installation; to use this behavior there, add the

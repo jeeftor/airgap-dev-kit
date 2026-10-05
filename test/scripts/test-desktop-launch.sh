@@ -31,6 +31,16 @@ menu="$XDG_DATA_HOME/applications/airgap-wezterm.desktop"
 shortcut="$HOME/Your Desktop/airgap-wezterm.desktop"
 test -x "$shortcut"
 
+# The clean editor command must bypass even a broken user configuration.
+cp "$HOME/.config/nvim/init.lua" "$logs_dir/saved-init.lua"
+printf '%s\n' 'vim.g.airgap_user_config_loaded = true; error("broken user configuration")' > "$HOME/.config/nvim/init.lua"
+PATH="$HOME/.local/bin:$PATH" VIMINIT='let g:airgap_user_config_loaded = 1' \
+  "$HOME/.local/bin/vim-empty" --headless \
+  -c 'lua if vim.g.airgap_user_config_loaded or vim.o.loadplugins then vim.cmd("cquit 1") end' \
+  '+qa!' > "$logs_dir/vim-empty.log" 2>&1
+test ! -s "$logs_dir/vim-empty.log"
+cp "$logs_dir/saved-init.lua" "$HOME/.config/nvim/init.lua"
+
 # No desktop commands on PATH: ordinary editing must use internal registers.
 mkdir "$logs_dir/empty-path"
 cat > "$logs_dir/no-provider.lua" <<'LUA'
@@ -67,6 +77,7 @@ LUA
   xdotool mousemove --window "$window" 150 150 click 2
   for _ in {1..10}; do
     if [[ -f "$logs_dir/pasted.txt" ]] && grep -qx 'airgap middle-click clipboard test' "$logs_dir/pasted.txt"; then
+      sleep 1
       import -window root "$logs_dir/middle-paste.png"
       echo "PASS: middle-click pasted into Neovim without a desktop clipboard provider"
       return 0
@@ -129,4 +140,5 @@ fi
 ./airgap uninstall --yes > "$logs_dir/uninstall.log" 2>&1
 test ! -f "$menu"
 test ! -f "$shortcut"
+test ! -f "$HOME/.local/bin/vim-empty"
 echo "PASS: GUI entries validate, launch, reject a broken Exec, and uninstall"
