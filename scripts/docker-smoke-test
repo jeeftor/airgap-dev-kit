@@ -103,8 +103,11 @@ cd /tmp/smoke/airgap-dev-kit
 export PATH="$HOME/.local/bin:$PATH"
 app_smoke
 airgap version > /tmp/cli-version.out
+cd /tmp
+unset AIRGAP_KIT_DIR
+airgap doctor --verify > /tmp/doctor-installed.out
 airgap status > /tmp/cli-status.out
-./airgap uninstall --yes > /tmp/remove.out 2>&1
+"/tmp/smoke/airgap-dev-kit/airgap" uninstall --yes > /tmp/remove.out 2>&1
 test ! -f "$HOME/.local/share/applications/airgap-wezterm.desktop"
 hash -r
 if command -v starship >/dev/null 2>&1; then
