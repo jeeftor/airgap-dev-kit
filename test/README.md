@@ -2,6 +2,23 @@
 
 This directory contains everything needed to test and package LazyVim plugins for air-gap deployment.
 
+## GUI desktop launch check
+
+GitHub Actions runs `scripts/test-desktop-launch.sh` from this directory in
+the **Test GUI desktop launch** job after the Linux archive is built. It uses
+Xvfb, a D-Bus session, and Mesa software rendering on an Ubuntu runner.
+
+The check installs the real archive into a disposable home with spaces in its
+path and validates both desktop entries. `gtk-launch` must find and launch the
+registered menu item by application ID; `gio launch` opens the desktop shortcut
+independently. Each launch must produce a visible WezTerm window and a terminal
+pane. A broken `Exec` must fail. Uninstall must remove both registered files.
+
+The `desktop-launch-evidence` artifact contains screenshots and diagnostic
+logs, including failed launches. This verifies application launching through
+the desktop-entry format; it does not test GNOME/KDE icon visibility, launcher
+trust prompts, Wayland, or physical GPU drivers.
+
 ## 📚 Documentation
 
 | File | Purpose |
