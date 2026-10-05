@@ -41,7 +41,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: offline-packages/lazy-plugins.tar.gz
-          key: release-lazy-payload-linux-v1-${{ hashFiles('config/plugin-manifest.lua', 'config/nvim/.config/nvim/lazy-lock.json') }}
+          key: release-lazy-payload-linux-v2-${{ hashFiles('Makefile', 'config/plugin-manifest.lua', 'config/nvim/**', 'scripts/build-lazy-payload.sh') }}
 
       - name: Restore Mason payload cache
         uses: actions/cache@v6
@@ -53,6 +53,9 @@ jobs:
         run: |
           set -euo pipefail
           if [[ ! -f offline-packages/lazy-plugins.tar.gz || ! -f offline-packages/mason-lsp.tar.gz ]]; then
+            sudo apt-get update -qq
+            sudo apt-get install -y --no-install-recommends musl-tools
+            rustup target add x86_64-unknown-linux-musl
             make build-editor-payloads
           fi
 
@@ -237,6 +240,33 @@ jobs:
           path: ${{ runner.temp }}/airgap-desktop-launch-results
           retention-days: 7
 
+  test-editor-health:
+    name: Test installed editor without network
+    runs-on: ubuntu-latest
+    needs: test-build-linux
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Download packaged kit
+        uses: actions/download-artifact@v8
+        with:
+          name: airgap-dev-kit-linux
+          path: release
+
+      - name: Verify offline parsers and capture health
+        run: |
+          sudo env AIRGAP_HEALTH_RESULTS="$RUNNER_TEMP/editor-health-results" \
+            unshare --net bash test/scripts/test-editor-health.sh release/airgap-dev-kit-linux-x86_64.tar.gz
+
+      - name: Upload complete health report and behavior results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: editor-health-evidence
+          path: ${{ runner.temp }}/editor-health-results
+          retention-days: 7
+
   test-install-ubuntu:
     name: Test Installation (Ubuntu Latest)
     runs-on: ubuntu-latest
@@ -379,6 +409,12 @@ jobs:
           tmux -V
           rg --version
 
+          AIRGAP_PARSER_MANIFEST="$GITHUB_WORKSPACE/config/plugin-manifest.lua" \
+          AIRGAP_HEALTH_SCRIPT="$GITHUB_WORKSPACE/test/scripts/editor-health.lua" \
+            nvim --headless '+lua dofile(vim.env.AIRGAP_HEALTH_SCRIPT)' '+qa!' > "$work_dir/editor-behavior.txt" 2>&1
+          cat "$work_dir/editor-behavior.txt"
+          rg -q 'Offline editor parsers, queries, highlighting, CLI, and yank verified' "$work_dir/editor-behavior.txt"
+
           font_dir="$HOME/.local/share/fonts/JetBrainsMono"
           test -d "$font_dir"
           find "$font_dir" -type f -name '*.ttf' -print -quit | rg -q .
@@ -500,6 +536,15 @@ jobs:
         with:
           name: ${{ env.LINUX_PAYLOAD_ARTIFACT }}
           path: .
+
+      - name: Restore executable permissions lost by artifact transfer
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' binary; do
+            if file "$binary" | grep -q executable; then
+              chmod +x "$binary"
+            fi
+          done < <(find offline-packages/linux -maxdepth 1 -type f -print0)
 
       - name: Build complete package
         run: make package

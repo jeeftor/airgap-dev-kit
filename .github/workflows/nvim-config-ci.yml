@@ -72,12 +72,14 @@ jobs:
         run: |
           mkdir -p ~/.config
           ln -sf "$GITHUB_WORKSPACE/config/nvim/.config/nvim" ~/.config/nvim
+          mkdir -p ~/.local/share/nvim
+          cp config/nvim/.config/nvim/lazy-lock.json ~/.local/share/nvim/lazy-lock.json
 
       - name: Smoke test - Lazy sync completes
         run: |
           # Temporarily enable install.missing so Lazy can bootstrap in CI
           # Sync plugins; Lazy! sync returns non-zero only on network/git failures
-          nvim --headless "+Lazy! sync" "+qa" 2>/tmp/nvim-stderr.log
+          nvim --headless '+lua require("lazy").sync({wait = true, lockfile = true})' '+qa' 2>/tmp/nvim-stderr.log
           echo "Lazy sync output (stderr):"
           cat /tmp/nvim-stderr.log || true
           echo "Lazy sync step complete"
@@ -93,10 +95,17 @@ jobs:
           fi
           echo "Config smoke test passed"
 
-      - name: Check health (informational)
-        continue-on-error: true
+      - name: Capture complete health report (informational)
         run: |
-          nvim --headless "+checkhealth" "+qa!" 2>&1 | head -100
+          nvim --headless '+checkhealth' '+write! /tmp/nvim-health.txt' '+qa!' > /tmp/nvim-health-startup.txt 2>&1
+
+      - name: Upload health diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: nvim-config-health
+          path: /tmp/nvim-health*.txt
+          retention-days: 7
 
   validate-config:
     name: Validate Config Structure

@@ -55,7 +55,7 @@ if ! docker exec -e "AIRGAP_LOCAL_BUILD_CURL_INSECURE=${AIRGAP_LOCAL_BUILD_CURL_
   set -euo pipefail
   exec > /tmp/airgap-local-build.log 2>&1
   apt-get update
-  DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates curl file git make nodejs npm tar gzip unzip xz-utils
+  DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates curl file git make nodejs npm tar gzip unzip xz-utils build-essential musl-tools binutils
   if [ "${AIRGAP_LOCAL_BUILD_CURL_INSECURE:-0}" = "1" ]; then
     # Corporate TLS interception is scoped to this disposable Linux builder.
     mkdir -p /opt/airgap-local-bin
@@ -69,7 +69,11 @@ EOF
     export NPM_CONFIG_STRICT_SSL=false
     export NODE_TLS_REJECT_UNAUTHORIZED=0
   fi
-  npm install --global tree-sitter-cli
+  # Rust and the musl target are confined to this disposable Linux container.
+  export RUSTUP_HOME=/opt/airgap-rustup CARGO_HOME=/opt/airgap-cargo
+  curl -fsSL https://sh.rustup.rs -o /tmp/airgap-rustup-init.sh
+  sh /tmp/airgap-rustup-init.sh -y --profile minimal --default-toolchain stable --no-modify-path --target x86_64-unknown-linux-musl
+  export PATH="$CARGO_HOME/bin:$PATH"
   cd /workspace
   make update
   make build-editor-payloads

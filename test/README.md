@@ -221,3 +221,18 @@ This tells LazyVim to use pre-installed plugins only.
 - lazy.nvim docs: https://lazy.folke.io
 - Mason docs: https://github.com/mason-org/mason.nvim
 - Mason package list: https://mason-registry.dev/registry/list
+
+The **Test installed editor without network** job runs
+`bash test/scripts/test-editor-health.sh <archive>` in a Linux network namespace
+without network access. It installs the release archive into a disposable home,
+loads every manifest parser and its highlighting queries, parses valid and
+invalid Lua, starts highlighting, runs the bundled Tree-sitter CLI, and checks
+internal yank behavior. The `editor-health-evidence` artifact retains the full
+health buffer and startup log. Optional provider and headless UI warnings are
+informational; required editor behavior fails the job.
+
+The GUI launch job also opens the full kit LazyVim profile in a real WezTerm
+terminal UI, checks Snacks input/picker/dashboard registration after startup,
+and captures `editor-ui-checkhealth.txt`. This separates actual UI failures from
+warnings caused by running UI health checks in headless Neovim. The offline
+editor job verifies that the bundled Lua language server initializes as well.

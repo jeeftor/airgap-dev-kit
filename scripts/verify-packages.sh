@@ -28,7 +28,7 @@ bad() {
 check_executable() {
   path=$1
   label=$2
-  if file "$path" 2>/dev/null | grep -q executable; then ok "$label"; else bad "$label - missing or invalid"; fi
+  if file "$path" 2>/dev/null | grep -q executable && [ -x "$path" ]; then ok "$label"; else bad "$label - missing, invalid, or not executable"; fi
 }
 
 heading "Verifying offline payload"

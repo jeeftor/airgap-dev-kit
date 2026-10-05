@@ -31,7 +31,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: offline-packages/lazy-plugins.tar.gz
-          key: release-lazy-payload-linux-v1-${{ hashFiles('config/plugin-manifest.lua', 'config/nvim/.config/nvim/lazy-lock.json') }}
+          key: release-lazy-payload-linux-v2-${{ hashFiles('Makefile', 'config/plugin-manifest.lua', 'config/nvim/**', 'scripts/build-lazy-payload.sh') }}
 
       - name: Restore Mason payload cache
         id: mason-payload-cache
@@ -46,26 +46,22 @@ jobs:
           set -euo pipefail
           make update-linux
 
-      - name: Bundle pinned LazyVim plugins
+      - name: Bundle pinned LazyVim plugins and parsers
         if: steps.lazy-payload-cache.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
-          nvim="$GITHUB_WORKSPACE/offline-packages/linux/nvim-static-x86_64"
-          export VIMRUNTIME="$GITHUB_WORKSPACE/offline-packages/linux/nvim-runtime"
-          chmod +x "$nvim"
-          mkdir -p ~/.config/nvim
-          cp -R "$GITHUB_WORKSPACE/config/nvim/.config/nvim/." ~/.config/nvim/
-          sed -i 's/missing = false/missing = true/' ~/.config/nvim/lua/config/lazy.lua
-          "$nvim" --headless '+Lazy! sync' +qa
-          sed -i 's/missing = true/missing = false/' ~/.config/nvim/lua/config/lazy.lua
-          test -d ~/.local/share/nvim/lazy
-          cd ~/.local/share/nvim
-          if [[ -f ~/.config/nvim/lazy-lock.json ]]; then
-            cp ~/.config/nvim/lazy-lock.json .
-            tar -czf "$GITHUB_WORKSPACE/offline-packages/lazy-plugins.tar.gz" lazy lazy-lock.json
-          else
-            tar -czf "$GITHUB_WORKSPACE/offline-packages/lazy-plugins.tar.gz" lazy
-          fi
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends musl-tools
+          rustup target add x86_64-unknown-linux-musl
+          NVIM="$GITHUB_WORKSPACE/offline-packages/linux/nvim-static-x86_64" \
+          VIMRUNTIME="$GITHUB_WORKSPACE/offline-packages/linux/nvim-runtime" \
+          LAZY_CONFIG="$GITHUB_WORKSPACE/config/nvim/.config/nvim" \
+          LAZY_OUTPUT="$GITHUB_WORKSPACE/offline-packages/lazy-plugins.tar.gz" \
+          PARSER_MANIFEST="$GITHUB_WORKSPACE/config/plugin-manifest.lua" \
+          TREE_SITTER_VERSION=$(awk '/^TREE_SITTER_VERSION :=/ {print $3}' Makefile) \
+          TREE_SITTER_SOURCE_SHA256=$(awk '/^TREE_SITTER_SOURCE_SHA256 :=/ {print $3}' Makefile) \
+          TREE_SITTER_BUILD_SHA256=$(awk '/^TREE_SITTER_BUILD_SHA256 :=/ {print $3}' Makefile) \
+            bash scripts/build-lazy-payload.sh
 
       - name: Bundle pinned Mason LSP payload
         if: steps.mason-payload-cache.outputs.cache-hit != 'true'
@@ -123,7 +119,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: offline-packages/lazy-plugins.tar.gz
-          key: release-lazy-payload-linux-v1-${{ hashFiles('config/plugin-manifest.lua', 'config/nvim/.config/nvim/lazy-lock.json') }}
+          key: release-lazy-payload-linux-v2-${{ hashFiles('Makefile', 'config/plugin-manifest.lua', 'config/nvim/**', 'scripts/build-lazy-payload.sh') }}
 
       - name: Restore Mason payload cache
         id: mason-payload-cache
@@ -138,26 +134,22 @@ jobs:
           make update-linux
           make update-fonts
 
-      - name: Bundle pinned LazyVim plugins
+      - name: Bundle pinned LazyVim plugins and parsers
         if: steps.lazy-payload-cache.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
-          nvim="$GITHUB_WORKSPACE/offline-packages/linux/nvim-static-x86_64"
-          export VIMRUNTIME="$GITHUB_WORKSPACE/offline-packages/linux/nvim-runtime"
-          chmod +x "$nvim"
-          mkdir -p ~/.config/nvim
-          cp -R "$GITHUB_WORKSPACE/config/nvim/.config/nvim/." ~/.config/nvim/
-          sed -i 's/missing = false/missing = true/' ~/.config/nvim/lua/config/lazy.lua
-          "$nvim" --headless '+Lazy! sync' +qa
-          sed -i 's/missing = true/missing = false/' ~/.config/nvim/lua/config/lazy.lua
-          test -d ~/.local/share/nvim/lazy
-          cd ~/.local/share/nvim
-          if [[ -f ~/.config/nvim/lazy-lock.json ]]; then
-            cp ~/.config/nvim/lazy-lock.json .
-            tar -czf "$GITHUB_WORKSPACE/offline-packages/lazy-plugins.tar.gz" lazy lazy-lock.json
-          else
-            tar -czf "$GITHUB_WORKSPACE/offline-packages/lazy-plugins.tar.gz" lazy
-          fi
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends musl-tools
+          rustup target add x86_64-unknown-linux-musl
+          NVIM="$GITHUB_WORKSPACE/offline-packages/linux/nvim-static-x86_64" \
+          VIMRUNTIME="$GITHUB_WORKSPACE/offline-packages/linux/nvim-runtime" \
+          LAZY_CONFIG="$GITHUB_WORKSPACE/config/nvim/.config/nvim" \
+          LAZY_OUTPUT="$GITHUB_WORKSPACE/offline-packages/lazy-plugins.tar.gz" \
+          PARSER_MANIFEST="$GITHUB_WORKSPACE/config/plugin-manifest.lua" \
+          TREE_SITTER_VERSION=$(awk '/^TREE_SITTER_VERSION :=/ {print $3}' Makefile) \
+          TREE_SITTER_SOURCE_SHA256=$(awk '/^TREE_SITTER_SOURCE_SHA256 :=/ {print $3}' Makefile) \
+          TREE_SITTER_BUILD_SHA256=$(awk '/^TREE_SITTER_BUILD_SHA256 :=/ {print $3}' Makefile) \
+            bash scripts/build-lazy-payload.sh
 
       - name: Bundle pinned Mason LSP payload
         if: steps.mason-payload-cache.outputs.cache-hit != 'true'
@@ -188,6 +180,20 @@ jobs:
           ./airgap doctor --verify
           ./airgap install --yes --nvim-mode=replace
           "$HOME/.local/bin/nvim" --headless '+qa'
+
+      - name: Verify release editor without network
+        run: |
+          sudo env AIRGAP_HEALTH_RESULTS="$RUNNER_TEMP/release-editor-health" \
+            unshare --net bash test/scripts/test-editor-health.sh airgap-dev-kit-linux-x86_64.tar.gz
+
+      - name: Upload release editor health evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-editor-health-${{ github.ref_name }}
+          path: ${{ runner.temp }}/release-editor-health
+          if-no-files-found: warn
+          retention-days: 30
 
       - name: Sign release manifest
         env:

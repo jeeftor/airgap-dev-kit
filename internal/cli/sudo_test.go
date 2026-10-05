@@ -20,6 +20,11 @@ func TestSystemInstallAuthenticatesBeforeWriting(t *testing.T) {
 	if err := os.MkdirAll(payload, 0755); err != nil {
 		t.Fatal(err)
 	}
+	for _, name := range nvimRequiredTools {
+		if err := os.WriteFile(filepath.Join(payload, name), []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
 	for name, content := range map[string]string{
 		"airgap":            "#!/bin/sh\nexit 0\n",
 		"kit-manifest.json": `{"schema_version":1,"version":"v0.0.0","target":"linux/amd64","payload_dir":"offline-packages/linux/amd64"}`,

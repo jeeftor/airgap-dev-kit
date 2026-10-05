@@ -58,22 +58,39 @@ env PATH="$logs_dir/empty-path" "$HOME/.local/bin/nvim" --headless -u NONE -i NO
   -l "$logs_dir/no-provider.lua" > "$logs_dir/no-provider.log" 2>&1
 
 test_middle_paste() {
-  local window="$1" pane
+  local window="$1" socket="$2" pane
   pane=$("$HOME/.local/bin/jq" -r '.[0].pane_id' "$logs_dir/menu-panes.log")
   cat > "$logs_dir/mouse-paste.lua" <<'LUA'
-dofile(vim.env.HOME .. "/.config/nvim/lua/config/options.lua")
-assert(vim.fn.executable("xclip") == 0, "test editor can see xclip")
-assert(vim.fn.executable("wl-paste") == 0, "test editor can see wl-paste")
-vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI" }, {
-  callback = function()
-    vim.fn.writefile(vim.api.nvim_buf_get_lines(0, 0, -1, false), vim.env.AIRGAP_GUI_TEST_LOGS .. "/pasted.txt")
-  end,
-})
+local ok, err = pcall(function()
+  assert(package.loaded["lazyvim.config"], "installed LazyVim configuration did not load")
+  assert(Snacks.did_setup, "installed editor UI setup did not run")
+  assert(vim.fn.executable("xclip") == 0, "test editor can see xclip")
+  assert(vim.fn.executable("wl-paste") == 0, "test editor can see wl-paste")
+  assert(vim.fn.executable("xsel") == 0, "test editor can see xsel")
+  assert(vim.o.mouse:find("a", 1, true), "installed editor does not capture mouse events")
+  local buffer = vim.api.nvim_get_current_buf()
+  assert(vim.api.nvim_buf_get_name(buffer) == vim.env.AIRGAP_GUI_TEST_LOGS .. "/mouse-paste.txt", "test is not editing the expected text file")
+  vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI" }, {
+    buffer = buffer,
+    callback = function()
+      vim.fn.writefile(vim.api.nvim_buf_get_lines(buffer, 0, -1, false), vim.env.AIRGAP_GUI_TEST_LOGS .. "/pasted.txt")
+    end,
+  })
+end)
+vim.fn.writefile({ ok and "PASS: installed LazyVim mouse fixture ready" or tostring(err) }, vim.env.AIRGAP_GUI_TEST_LOGS .. "/mouse-ready.txt")
 LUA
-  timeout 15s "$HOME/.local/bin/wezterm" cli spawn --pane-id "$pane" -- /usr/bin/env \
-    PATH="$logs_dir/empty-path" "$HOME/.local/bin/nvim" -u NONE -i NONE \
-    -c 'lua dofile(vim.env.AIRGAP_GUI_TEST_LOGS .. "/mouse-paste.lua")' > "$logs_dir/mouse-pane.log" 2>&1
-  sleep 3
+  # Use the installed profile, with only kit executables available to the editor.
+  # An explicit file bypasses the dashboard while retaining LazyVim mouse handling.
+  WEZTERM_UNIX_SOCKET="$socket" timeout 15s "$HOME/.local/bin/wezterm" cli --no-auto-start spawn --pane-id "$pane" -- /usr/bin/env \
+    PATH="$HOME/.local/bin" "$HOME/.local/bin/nvim" -i NONE "$logs_dir/mouse-paste.txt" \
+    -c 'lua vim.defer_fn(function() dofile(vim.env.AIRGAP_GUI_TEST_LOGS .. "/mouse-paste.lua") end, 1000)' > "$logs_dir/mouse-pane.log" 2>&1
+  for _ in {1..20}; do
+    [[ -f "$logs_dir/mouse-ready.txt" ]] && break
+    sleep 1
+  done
+  [[ -f "$logs_dir/mouse-ready.txt" ]] || { echo "LazyVim mouse fixture did not start" >&2; return 1; }
+  cat "$logs_dir/mouse-ready.txt"
+  grep -qx 'PASS: installed LazyVim mouse fixture ready' "$logs_dir/mouse-ready.txt"
   printf '%s' 'airgap middle-click clipboard test' | xclip -selection primary
   xdotool windowfocus --sync "$window"
   xdotool mousemove --window "$window" 150 150 click 2
@@ -81,7 +98,7 @@ LUA
     if [[ -f "$logs_dir/pasted.txt" ]] && grep -qx 'airgap middle-click clipboard test' "$logs_dir/pasted.txt"; then
       sleep 1
       import -window root "$logs_dir/middle-paste.png"
-      echo "PASS: middle-click pasted into Neovim without a desktop clipboard provider"
+      echo "PASS: middle-click pasted into installed LazyVim without a desktop clipboard provider"
       return 0
     fi
     sleep 1
@@ -90,12 +107,48 @@ LUA
   return 1
 }
 
+test_editor_ui_health() {
+  local socket="$1" pane
+  pane=$("$HOME/.local/bin/jq" -r '.[0].pane_id' "$logs_dir/menu-panes.log")
+  cat > "$logs_dir/editor-ui-health.lua" <<'LUA'
+local ok, err = pcall(function()
+  assert(#vim.api.nvim_list_uis() > 0, "Test has no terminal UI")
+  assert(Snacks.did_setup, "Snacks setup did not run")
+  assert(vim.ui.input == require("snacks.input").input, "Input UI was not registered")
+  assert(vim.ui.select == Snacks.picker.select, "Picker UI was not registered")
+  if Snacks.config.dashboard.enabled then
+    assert(Snacks.dashboard.status.did_setup, "Dashboard setup did not run")
+  end
+  vim.cmd("checkhealth")
+  vim.fn.writefile(vim.api.nvim_buf_get_lines(0, 0, -1, false), vim.env.AIRGAP_GUI_TEST_LOGS .. "/editor-ui-checkhealth.txt")
+end)
+vim.fn.writefile({ ok and "PASS: editor UI setup and health capture" or tostring(err) }, vim.env.AIRGAP_GUI_TEST_LOGS .. "/editor-ui-result.txt")
+vim.cmd("qa!")
+LUA
+  WEZTERM_UNIX_SOCKET="$socket" timeout 15s "$HOME/.local/bin/wezterm" cli --no-auto-start spawn --pane-id "$pane" -- \
+    "$HOME/.local/bin/nvim" -c 'lua vim.defer_fn(function() dofile(vim.env.AIRGAP_GUI_TEST_LOGS .. "/editor-ui-health.lua") end, 1000)' \
+    > "$logs_dir/editor-ui-pane.log" 2>&1
+  for _ in {1..30}; do
+    if [[ -f "$logs_dir/editor-ui-result.txt" ]]; then
+      cat "$logs_dir/editor-ui-result.txt"
+      grep -qx 'PASS: editor UI setup and health capture' "$logs_dir/editor-ui-result.txt"
+      return
+    fi
+    sleep 1
+  done
+  echo "The installed editor did not complete UI health checks" >&2
+  return 1
+}
+
 launch_entry() {
-  local entry="$1" label="$2" window=""
-  desktop-file-validate "$entry"
-  if [[ "$label" == menu ]]; then
+  local entry="$1" label="$2" window="" pid socket
+  if [[ "$label" == preset-* ]]; then
+    PATH="$HOME/.local/bin:$PATH" "$HOME/.local/bin/airgap" wez start "${label#preset-}" > "$logs_dir/$label.log" 2>&1 &
+  elif [[ "$label" == menu ]]; then
+    desktop-file-validate "$entry"
     timeout 15s gtk-launch airgap-wezterm.desktop > "$logs_dir/$label.log" 2>&1
   else
+    desktop-file-validate "$entry"
     timeout 15s gio launch "$entry" > "$logs_dir/$label.log" 2>&1
   fi
   for _ in {1..20}; do
@@ -110,11 +163,23 @@ launch_entry() {
   sleep 2
   xwininfo -id "$window" > "$logs_dir/$label-window.log"
   grep -q 'Map State: IsViewable' "$logs_dir/$label-window.log"
-  timeout 15s "$HOME/.local/bin/wezterm" cli list --format json > "$logs_dir/$label-panes.log"
+  # A forcibly closed GUI can leave discovery pointing at its stale socket.
+  # Target the process owning the visible window rather than another instance.
+  xprop -id "$window" _NET_WM_PID > "$logs_dir/$label-pid.log"
+  pid=$(awk '/_NET_WM_PID.* = [0-9]+$/ {print $NF}' "$logs_dir/$label-pid.log")
+  [[ "$pid" =~ ^[0-9]+$ ]] || { echo "No GUI process ID found for $label" >&2; return 1; }
+  socket="$XDG_RUNTIME_DIR/wezterm/gui-sock-$pid"
+  for _ in {1..10}; do
+    [[ -S "$socket" ]] && break
+    sleep 1
+  done
+  [[ -S "$socket" ]] || { echo "No GUI socket found for $label process $pid" >&2; return 1; }
+  WEZTERM_UNIX_SOCKET="$socket" timeout 15s "$HOME/.local/bin/wezterm" cli --no-auto-start list --format json > "$logs_dir/$label-panes.log"
   "$HOME/.local/bin/jq" -e 'length > 0' "$logs_dir/$label-panes.log" >/dev/null
   import -window root "$logs_dir/$label.png"
   if [[ "$label" == menu ]]; then
-    test_middle_paste "$window"
+    test_editor_ui_health "$socket"
+    test_middle_paste "$window" "$socket"
   fi
   xkill -id "$window"
   for _ in {1..10}; do
@@ -131,6 +196,12 @@ launch_entry() {
 # Each entry must create its own window; an earlier launch cannot satisfy both.
 launch_entry "$menu" menu
 launch_entry "$shortcut" desktop
+# Exercise the installed command after the removable source kit is unavailable.
+cd "$HOME"
+mv "$kit_dir/airgap-dev-kit" "$kit_dir/source-unavailable"
+for preset in current kit plain x11; do
+  launch_entry "" "preset-$preset"
+done
 
 # Confirm a broken Exec is rejected rather than counted as a successful launch.
 sed 's|^Exec=.*|Exec=/airgap-test/nonexistent-command|' "$menu" > "$logs_dir/broken.desktop"
@@ -139,8 +210,9 @@ if timeout 15s gio launch "$logs_dir/broken.desktop" > "$logs_dir/broken.log" 2>
   exit 1
 fi
 
-./airgap uninstall --yes > "$logs_dir/uninstall.log" 2>&1
+"$HOME/.local/bin/airgap" uninstall --yes > "$logs_dir/uninstall.log" 2>&1
 test ! -f "$menu"
 test ! -f "$shortcut"
 test ! -f "$HOME/.local/bin/vim-empty"
+test ! -f "$HOME/.local/share/airgap-dev-kit/wezterm-preset.lua"
 echo "PASS: GUI entries validate, launch, reject a broken Exec, and uninstall"

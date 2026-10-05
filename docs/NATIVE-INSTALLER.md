@@ -104,9 +104,95 @@ them. Other health warnings need their own reported remediation.
   can be disconnected after installation. Keep the extracted kit available for
   `doctor --verify`: installed commands discover it through the installation
   record without requiring `AIRGAP_KIT_DIR`.
+- Installed-command checks use the installation record. CLI-only installs and
+  deselected tools do not fail because those commands are absent; recorded
+  commands that disappear or lose executable permissions still fail.
 
 ## Legacy migration
 
 The legacy shell installers remain temporarily while their historical install
 log migration and release/test cleanup are completed. New release archives use
 the native installer only; do not add new behavior to `install.sh`.
+
+### Try WezTerm presets
+
+Use `airgap wez list` to list the presets, then open a separate window:
+
+```sh
+airgap wez start current  # Your existing configuration
+airgap wez start kit      # Bundled configuration, including middle-click paste
+airgap wez start plain    # WezTerm defaults, without configuration
+airgap wez start x11      # Bundled configuration with Wayland disabled
+airgap wez start x11 --dry-run
+```
+
+These commands select a preset for the new window without changing your saved
+configuration or existing windows. Installation stores a managed preset with the
+WezTerm application, so `kit` and `x11` continue to work after you remove the USB.
+Before installation, they use the configuration in the extracted kit. Existing
+personal WezTerm configuration is preserved. Run them on your Linux desktop, rather than inside a remote
+SSH session. The X11 preset requires an X11/XWayland display; compare it with
+`kit` when testing window-edge resizing. CI verifies X11 launch and mouse paste;
+it does not prove behavior on your GNOME/KDE Wayland desktop.
+
+### Editor health and offline prerequisites
+
+Installing the kit's Neovim and LazyVim profile automatically includes `fd`,
+`fzf`, `rg`, and `lazygit`, even if you deselected them in the component picker.
+The installer shows these required tools before confirmation and rejects an
+incomplete payload before writing files. Both full and CLI-only installations
+include them. The Neovim launcher adds the installed binary directory to its
+own PATH, so menu launches work even when you decline shell integration.
+Preserving an existing Neovim profile does not force these tool selections.
+
+New editor payloads include the manifest's compiled Tree-sitter parsers, matching
+queries, and a Tree-sitter CLI built from checksum-verified upstream source. The
+connected Linux builder compiles them; editor startup does not install or update
+parsers. LuaRocks is
+disabled because the bundled plugin set does not require it. Mason does not
+request downloads for unbundled tools; already installed language servers remain
+available. Existing Neovim
+profiles are preserved by default: choose `--nvim-mode=replace` to back up your
+profile and install the kit configuration and payloads.
+
+The CLI is statically linked with musl so it does not require the builder's glibc
+version on Red Hat or Debian targets. The builder checks its ELF dependencies
+and generates a sample parser before packaging. Native Linux builders need a
+current Rust toolchain, the `x86_64-unknown-linux-musl` Rust target, `musl-gcc`,
+and `readelf`; the Docker and GitHub builders prepare these dependencies in
+their disposable environments. Cargo uses upstream's lockfile with `--locked`.
+The connected builder uses a separately checksum-verified upstream GNU CLI to
+compile and validate the shared parser libraries. That executable stays in the
+temporary build directory; the kit contains only the portable generation CLI
+and the compiled parsers.
+This CLI supports parser generation; standalone `tree-sitter parse` loading
+shared parser libraries is unavailable with static musl. Neovim loads and uses
+the bundled shared parsers directly, which CI verifies separately.
+
+Git remains a host prerequisite for Git integrations, including LazyGit and
+LazyVim. Install the `git` package from your distribution's offline repository
+(`dnf install git` on Red Hat, `apt install git` on Debian/Ubuntu). `airgap doctor`
+warns when it cannot find Git. A C compiler, curl, and tar are needed to build
+additional parsers, not to use the bundled compiled parsers. Upstream health
+checks may still report these build prerequisites on minimal targets.
+
+A local desktop clipboard provider requires `wl-clipboard` on Wayland or
+`xclip`/`xsel` on X11. Installing one on an SSH server does not expose your local
+desktop clipboard. WezTerm's terminal paste can insert text without a Neovim
+clipboard provider. Clipboard history belongs to your desktop clipboard manager.
+
+Capture your actual profile's diagnostics with:
+
+```sh
+nvim --headless '+checkhealth' '+write! /tmp/nvim-health.txt' '+qa!' \
+  > /tmp/nvim-health-startup.txt 2>&1
+```
+
+Checkhealth reports problems; it does not repair them. Headless runs can report
+UI initialization warnings. Missing optional remote-plugin providers, Mason
+runtimes for languages you do not use, or dependencies of disabled image
+features do not mean the offline editor is unusable. CI retains the complete
+report and separately gates real offline parser loading, queries, highlighting,
+the bundled CLI, and internal yank behavior.
+The release workflow repeats the offline editor checks against the actual
+release archive before signing and publishing, and retains its health evidence.

@@ -7,6 +7,12 @@
 -- Edit this file to customize which plugins get bundled
 
 return {
+  -- Compiled on the connected Linux builder, then installed with matching queries.
+  treesitter = {
+    "bash", "c", "diff", "go", "gomod", "gosum", "html", "javascript", "jsdoc", "json",
+    "lua", "luadoc", "luap", "markdown", "markdown_inline", "printf", "python", "query",
+    "regex", "toml", "tsx", "typescript", "vim", "vimdoc", "xml", "yaml",
+  },
   -- LazyVim Plugins (will be in ~/.local/share/nvim/lazy/)
   plugins = {
     -- Core LazyVim (always included)
