@@ -537,6 +537,15 @@ jobs:
           name: ${{ env.LINUX_PAYLOAD_ARTIFACT }}
           path: .
 
+      - name: Restore executable permissions lost by artifact transfer
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' binary; do
+            if file "$binary" | grep -q executable; then
+              chmod +x "$binary"
+            fi
+          done < <(find offline-packages/linux -maxdepth 1 -type f -print0)
+
       - name: Build complete package
         run: make package
       

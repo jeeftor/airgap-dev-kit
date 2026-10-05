@@ -23,7 +23,7 @@ env HOME="$test_home" XDG_CONFIG_HOME="$test_home/.config" \
   AIRGAP_TEST_KIT="$kit" bash <<'SH'
 set -euo pipefail
 trap 'cp "$XDG_STATE_HOME/nvim/lsp.log" "$AIRGAP_HEALTH_RESULTS/lsp.log" 2>/dev/null || true' EXIT
-"$AIRGAP_TEST_KIT/airgap" install --yes --cli-only --nvim-mode=replace --configure-shell=false
+"$AIRGAP_TEST_KIT/airgap" install --yes --cli-only --nvim-mode=replace --configure-shell=false 2>&1 | tee "$AIRGAP_HEALTH_RESULTS/install.log"
 export PATH="$HOME/.local/bin:$PATH"
 # Let VimEnter and scheduled plugin setup finish before testing and capturing
 # health. Immediate +checkhealth/+qa can report setup that has not run yet.

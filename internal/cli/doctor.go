@@ -315,8 +315,8 @@ func diagnoseKit(root string, found bool, runtimeVersion, runtimeCommit string) 
 	return report
 }
 
-// addInstalledBinaryChecks verifies every executable recorded by the native
-// installer, including whether the user's current PATH resolves that command.
+// addInstalledBinaryChecks verifies recorded commands and their current PATH
+// resolution. Known payload commands also receive safe version probes.
 func addInstalledBinaryChecks(report *doctorReport, payloadDir string) {
 	status, err := installationStatus()
 	if err != nil {
@@ -336,23 +336,28 @@ func addInstalledBinaryChecks(report *doctorReport, payloadDir string) {
 	binDir := filepath.Join(home, ".local", "bin")
 	fontDir := filepath.Join(home, ".local", "share", "fonts", "JetBrainsMono")
 	fontInstalled := false
-	expected := expectedPayloadCommands(payloadDir)
-	components := make(map[string]installedComponent)
+	probeCommands := make(map[string]bool)
+	for _, name := range expectedPayloadCommands(payloadDir) {
+		probeCommands[name] = true
+	}
+	var commands []installedComponent
 	for _, component := range status.Components {
-		components[component.Path] = component
+		if parent := filepath.Dir(component.Path); parent == binDir || parent == "/usr/local/bin" {
+			commands = append(commands, component)
+		}
 		if component.Path == fontDir && component.Status == "installed" {
 			fontInstalled = true
 		}
 	}
-	for _, name := range expected {
-		component, ok := components[filepath.Join(binDir, name)]
-		if !ok {
-			report.add("installed binary "+name, "fail", filepath.Join(binDir, name)+" is missing; rerun airgap install to install it")
-			continue
-		}
+	sort.Slice(commands, func(i, j int) bool { return commands[i].Path < commands[j].Path })
+	for _, component := range commands {
 		name := filepath.Base(component.Path)
 		if component.Status != "installed" {
 			report.add("installed binary "+name, "fail", component.Path+" is "+component.Status)
+			continue
+		}
+		if !executable(component.Path) {
+			report.add("installed binary "+name, "fail", component.Path+" is not executable")
 			continue
 		}
 		if component.PathHit == "" {
@@ -360,7 +365,9 @@ func addInstalledBinaryChecks(report *doctorReport, payloadDir string) {
 		} else {
 			report.add("installed binary "+name, "pass", component.Path+"; PATH resolves to "+component.PathHit)
 		}
-		addBinaryRunCheck(report, component.Path)
+		if probeCommands[name] {
+			addBinaryRunCheck(report, component.Path)
+		}
 	}
 	if fontInstalled {
 		addNerdFontCheck(report)

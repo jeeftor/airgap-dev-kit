@@ -104,6 +104,9 @@ them. Other health warnings need their own reported remediation.
   can be disconnected after installation. Keep the extracted kit available for
   `doctor --verify`: installed commands discover it through the installation
   record without requiring `AIRGAP_KIT_DIR`.
+- Installed-command checks use the installation record. CLI-only installs and
+  deselected tools do not fail because those commands are absent; recorded
+  commands that disappear or lose executable permissions still fail.
 
 ## Legacy migration
 

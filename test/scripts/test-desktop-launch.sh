@@ -61,19 +61,36 @@ test_middle_paste() {
   local window="$1" socket="$2" pane
   pane=$("$HOME/.local/bin/jq" -r '.[0].pane_id' "$logs_dir/menu-panes.log")
   cat > "$logs_dir/mouse-paste.lua" <<'LUA'
-dofile(vim.env.HOME .. "/.config/nvim/lua/config/options.lua")
-assert(vim.fn.executable("xclip") == 0, "test editor can see xclip")
-assert(vim.fn.executable("wl-paste") == 0, "test editor can see wl-paste")
-vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI" }, {
-  callback = function()
-    vim.fn.writefile(vim.api.nvim_buf_get_lines(0, 0, -1, false), vim.env.AIRGAP_GUI_TEST_LOGS .. "/pasted.txt")
-  end,
-})
+local ok, err = pcall(function()
+  assert(package.loaded["lazyvim.config"], "installed LazyVim configuration did not load")
+  assert(Snacks.did_setup, "installed editor UI setup did not run")
+  assert(vim.fn.executable("xclip") == 0, "test editor can see xclip")
+  assert(vim.fn.executable("wl-paste") == 0, "test editor can see wl-paste")
+  assert(vim.fn.executable("xsel") == 0, "test editor can see xsel")
+  assert(vim.o.mouse:find("a", 1, true), "installed editor does not capture mouse events")
+  local buffer = vim.api.nvim_get_current_buf()
+  assert(vim.api.nvim_buf_get_name(buffer) == vim.env.AIRGAP_GUI_TEST_LOGS .. "/mouse-paste.txt", "test is not editing the expected text file")
+  vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI" }, {
+    buffer = buffer,
+    callback = function()
+      vim.fn.writefile(vim.api.nvim_buf_get_lines(buffer, 0, -1, false), vim.env.AIRGAP_GUI_TEST_LOGS .. "/pasted.txt")
+    end,
+  })
+end)
+vim.fn.writefile({ ok and "PASS: installed LazyVim mouse fixture ready" or tostring(err) }, vim.env.AIRGAP_GUI_TEST_LOGS .. "/mouse-ready.txt")
 LUA
+  # Use the installed profile, with only kit executables available to the editor.
+  # An explicit file bypasses the dashboard while retaining LazyVim mouse handling.
   WEZTERM_UNIX_SOCKET="$socket" timeout 15s "$HOME/.local/bin/wezterm" cli --no-auto-start spawn --pane-id "$pane" -- /usr/bin/env \
-    PATH="$logs_dir/empty-path" "$HOME/.local/bin/nvim" -u NONE -i NONE \
-    -c 'lua dofile(vim.env.AIRGAP_GUI_TEST_LOGS .. "/mouse-paste.lua")' > "$logs_dir/mouse-pane.log" 2>&1
-  sleep 3
+    PATH="$HOME/.local/bin" "$HOME/.local/bin/nvim" -i NONE "$logs_dir/mouse-paste.txt" \
+    -c 'lua vim.defer_fn(function() dofile(vim.env.AIRGAP_GUI_TEST_LOGS .. "/mouse-paste.lua") end, 1000)' > "$logs_dir/mouse-pane.log" 2>&1
+  for _ in {1..20}; do
+    [[ -f "$logs_dir/mouse-ready.txt" ]] && break
+    sleep 1
+  done
+  [[ -f "$logs_dir/mouse-ready.txt" ]] || { echo "LazyVim mouse fixture did not start" >&2; return 1; }
+  cat "$logs_dir/mouse-ready.txt"
+  grep -qx 'PASS: installed LazyVim mouse fixture ready' "$logs_dir/mouse-ready.txt"
   printf '%s' 'airgap middle-click clipboard test' | xclip -selection primary
   xdotool windowfocus --sync "$window"
   xdotool mousemove --window "$window" 150 150 click 2
@@ -81,7 +98,7 @@ LUA
     if [[ -f "$logs_dir/pasted.txt" ]] && grep -qx 'airgap middle-click clipboard test' "$logs_dir/pasted.txt"; then
       sleep 1
       import -window root "$logs_dir/middle-paste.png"
-      echo "PASS: middle-click pasted into Neovim without a desktop clipboard provider"
+      echo "PASS: middle-click pasted into installed LazyVim without a desktop clipboard provider"
       return 0
     fi
     sleep 1
