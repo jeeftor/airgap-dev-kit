@@ -191,3 +191,5 @@ runtimes for languages you do not use, or dependencies of disabled image
 features do not mean the offline editor is unusable. CI retains the complete
 report and separately gates real offline parser loading, queries, highlighting,
 the bundled CLI, and internal yank behavior.
+The release workflow repeats the offline editor checks against the actual
+release archive before signing and publishing, and retains its health evidence.

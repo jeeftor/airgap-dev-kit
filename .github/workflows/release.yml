@@ -181,6 +181,20 @@ jobs:
           ./airgap install --yes --nvim-mode=replace
           "$HOME/.local/bin/nvim" --headless '+qa'
 
+      - name: Verify release editor without network
+        run: |
+          sudo env AIRGAP_HEALTH_RESULTS="$RUNNER_TEMP/release-editor-health" \
+            unshare --net bash test/scripts/test-editor-health.sh airgap-dev-kit-linux-x86_64.tar.gz
+
+      - name: Upload release editor health evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-editor-health-${{ github.ref_name }}
+          path: ${{ runner.temp }}/release-editor-health
+          if-no-files-found: warn
+          retention-days: 30
+
       - name: Sign release manifest
         env:
           RELEASE_SIGNING_PRIVATE_KEY: ${{ secrets.AIRGAP_RELEASE_SIGNING_PRIVATE_KEY }}
