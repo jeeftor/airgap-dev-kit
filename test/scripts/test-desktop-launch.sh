@@ -13,7 +13,7 @@ chmod 0700 "$HOME/.runtime"
 report_failure() {
   local status=$?
   if [[ "$status" -ne 0 ]]; then
-    tail -80 "$logs_dir"/*.log >&2 || true
+    tail -n 80 "$logs_dir"/*.log >&2 || true
   fi
 }
 trap report_failure EXIT

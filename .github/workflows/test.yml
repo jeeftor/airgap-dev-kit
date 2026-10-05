@@ -216,7 +216,8 @@ jobs:
           set -euo pipefail
           gui_test_root=$(mktemp -d "$RUNNER_TEMP/airgap-gui-home.XXXXXX")
           gui_test_home="$gui_test_root/home with spaces"
-          mkdir -p "$gui_test_home"
+          mkdir -p "$gui_test_home/.runtime"
+          chmod 0700 "$gui_test_home/.runtime"
           env -u WAYLAND_DISPLAY HOME="$gui_test_home" AIRGAP_GUI_TEST_HOME="$gui_test_home" \
             AIRGAP_GUI_TEST_LOGS="$RUNNER_TEMP/airgap-desktop-launch-results" \
             XDG_CONFIG_HOME="$gui_test_home/.config" \

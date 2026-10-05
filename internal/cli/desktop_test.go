@@ -3,10 +3,35 @@ package cli
 import (
 	"bytes"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestAppImageLauncherWorksWithUnusableFUSE(t *testing.T) {
+	home := filepath.Join(t.TempDir(), "your home")
+	bin, data := installLocations(home, "user")
+	if err := os.MkdirAll(bin, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(bin, "fusermount3"), []byte("#!/bin/sh\nexit 1\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin)
+	source := filepath.Join(t.TempDir(), "test.AppImage")
+	if err := os.WriteFile(source, []byte("#!/bin/sh\n[ \"$1\" = --appimage-extract-and-run ] || exit 1\nshift\nprintf '%s\\n' \"$@\"\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	record := installRecord{}
+	if err := installAppImage(source, bin, data, "user", "test.AppImage", "test-app", &record); err != nil {
+		t.Fatal(err)
+	}
+	output, err := exec.Command(filepath.Join(bin, "test-app"), "argument with spaces").CombinedOutput()
+	if err != nil || string(output) != "argument with spaces\n" {
+		t.Fatalf("FUSE-free launch: output=%q error=%v", output, err)
+	}
+}
 
 func TestWezTermApplicationLauncherIsInstalledAndRemoved(t *testing.T) {
 	home := filepath.Join(t.TempDir(), "your home")

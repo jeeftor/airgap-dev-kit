@@ -35,6 +35,10 @@ review screen. Noninteractive system installs use:
 ./airgap install --yes --scope=system
 ```
 
+AppImage launchers use extraction mode so they also work when FUSE libraries or
+device access are unavailable. They still require the application's normal Linux
+graphics libraries.
+
 For automation, choose GUI registration explicitly:
 
 ```sh

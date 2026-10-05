@@ -618,7 +618,8 @@ func installAppImage(source, binDir, appDataDir, scope, imageName, command strin
 	if err := copyExecutableForScope(source, image, scope); err != nil {
 		return err
 	}
-	wrapper := "#!/bin/sh\nset -eu\nimage=\"" + image + "\"\nif command -v fusermount >/dev/null 2>&1 || command -v fusermount3 >/dev/null 2>&1; then\n  exec \"$image\" \"$@\"\nfi\nexec \"$image\" --appimage-extract-and-run \"$@\"\n"
+	// A fusermount command does not guarantee compatible libraries or device access.
+	wrapper := "#!/bin/sh\nset -eu\nimage=\"" + image + "\"\nexec \"$image\" --appimage-extract-and-run \"$@\"\n"
 	destination := filepath.Join(binDir, command)
 	if err := writeFileForScope(destination, []byte(wrapper), 0755, scope); err != nil {
 		return err
