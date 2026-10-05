@@ -39,7 +39,7 @@ run_case() {
     echo "✓ $name"
   else
     echo "✗ $name failed; container left for inspection: $container" >&2
-    docker exec "$container" bash -lc 'tail -80 /tmp/install.out /tmp/nvim-headless.out /tmp/remove.out 2>/dev/null' || true
+    docker exec "$container" bash -lc 'tail -80 /tmp/install.out /tmp/nvim-headless.out /tmp/doctor-installed.out /tmp/remove.out 2>/dev/null' || true
     return 1
   fi
 }
@@ -79,6 +79,7 @@ usbtree --version
 mkcert --version
 svu --version
 "$HOME/.local/share/nvim/mason/bin/lua-language-server" --version
+PATH="$HOME/.local/share/nvim/mason/node/bin:$PATH" "$HOME/.local/share/nvim/mason/bin/bash-language-server" --version
 shellcheck --version
 gum --version
 glow --version

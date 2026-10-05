@@ -645,7 +645,7 @@ func installNvimPayload(root, payload, home, dataHome, binDir, nvimDataDir, scop
 		return fmt.Errorf("bundled Neovim runtime is incomplete: %w", err)
 	}
 	record.Paths = append(record.Paths, runtimeDestination)
-	launcher := "#!/bin/sh\nset -eu\nexport VIMRUNTIME=\"" + runtimeDestination + "\"\nexec \"" + filepath.Join(binDir, "nvim-airgap") + "\" \"$@\"\n"
+	launcher := "#!/bin/sh\nset -eu\nexport VIMRUNTIME=\"" + runtimeDestination + "\"\nexport PATH=\"" + filepath.Join(dataHome, "nvim", "mason", "node", "bin") + ":$PATH\"\nexec \"" + filepath.Join(binDir, "nvim-airgap") + "\" \"$@\"\n"
 	if err := writeFileForScope(filepath.Join(binDir, "nvim"), []byte(launcher), 0755, scope); err != nil {
 		return err
 	}
@@ -893,7 +893,7 @@ func removeInstalledPath(path, scope string) error {
 		return os.RemoveAll(path)
 	}
 	clean := filepath.Clean(path)
-	if strings.HasPrefix(clean, "/usr/local/bin/") || strings.HasPrefix(clean, "/usr/local/share/airgap-dev-kit/") {
+	if strings.HasPrefix(clean, "/usr/local/bin/") || strings.HasPrefix(clean, "/usr/local/share/airgap-dev-kit/") || clean == "/usr/local/share/applications/airgap-wezterm.desktop" {
 		return runSudo("rm", "-rf", clean)
 	}
 	if strings.HasPrefix(clean, "/usr/local/") {

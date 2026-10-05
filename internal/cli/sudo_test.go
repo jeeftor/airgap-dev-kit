@@ -73,3 +73,23 @@ func TestPrivilegedStepsCannotPromptInsideUI(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestSystemUninstallAllowsOnlyManagedDesktopEntry(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("the sudo stub must intercept removal")
+	}
+	bin := t.TempDir()
+	stub := "#!/bin/sh\n[ \"$*\" = '-n rm -rf /usr/local/share/applications/airgap-wezterm.desktop' ]\n"
+	if err := os.WriteFile(filepath.Join(bin, "sudo"), []byte(stub), 0755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin)
+	if err := removeInstalledPath("/usr/local/share/applications/airgap-wezterm.desktop", "system"); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{"/usr/local/share/applications", "/usr/local/share/applications/wezterm.desktop"} {
+		if err := removeInstalledPath(path, "system"); err == nil || !strings.Contains(err.Error(), "refusing to remove") {
+			t.Fatalf("unrelated desktop path %q was not refused: %v", path, err)
+		}
+	}
+}
