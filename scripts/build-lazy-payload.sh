@@ -65,7 +65,7 @@ cat > "$work_dir/build-parsers.lua" <<'LUA'
 local expected = vim.json.decode(table.concat(vim.fn.readfile(vim.env.AIRGAP_LOCKFILE), "\n"))
 for name, entry in pairs(expected) do
   local result = vim.system({ "git", "-C", vim.env.AIRGAP_LAZY_DIR .. "/" .. name, "rev-parse", "HEAD" }, { text = true }):wait()
-  assert(result.code == 0 and vim.trim(result.stdout) == entry.commit, "Plugin not at locked revision: " .. name)
+  assert(result.code == 0 and vim.trim(result.stdout) == entry.commit, "Plugin not at locked revision: " .. name .. " expected=" .. entry.commit .. " actual=" .. tostring(result.stdout) .. " stderr=" .. tostring(result.stderr))
 end
 vim.opt.rtp:prepend(vim.env.AIRGAP_TS_PLUGIN)
 local ts = require("nvim-treesitter")
