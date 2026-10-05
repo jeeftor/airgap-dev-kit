@@ -7,7 +7,11 @@ set -euo pipefail
 : "${LAZY_OUTPUT:?Set LAZY_OUTPUT to the output tarball path}"
 : "${PARSER_MANIFEST:?Set PARSER_MANIFEST to config/plugin-manifest.lua}"
 : "${TREE_SITTER_VERSION:?Set the pinned Tree-sitter CLI release}"
-: "${TREE_SITTER_SHA256:?Set the Tree-sitter release asset checksum}"
+: "${TREE_SITTER_SOURCE_SHA256:?Set the Tree-sitter source archive checksum}"
+
+for tool in cargo musl-gcc readelf; do
+  command -v "$tool" >/dev/null 2>&1 || { echo "Connected Linux builder requires $tool for the portable Tree-sitter CLI" >&2; exit 1; }
+done
 
 work_dir=$(mktemp -d "${TMPDIR:-/tmp}/airgap-lazy.XXXXXX")
 trap 'rm -rf "$work_dir"' EXIT HUP INT TERM
@@ -64,11 +68,35 @@ test -f "$data_home/nvim/lazy-lock.json"
 
 site_dir="$data_home/nvim/site"
 mkdir -p "$site_dir/bin"
-curl -fsSL "https://github.com/tree-sitter/tree-sitter/releases/download/${TREE_SITTER_VERSION}/tree-sitter-linux-x64.gz" -o "$work_dir/tree-sitter.gz"
-printf '%s  %s\n' "$TREE_SITTER_SHA256" "$work_dir/tree-sitter.gz" | sha256sum -c -
-gzip -dc "$work_dir/tree-sitter.gz" > "$site_dir/bin/tree-sitter"
+curl -fsSL "https://codeload.github.com/tree-sitter/tree-sitter/tar.gz/refs/tags/${TREE_SITTER_VERSION}" -o "$work_dir/tree-sitter-source.tar.gz"
+printf '%s  %s\n' "$TREE_SITTER_SOURCE_SHA256" "$work_dir/tree-sitter-source.tar.gz" | sha256sum -c -
+mkdir -p "$work_dir/tree-sitter-source"
+tar -xzf "$work_dir/tree-sitter-source.tar.gz" --strip-components=1 -C "$work_dir/tree-sitter-source"
+(
+  cd "$work_dir/tree-sitter-source"
+  CC_x86_64_unknown_linux_musl=musl-gcc \
+  CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER=musl-gcc \
+  CARGO_TARGET_DIR="$work_dir/tree-sitter-target" \
+    cargo build --locked --release --package tree-sitter-cli --target x86_64-unknown-linux-musl
+)
+cp "$work_dir/tree-sitter-target/x86_64-unknown-linux-musl/release/tree-sitter" "$site_dir/bin/tree-sitter"
 chmod 0755 "$site_dir/bin/tree-sitter"
+# Upstream's GNU release binary requires newer glibc than supported targets.
+# Reject dynamic dependencies so an accidental target/linker change cannot ship.
+readelf -l -d "$site_dir/bin/tree-sitter" > "$work_dir/tree-sitter-elf.txt"
+if awk '/INTERP|NEEDED/ { dynamic = 1 } END { exit !dynamic }' "$work_dir/tree-sitter-elf.txt"; then
+  cat "$work_dir/tree-sitter-elf.txt" >&2
+  echo 'Tree-sitter CLI must be statically linked' >&2
+  exit 1
+fi
 "$site_dir/bin/tree-sitter" --version
+mkdir -p "$work_dir/tree-sitter-probe"
+printf '%s\n' '{"name":"airgap_probe","rules":{"source_file":{"type":"STRING","value":"hello"}}}' > "$work_dir/tree-sitter-probe/grammar.json"
+(
+  cd "$work_dir/tree-sitter-probe"
+  "$site_dir/bin/tree-sitter" generate grammar.json
+  test -s src/parser.c
+)
 
 cat > "$work_dir/build-parsers.lua" <<'LUA'
 local expected = vim.json.decode(table.concat(vim.fn.readfile(vim.env.AIRGAP_LOCKFILE), "\n"))

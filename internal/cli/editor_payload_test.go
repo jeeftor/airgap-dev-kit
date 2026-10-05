@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -69,6 +70,69 @@ func TestEditorPayloadInstallsExecutableCLIParsersAndLock(t *testing.T) {
 				t.Fatalf("untracked parser payload remains: %v", err)
 			}
 		})
+	}
+}
+
+func TestLazyVimChoiceIncludesRuntimeTools(t *testing.T) {
+	for _, mode := range []string{"fresh", "replace", "preserve"} {
+		t.Run(mode, func(t *testing.T) {
+			payload, bin := t.TempDir(), t.TempDir()
+			for _, name := range []string{"fd", "fzf", "rg", "lazygit", "bat"} {
+				if err := os.WriteFile(filepath.Join(payload, name), []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			model := installModel{step: 3, existingNvim: mode != "fresh", options: installOptions{NvimMode: "preserve", Tools: map[string]bool{}}}
+			if mode == "replace" {
+				model.choice = 1
+			}
+			model = updateInstallPlanner(t, model, "enter")
+			var record installRecord
+			if err := copyPayloadBinaries(payload, bin, t.TempDir(), "user", true, model.options.Tools, &record); err != nil {
+				t.Fatal(err)
+			}
+			for _, name := range []string{"fd", "fzf", "rg", "lazygit"} {
+				_, err := os.Stat(filepath.Join(bin, name))
+				if mode == "preserve" {
+					if !os.IsNotExist(err) {
+						t.Fatalf("preserving profile installed deselected %s: %v", name, err)
+					}
+				} else if err != nil {
+					t.Fatalf("LazyVim choice omitted required %s: %v", name, err)
+				}
+			}
+			if _, err := os.Stat(filepath.Join(bin, "bat")); !os.IsNotExist(err) {
+				t.Fatalf("unrelated deselected tool installed: %v", err)
+			}
+		})
+	}
+}
+
+func TestLazyVimMissingToolFailsBeforeChangingHome(t *testing.T) {
+	home, kit := t.TempDir(), t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_DATA_HOME", filepath.Join(home, ".local", "share"))
+	t.Setenv("AIRGAP_KIT_DIR", kit)
+	payload := filepath.Join(kit, "offline-packages", "linux", "amd64")
+	if err := os.MkdirAll(payload, 0755); err != nil {
+		t.Fatal(err)
+	}
+	for name, data := range map[string]string{
+		"airgap":            "#!/bin/sh\nexit 0\n",
+		"kit-manifest.json": `{"schema_version":1,"version":"v0.0.0","target":"linux/amd64","payload_dir":"offline-packages/linux/amd64"}`,
+	} {
+		if err := os.WriteFile(filepath.Join(kit, name), []byte(data), 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	root := New("v0.0.0", "test")
+	root.SetArgs([]string{"install", "--yes", "--cli-only", "--nvim-mode=replace"})
+	if err := root.Execute(); err == nil || !strings.Contains(err.Error(), "LazyVim requires bundled executable fd") {
+		t.Fatalf("incomplete kit was not rejected: %v", err)
+	}
+	entries, err := os.ReadDir(home)
+	if err != nil || len(entries) != 0 {
+		t.Fatalf("incomplete kit modified your home: %v %v", entries, err)
 	}
 }
 

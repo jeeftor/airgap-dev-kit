@@ -58,7 +58,7 @@ env PATH="$logs_dir/empty-path" "$HOME/.local/bin/nvim" --headless -u NONE -i NO
   -l "$logs_dir/no-provider.lua" > "$logs_dir/no-provider.log" 2>&1
 
 test_middle_paste() {
-  local window="$1" pane
+  local window="$1" socket="$2" pane
   pane=$("$HOME/.local/bin/jq" -r '.[0].pane_id' "$logs_dir/menu-panes.log")
   cat > "$logs_dir/mouse-paste.lua" <<'LUA'
 dofile(vim.env.HOME .. "/.config/nvim/lua/config/options.lua")
@@ -70,7 +70,7 @@ vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI" }, {
   end,
 })
 LUA
-  timeout 15s "$HOME/.local/bin/wezterm" cli spawn --pane-id "$pane" -- /usr/bin/env \
+  WEZTERM_UNIX_SOCKET="$socket" timeout 15s "$HOME/.local/bin/wezterm" cli --no-auto-start spawn --pane-id "$pane" -- /usr/bin/env \
     PATH="$logs_dir/empty-path" "$HOME/.local/bin/nvim" -u NONE -i NONE \
     -c 'lua dofile(vim.env.AIRGAP_GUI_TEST_LOGS .. "/mouse-paste.lua")' > "$logs_dir/mouse-pane.log" 2>&1
   sleep 3
@@ -91,7 +91,7 @@ LUA
 }
 
 test_editor_ui_health() {
-  local pane
+  local socket="$1" pane
   pane=$("$HOME/.local/bin/jq" -r '.[0].pane_id' "$logs_dir/menu-panes.log")
   cat > "$logs_dir/editor-ui-health.lua" <<'LUA'
 local ok, err = pcall(function()
@@ -108,7 +108,7 @@ end)
 vim.fn.writefile({ ok and "PASS: editor UI setup and health capture" or tostring(err) }, vim.env.AIRGAP_GUI_TEST_LOGS .. "/editor-ui-result.txt")
 vim.cmd("qa!")
 LUA
-  timeout 15s "$HOME/.local/bin/wezterm" cli spawn --pane-id "$pane" -- \
+  WEZTERM_UNIX_SOCKET="$socket" timeout 15s "$HOME/.local/bin/wezterm" cli --no-auto-start spawn --pane-id "$pane" -- \
     "$HOME/.local/bin/nvim" -c 'lua vim.defer_fn(function() dofile(vim.env.AIRGAP_GUI_TEST_LOGS .. "/editor-ui-health.lua") end, 1000)' \
     > "$logs_dir/editor-ui-pane.log" 2>&1
   for _ in {1..30}; do
@@ -124,7 +124,7 @@ LUA
 }
 
 launch_entry() {
-  local entry="$1" label="$2" window=""
+  local entry="$1" label="$2" window="" pid socket
   if [[ "$label" == preset-* ]]; then
     PATH="$HOME/.local/bin:$PATH" "$HOME/.local/bin/airgap" wez start "${label#preset-}" > "$logs_dir/$label.log" 2>&1 &
   elif [[ "$label" == menu ]]; then
@@ -146,12 +146,23 @@ launch_entry() {
   sleep 2
   xwininfo -id "$window" > "$logs_dir/$label-window.log"
   grep -q 'Map State: IsViewable' "$logs_dir/$label-window.log"
-  timeout 15s "$HOME/.local/bin/wezterm" cli list --format json > "$logs_dir/$label-panes.log"
+  # A forcibly closed GUI can leave discovery pointing at its stale socket.
+  # Target the process owning the visible window rather than another instance.
+  xprop -id "$window" _NET_WM_PID > "$logs_dir/$label-pid.log"
+  pid=$(awk '/_NET_WM_PID.* = [0-9]+$/ {print $NF}' "$logs_dir/$label-pid.log")
+  [[ "$pid" =~ ^[0-9]+$ ]] || { echo "No GUI process ID found for $label" >&2; return 1; }
+  socket="$XDG_RUNTIME_DIR/wezterm/gui-sock-$pid"
+  for _ in {1..10}; do
+    [[ -S "$socket" ]] && break
+    sleep 1
+  done
+  [[ -S "$socket" ]] || { echo "No GUI socket found for $label process $pid" >&2; return 1; }
+  WEZTERM_UNIX_SOCKET="$socket" timeout 15s "$HOME/.local/bin/wezterm" cli --no-auto-start list --format json > "$logs_dir/$label-panes.log"
   "$HOME/.local/bin/jq" -e 'length > 0' "$logs_dir/$label-panes.log" >/dev/null
   import -window root "$logs_dir/$label.png"
   if [[ "$label" == menu ]]; then
-    test_editor_ui_health
-    test_middle_paste "$window"
+    test_editor_ui_health "$socket"
+    test_middle_paste "$window" "$socket"
   fi
   xkill -id "$window"
   for _ in {1..10}; do

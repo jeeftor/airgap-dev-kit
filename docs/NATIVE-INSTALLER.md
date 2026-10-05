@@ -134,14 +134,33 @@ it does not prove behavior on your GNOME/KDE Wayland desktop.
 
 ### Editor health and offline prerequisites
 
+Installing the kit's Neovim and LazyVim profile automatically includes `fd`,
+`fzf`, `rg`, and `lazygit`, even if you deselected them in the component picker.
+The installer shows these required tools before confirmation and rejects an
+incomplete payload before writing files. Both full and CLI-only installations
+include them. The Neovim launcher adds the installed binary directory to its
+own PATH, so menu launches work even when you decline shell integration.
+Preserving an existing Neovim profile does not force these tool selections.
+
 New editor payloads include the manifest's compiled Tree-sitter parsers, matching
-queries, and a checksum-verified Tree-sitter CLI. The connected Linux builder
-compiles them; editor startup does not install or update parsers. LuaRocks is
+queries, and a Tree-sitter CLI built from checksum-verified upstream source. The
+connected Linux builder compiles them; editor startup does not install or update
+parsers. LuaRocks is
 disabled because the bundled plugin set does not require it. Mason does not
 request downloads for unbundled tools; already installed language servers remain
 available. Existing Neovim
 profiles are preserved by default: choose `--nvim-mode=replace` to back up your
 profile and install the kit configuration and payloads.
+
+The CLI is statically linked with musl so it does not require the builder's glibc
+version on Red Hat or Debian targets. The builder checks its ELF dependencies
+and generates a sample parser before packaging. Native Linux builders need a
+current Rust toolchain, the `x86_64-unknown-linux-musl` Rust target, `musl-gcc`,
+and `readelf`; the Docker and GitHub builders prepare these dependencies in
+their disposable environments. Cargo uses upstream's lockfile with `--locked`.
+This CLI supports parser generation; standalone `tree-sitter parse` loading
+shared parser libraries is unavailable with static musl. Neovim loads and uses
+the bundled shared parsers directly, which CI verifies separately.
 
 Git remains a host prerequisite for Git integrations, including LazyGit and
 LazyVim. Install the `git` package from your distribution's offline repository

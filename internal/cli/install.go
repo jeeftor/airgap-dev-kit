@@ -36,6 +36,27 @@ type installOptions struct {
 	DesktopIntegration string
 }
 
+// These tools support the bundled LazyVim picker, search, and Git interface.
+var nvimRequiredTools = []string{"fd", "fzf", "rg", "lazygit"}
+
+func includeNvimTools(options *installOptions) {
+	if options.Tools != nil {
+		for _, name := range nvimRequiredTools {
+			options.Tools[name] = true
+		}
+	}
+}
+
+func validateNvimTools(payload string) error {
+	for _, name := range nvimRequiredTools {
+		info, err := os.Stat(filepath.Join(payload, name))
+		if err != nil || !info.Mode().IsRegular() || info.Mode()&0111 == 0 {
+			return fmt.Errorf("LazyVim requires bundled executable %s; use a complete kit archive", name)
+		}
+	}
+	return nil
+}
+
 // installCmd installs only the payload in an extracted v2 kit. It deliberately
 // has no network or shell-script dependency.
 func installCmd() *cobra.Command {
@@ -120,6 +141,13 @@ func installKit(cmd *cobra.Command, options installOptions) error {
 		}
 		options = planned
 	}
+	installNvim := options.NvimMode == "replace" || options.NvimMode == "overwrite" || !nvimStateExists(home, dataHome)
+	if installNvim {
+		includeNvimTools(&options)
+		if err := validateNvimTools(payload); err != nil {
+			return err
+		}
+	}
 	if options.Demo {
 		writeInstallPlan(cmd, root, payload, home, dataHome, options, "interactive dry run")
 		return nil
@@ -145,7 +173,9 @@ func installKit(cmd *cobra.Command, options installOptions) error {
 	fmt.Fprintln(cmd.OutOrStdout(), styled(cmd, titleStyle, "Airgap install"))
 	fmt.Fprintln(cmd.OutOrStdout(), styled(cmd, dimStyle, "Offline payload · "+options.Scope+" command installation"))
 	record := installRecord{Version: manifest.Version, KitDir: root, Scope: options.Scope}
-	installNvim := options.NvimMode == "replace" || options.NvimMode == "overwrite" || !nvimStateExists(home, dataHome)
+	if installNvim {
+		fmt.Fprintln(cmd.OutOrStdout(), "  LazyVim includes required tools: "+strings.Join(nvimRequiredTools, ", "))
+	}
 	steps := []installStep{
 		{label: "Prepare command directories", result: "Installed", details: "Created " + binDir, action: func() error {
 			return makeInstallDir(binDir, options.Scope)
@@ -244,6 +274,10 @@ func writeInstallPlan(cmd *cobra.Command, root, payload, home, dataHome string, 
 		nvimDataDir = appDataDir
 	}
 	fmt.Fprintf(cmd.OutOrStdout(), "Airgap install (%s)\n", mode)
+	if options.NvimMode != "preserve" || !nvimStateExists(home, dataHome) {
+		includeNvimTools(&options)
+		fmt.Fprintln(cmd.OutOrStdout(), "  LazyVim includes required tools: "+strings.Join(nvimRequiredTools, ", "))
+	}
 	for _, path := range installPlan(root, payload, binDir, nvimDataDir, options) {
 		fmt.Fprintln(cmd.OutOrStdout(), "  would install "+path)
 	}
@@ -449,6 +483,10 @@ func installPlan(root, payload, binDir, appDataDir string, options installOption
 		}
 		info, err := entry.Info()
 		if err != nil || !info.Mode().IsRegular() || (!isAppImagePayload(entry.Name()) && info.Mode()&0111 == 0) {
+			continue
+		}
+		name := installedPayloadName(entry.Name())
+		if name != "airgap" && options.Tools != nil && !options.Tools[name] {
 			continue
 		}
 		paths = append(paths, filepath.Join(binDir, installedPayloadName(entry.Name())))
@@ -688,7 +726,7 @@ func installNvimPayload(root, payload, home, dataHome, binDir, nvimDataDir, scop
 		return fmt.Errorf("bundled Neovim runtime is incomplete: %w", err)
 	}
 	record.Paths = append(record.Paths, runtimeDestination)
-	launcher := "#!/bin/sh\nset -eu\nexport VIMRUNTIME=\"" + runtimeDestination + "\"\nexport PATH=\"" + filepath.Join(dataHome, "nvim", "mason", "node", "bin") + ":" + filepath.Join(dataHome, "nvim", "site", "bin") + ":$PATH\"\nexec \"" + filepath.Join(binDir, "nvim-airgap") + "\" \"$@\"\n"
+	launcher := "#!/bin/sh\nset -eu\nexport VIMRUNTIME=\"" + runtimeDestination + "\"\nexport PATH=\"" + filepath.Join(dataHome, "nvim", "mason", "node", "bin") + ":" + filepath.Join(dataHome, "nvim", "site", "bin") + ":" + binDir + ":$PATH\"\nexec \"" + filepath.Join(binDir, "nvim-airgap") + "\" \"$@\"\n"
 	if err := writeFileForScope(filepath.Join(binDir, "nvim"), []byte(launcher), 0755, scope); err != nil {
 		return err
 	}

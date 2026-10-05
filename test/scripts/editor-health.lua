@@ -26,6 +26,11 @@ end
 assert(bridge_settings.automatic_enable ~= false, "Installed LSP activation disabled")
 assert(vim.lsp.is_enabled("lua_ls"), "Bundled Lua language server is not enabled")
 assert(vim.fn.executable("tree-sitter") == 1, "Bundled Tree-sitter CLI not on editor PATH")
+for _, tool in ipairs({ "fd", "fzf", "rg", "lazygit" }) do
+	assert(vim.fn.executable(tool) == 1, "Missing LazyVim runtime tool: " .. tool)
+	local result = vim.system({ tool, "--version" }, { text = true }):wait()
+	assert(result.code == 0, "Cannot run " .. tool .. ": " .. tostring(result.stderr))
+end
 local cli = vim.system({ "tree-sitter", "--version" }, { text = true }):wait()
 assert(cli.code == 0, cli.stderr)
 assert(require("lazy.core.config").options.rocks.enabled == false, "Unused LuaRocks enabled")

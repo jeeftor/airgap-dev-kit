@@ -222,6 +222,9 @@ func (m installModel) View() tea.View {
 			shell = "Add the managed Bash/Zsh integration"
 		}
 		b.WriteString(m.reviewTable(profile, location, nvim, shell).View() + "\n")
+		if !m.existingNvim || m.options.NvimMode != "preserve" {
+			b.WriteString("\n" + dimStyle.Render(wrapText("LazyVim includes required tools: "+strings.Join(nvimRequiredTools, ", ")+". Git remains a host prerequisite for Git features.", 78)) + "\n")
+		}
 		if m.existingNvim && m.options.NvimMode == "replace" {
 			b.WriteString("\n" + safetyPanel("Backup first: your complete Neovim profile will be moved to ~/.local/share/airgap-dev-kit/backups/.") + "\n")
 		} else if m.existingNvim && m.options.NvimMode == "overwrite" {
@@ -241,6 +244,9 @@ func (m installModel) View() tea.View {
 	b.WriteString(accentStyle.Render(m.question()) + "\n")
 	if m.step == 3 && m.existingNvim {
 		b.WriteString(safetyPanel("Existing Neovim state found. Preserve it, back it up before replacing, or permanently overwrite it.") + "\n\n")
+	}
+	if m.step == 3 {
+		b.WriteString(dimStyle.Render(wrapText("Installing LazyVim also includes its required tools: "+strings.Join(nvimRequiredTools, ", ")+". Git remains a host prerequisite for Git features.", 78)) + "\n\n")
 	}
 	if m.step == 4 {
 		b.WriteString(dimStyle.Render("This adds one removable Airgap block to Bash/Zsh. It enables PATH, FZF keys/completion, zoxide, and Starship.") + "\n\n")
@@ -391,6 +397,9 @@ func (m *installModel) applyChoice() {
 			} else if m.choice == 2 {
 				m.options.NvimMode = "overwrite"
 			}
+		}
+		if !m.existingNvim || m.options.NvimMode != "preserve" {
+			includeNvimTools(&m.options)
 		}
 	case 4:
 		m.options.ConfigureShell = m.choice == 0

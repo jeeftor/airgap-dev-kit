@@ -496,9 +496,13 @@ func TestNativeInstallSetsBundledNeovimRuntime(t *testing.T) {
 		t.Fatal(err)
 	}
 	for path, content := range map[string]string{
-		"kit-manifest.json":                   `{"schema_version":1,"version":"v2.0.2","target":"linux/amd64","payload_dir":"offline-packages/linux/amd64"}`,
-		"airgap":                              "#!/bin/sh\nexit 0\n",
-		"offline-packages/linux/amd64/airgap": "#!/bin/sh\nexit 0\n",
+		"kit-manifest.json":                                           `{"schema_version":1,"version":"v2.0.2","target":"linux/amd64","payload_dir":"offline-packages/linux/amd64"}`,
+		"airgap":                                                      "#!/bin/sh\nexit 0\n",
+		"offline-packages/linux/amd64/airgap":                         "#!/bin/sh\nexit 0\n",
+		"offline-packages/linux/amd64/fd":                             "#!/bin/sh\nexit 0\n",
+		"offline-packages/linux/amd64/fzf":                            "#!/bin/sh\nexit 0\n",
+		"offline-packages/linux/amd64/rg":                             "#!/bin/sh\nexit 0\n",
+		"offline-packages/linux/amd64/lazygit":                        "#!/bin/sh\nexit 0\n",
 		"offline-packages/linux/amd64/nvim-static-x86_64":             "#!/bin/sh\nprintf '%s\\n' \"$VIMRUNTIME\" \"$PATH\"\n",
 		"offline-packages/linux/amd64/nvim-runtime/syntax/syntax.vim": "runtime\n",
 		"config/nvim/.config/nvim/init.lua":                           "-- kit config\n",
@@ -529,6 +533,9 @@ func TestNativeInstallSetsBundledNeovimRuntime(t *testing.T) {
 	wantNode := filepath.Join(home, ".local", "share", "nvim", "mason", "node", "bin")
 	if len(environment) != 2 || !strings.HasPrefix(environment[1], wantNode+":") {
 		t.Fatalf("Neovim cannot resolve the bundled Node runtime: %q", output)
+	}
+	if !strings.Contains(environment[1], ":"+filepath.Join(home, ".local", "bin")+":") {
+		t.Fatalf("Neovim cannot resolve installed tools without shell integration: %q", output)
 	}
 	if _, err := os.Stat(filepath.Join(home, ".config", "nvim", "init.lua")); err != nil {
 		t.Fatalf("Neovim config was not installed: %v", err)

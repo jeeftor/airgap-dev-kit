@@ -11,8 +11,8 @@ tar -xzf "$archive" -C "$work_dir"
 kit="$work_dir/airgap-dev-kit"
 # Catch incomplete packaging before invoking any editor or installer.
 tar -tzf "$kit/offline-packages/lazy-plugins.tar.gz" > "$results/payload-files.txt"
-rg -q '^site/parser/lua\.so$' "$results/payload-files.txt" || { echo 'Missing bundled Lua parser' >&2; exit 1; }
-rg -q '^site/bin/tree-sitter$' "$results/payload-files.txt" || { echo 'Missing bundled Tree-sitter CLI' >&2; exit 1; }
+awk '$0 == "site/parser/lua.so" { found = 1 } END { exit !found }' "$results/payload-files.txt" || { echo 'Missing bundled Lua parser' >&2; exit 1; }
+awk '$0 == "site/bin/tree-sitter" { found = 1 } END { exit !found }' "$results/payload-files.txt" || { echo 'Missing bundled Tree-sitter CLI' >&2; exit 1; }
 
 test_home="$work_dir/home"
 mkdir -p "$test_home"
@@ -27,7 +27,7 @@ trap 'cp "$XDG_STATE_HOME/nvim/lsp.log" "$AIRGAP_HEALTH_RESULTS/lsp.log" 2>/dev/
 export PATH="$HOME/.local/bin:$PATH"
 # Let VimEnter and scheduled plugin setup finish before testing and capturing
 # health. Immediate +checkhealth/+qa can report setup that has not run yet.
-timeout 90s nvim --headless -c 'lua vim.defer_fn(function() local ok, err = pcall(dofile, vim.env.AIRGAP_HEALTH_SCRIPT); if not ok then print(err); vim.cmd("cquit 1"); return end; vim.cmd("checkhealth"); vim.fn.writefile(vim.api.nvim_buf_get_lines(0, 0, -1, false), vim.env.AIRGAP_HEALTH_RESULTS .. "/checkhealth.txt"); vim.cmd("qa!") end, 200)' > "$AIRGAP_HEALTH_RESULTS/behavior.txt" 2>&1
+timeout 90s nvim --headless -c 'lua vim.defer_fn(function() local ok, err = pcall(dofile, vim.env.AIRGAP_HEALTH_SCRIPT); if not ok then print(err) end; vim.cmd("checkhealth"); vim.fn.writefile(vim.api.nvim_buf_get_lines(0, 0, -1, false), vim.env.AIRGAP_HEALTH_RESULTS .. "/checkhealth.txt"); vim.cmd(ok and "qa!" or "cquit 1") end, 200)' > "$AIRGAP_HEALTH_RESULTS/behavior.txt" 2>&1
 rg -q 'Offline editor parsers, queries, highlighting, CLI, and yank verified' "$AIRGAP_HEALTH_RESULTS/behavior.txt"
 # Optional provider and disabled-feature diagnostics remain in the full buffer.
 test -s "$AIRGAP_HEALTH_RESULTS/checkhealth.txt"
