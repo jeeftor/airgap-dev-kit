@@ -94,6 +94,10 @@ wezterm start -- tmux new-session nvim
 ### WezTerm and tmux
 
 The full package installs a WezTerm configuration at `~/.config/wezterm/wezterm.lua`.
+It also adds **WezTerm (Airgap)** to your desktop's applications menu. User-local
+installs write the launcher under `~/.local/share/applications/`; system-wide
+installs use `/usr/local/share/applications/`. The launcher uses the installed
+binary's absolute path and is removed by `airgap uninstall --yes`.
 It uses JetBrainsMono Nerd Font, retains native window resizing, and shows a tab bar
 when you open more than one WezTerm tab. It intentionally does not redefine pane
 shortcuts: tmux owns terminal splits, navigation, and resizing.
@@ -275,6 +279,11 @@ different release and cannot operate on the extracted kit.
 
 After installation, restart your shell. `airgap update`, `airgap status`, and
 `airgap uninstall --yes` then use the installed command in `~/.local/bin`.
+The installation record lets these commands find your extracted kit from other
+directories. Keep that kit directory in place; `AIRGAP_KIT_DIR` is an optional
+override rather than a required shell setting. For a system-wide install, run
+`./airgap install --scope=system` as your normal user: sudo authenticates before
+the installation progress interface starts.
 
 This provides a simple interface for managing your air-gap development environment without needing to remember individual make commands or script locations.
 

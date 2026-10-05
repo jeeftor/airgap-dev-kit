@@ -3,7 +3,7 @@ set -euo pipefail
 
 IMAGE="${DOCKER_TEST_IMAGE:-ubuntu:22.04}"
 PLATFORM="${DOCKER_TEST_PLATFORM:-linux/amd64}"
-TARBALL="${1:-airgap-dev-kit.tar.gz}"
+TARBALL="${1:-airgap-dev-kit-linux-x86_64.tar.gz}"
 RUN_ID="$(date +%Y%m%d%H%M%S)-$$"
 
 if [[ ! -f "$TARBALL" ]]; then
@@ -39,6 +39,7 @@ run_case() {
     echo "✓ $name"
   else
     echo "✗ $name failed; container left for inspection: $container" >&2
+    docker exec "$container" bash -lc 'tail -80 /tmp/install.out /tmp/nvim-headless.out /tmp/doctor-installed.out /tmp/remove.out 2>/dev/null' || true
     return 1
   fi
 }
@@ -56,6 +57,7 @@ else
   exit 1
 fi
 nvim --headless "+qa" >/tmp/nvim-headless.out 2>&1
+nvim --version | head -1
 fzf --version
 fd airgap /tmp
 rg "hello airgap" /tmp/airgap-smoke.txt
@@ -76,8 +78,17 @@ gdu --version
 usbtree --version
 mkcert --version
 svu --version
-test -x "$(command -v lua-language-server)"
+"$HOME/.local/share/nvim/mason/bin/lua-language-server" --version
+PATH="$HOME/.local/share/nvim/mason/node/bin:$PATH" "$HOME/.local/share/nvim/mason/bin/bash-language-server" --version
 shellcheck --version
+gum --version
+glow --version
+gum style --border double --border-foreground 42 --padding "1 2" --bold "Air-Gap Dev Kit" >/tmp/gum-style.out
+test -s /tmp/gum-style.out
+printf "# Offline Markdown\n\nYour kit is ready.\n" | glow - >/tmp/glow-render.out
+grep -q "Offline Markdown" /tmp/glow-render.out
+test -f "$HOME/.local/share/applications/airgap-wezterm.desktop"
+grep -F "Exec=\"$HOME/.local/bin/wezterm\" start" "$HOME/.local/share/applications/airgap-wezterm.desktop"
 }
 
 '
@@ -88,19 +99,17 @@ set -euo pipefail
 rm -rf /tmp/smoke
 mkdir /tmp/smoke
 tar -xzf /tmp/airgap-dev-kit.tar.gz -C /tmp/smoke >/tmp/extract.out 2>/tmp/extract.err
-cd /tmp/smoke
-./install.sh > /tmp/install.out 2>&1
+cd /tmp/smoke/airgap-dev-kit
+./airgap install --yes --nvim-mode=replace > /tmp/install.out 2>&1
+export PATH="$HOME/.local/bin:$PATH"
 app_smoke
-airgap-dev-kit version > /tmp/cli-version.out
-airgap-dev-kit status > /tmp/cli-status.out
-set +o pipefail
-yes y | airgap-dev-kit remove > /tmp/remove.out 2>&1
-remove_rc=${PIPESTATUS[1]}
-set -o pipefail
-if [[ "$remove_rc" -ne 0 ]]; then
-  tail -120 /tmp/remove.out
-  exit "$remove_rc"
-fi
+airgap version > /tmp/cli-version.out
+cd /tmp
+unset AIRGAP_KIT_DIR
+airgap doctor --verify > /tmp/doctor-installed.out
+airgap status > /tmp/cli-status.out
+"/tmp/smoke/airgap-dev-kit/airgap" uninstall --yes > /tmp/remove.out 2>&1
+test ! -f "$HOME/.local/share/applications/airgap-wezterm.desktop"
 hash -r
 if command -v starship >/dev/null 2>&1; then
   echo "starship still installed"
@@ -120,21 +129,15 @@ mkdir /tmp/smoke
 tar -xzf /tmp/airgap-dev-kit.tar.gz -C /tmp/smoke >/tmp/extract.out 2>/tmp/extract.err
 rm -f /root/.zshrc
 touch /root/.bashrc
-cd /tmp/smoke
-AIRGAP_DEV_KIT_CONFIGURE_SHELLS=1 ./install.sh > /tmp/install.out 2>&1
-grep -F "eval \"\$(starship init bash)\"" /root/.bashrc
-grep -F "source ~/.fzf/shell/key-bindings.bash" /root/.bashrc
+cd /tmp/smoke/airgap-dev-kit
+./airgap install --yes --nvim-mode=replace > /tmp/install.out 2>&1
+grep -F "/airgap-dev-kit/shell.sh" /root/.bashrc
+export PATH="$HOME/.local/bin:$PATH"
 app_smoke
 bash -lc "source /root/.bashrc >/tmp/bash-source.out 2>/tmp/bash-source.err; command -v starship >/dev/null; starship prompt >/tmp/bash-starship-prompt.out"
 test -s /tmp/bash-starship-prompt.out
-set +o pipefail
-yes y | ./uninstall.sh > /tmp/remove.out 2>&1
-remove_rc=${PIPESTATUS[1]}
-set -o pipefail
-if [[ "$remove_rc" -ne 0 ]]; then
-  tail -120 /tmp/remove.out
-  exit "$remove_rc"
-fi
+./airgap uninstall --yes > /tmp/remove.out 2>&1
+! grep -q "/airgap-dev-kit/shell.sh" /root/.bashrc
 '
 
 # shellcheck disable=SC2016
@@ -167,21 +170,15 @@ mkdir /tmp/smoke
 tar -xzf /tmp/airgap-dev-kit.tar.gz -C /tmp/smoke >/tmp/extract.out 2>/tmp/extract.err
 rm -f /root/.bashrc
 touch /root/.zshrc
-cd /tmp/smoke
-SHELL=/bin/zsh AIRGAP_DEV_KIT_CONFIGURE_SHELLS=1 ./install.sh > /tmp/install.out 2>&1
-grep -F "eval \"\$(starship init zsh)\"" /root/.zshrc
-grep -F "source ~/.fzf/shell/key-bindings.zsh" /root/.zshrc
+cd /tmp/smoke/airgap-dev-kit
+SHELL=/bin/zsh ./airgap install --yes --nvim-mode=replace > /tmp/install.out 2>&1
+grep -F "/airgap-dev-kit/shell.sh" /root/.zshrc
+export PATH="$HOME/.local/bin:$PATH"
 app_smoke
 zsh -ic "command -v starship >/dev/null; starship prompt >/tmp/zsh-starship-prompt.out" 2>/tmp/zsh-shell.err
 test -s /tmp/zsh-starship-prompt.out
-set +o pipefail
-yes y | ./uninstall.sh > /tmp/remove.out 2>&1
-remove_rc=${PIPESTATUS[1]}
-set -o pipefail
-if [[ "$remove_rc" -ne 0 ]]; then
-  tail -120 /tmp/remove.out
-  exit "$remove_rc"
-fi
+./airgap uninstall --yes > /tmp/remove.out 2>&1
+! grep -q "/airgap-dev-kit/shell.sh" /root/.zshrc
 '
 
 run_case "install-remove" "$BASE_INSTALL_REMOVE"

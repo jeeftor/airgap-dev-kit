@@ -4,30 +4,35 @@ HOST_OS := $(shell uname -s)
 
 # Version variables - update these when new releases are available
 WEZTERM_VERSION := 20240203-110809-5046fc22
-FZF_VERSION := 0.74.2
+FZF_VERSION := 0.74.4
 TMUX_VERSION := 3.5a
-NERD_FONT_VERSION := v3.5.0
-NVIM_VERSION := v0.12.4
+NERD_FONT_VERSION := v3.5.1
+NVIM_VERSION := v0.12.5
 BTOP_VERSION := v1.4.7
 LSD_VERSION := v1.2.0
 ZOX_VERSION := v0.10.0
-DELTA_VERSION := 0.19.2
-DIFFTASTIC_VERSION := 0.70.0
-GUM_VERSION := v0.17.0
-GLOW_VERSION := v2.1.2
-BROOT_VERSION := v1.58.0
-FASTFETCH_VERSION := 2.67.1
-DUST_VERSION := v1.2.4
-GDU_VERSION := v5.36.1
+DELTA_VERSION := 0.20.1
+DIFFTASTIC_VERSION := 0.71.0
+GUM_VERSION := v2.0.2
+GLOW_VERSION := v3.0.0
+BROOT_VERSION := v1.61.0
+FASTFETCH_VERSION := 2.69.0
+DUST_VERSION := v1.2.6
+GDU_VERSION := v5.38.0
 USBTREE_VERSION := v0.1.1
 MKCERT_VERSION := v1.4.4
 DIRENV_VERSION := v2.37.1
 SVU_VERSION := 3.4.1
-GPING_VERSION := 1.20.4
-FD_VERSION := 10.4.2
+GPING_VERSION := 1.21.0
+FD_VERSION := 10.5.0
 RG_VERSION := 15.2.0
 BAT_VERSION := 0.26.1
 STARSHIP_VERSION := 1.26.0
+LAZYGIT_VERSION := 0.65.1
+JQ_VERSION := 1.8.2
+LUA_LS_VERSION := 3.19.1
+SHELLCHECK_VERSION := 0.11.0
+LINUX_PAYLOAD_VERSIONS := $(WEZTERM_VERSION) $(FZF_VERSION) $(TMUX_VERSION) $(NVIM_VERSION) $(BTOP_VERSION) $(LSD_VERSION) $(ZOX_VERSION) $(DELTA_VERSION) $(DIFFTASTIC_VERSION) $(GUM_VERSION) $(GLOW_VERSION) $(BROOT_VERSION) $(FASTFETCH_VERSION) $(DUST_VERSION) $(GDU_VERSION) $(USBTREE_VERSION) $(MKCERT_VERSION) $(DIRENV_VERSION) $(SVU_VERSION) $(GPING_VERSION) $(FD_VERSION) $(RG_VERSION) $(BAT_VERSION) $(STARSHIP_VERSION) $(LAZYGIT_VERSION) $(JQ_VERSION) $(LUA_LS_VERSION) $(SHELLCHECK_VERSION)
 RELEASE_DIR ?= .
 FLAVOR ?= full
 OUTPUT ?= .
@@ -84,6 +89,13 @@ update: update-linux update-fonts
 update-linux:
 	@echo "Downloading Linux binaries..."
 	@mkdir -p offline-packages/linux
+	@# A version change must replace existing binaries, including old tracked copies.
+	@if [ "$$(cat offline-packages/linux/.versions 2>/dev/null)" != "$(LINUX_PAYLOAD_VERSIONS)" ]; then \
+		for tool in wezterm.AppImage tmux-3.4-static-x86_64 nvim-static-x86_64 fzf fd rg bat starship btop lsd zoxide direnv dust gdu mkcert usbtree gping delta difft gum glow broot fastfetch lazygit jq svu lua-language-server shellcheck; do \
+			rm -f "offline-packages/linux/$$tool"; \
+		done; \
+		rm -f offline-packages/linux/fzf-scripts/key-bindings.* offline-packages/linux/fzf-scripts/completion.*; \
+	fi
 
 	@# WezTerm AppImage
 	@if [ ! -f offline-packages/linux/wezterm.AppImage ] || [ $$(stat -f%z offline-packages/linux/wezterm.AppImage 2>/dev/null || stat -c%s offline-packages/linux/wezterm.AppImage 2>/dev/null) -lt 1000 ]; then \
@@ -312,7 +324,7 @@ update-linux:
 	@# difftastic - structural diff tool
 	@if [ ! -f offline-packages/linux/difft ] || [ $$(stat -f%z offline-packages/linux/difft 2>/dev/null || stat -c%s offline-packages/linux/difft 2>/dev/null) -lt 1000 ]; then \
 		echo "  → difftastic (structural diff)..."; \
-		curl -fsSL "https://github.com/Wilfred/difftastic/releases/download/$(DIFFTASTIC_VERSION)/difft-x86_64-unknown-linux-gnu.tar.gz" | \
+		curl -fsSL "https://github.com/Wilfred/difftastic/releases/download/$(DIFFTASTIC_VERSION)/difft-$(DIFFTASTIC_VERSION)-x86_64-unknown-linux-gnu.tar.gz" | \
 			tar -xz -C offline-packages/linux/; \
 		chmod +x offline-packages/linux/difft; \
 	else \
@@ -370,7 +382,7 @@ update-linux:
 	@# lazygit - Terminal UI for git
 	@if [ ! -f offline-packages/linux/lazygit ]; then \
 		echo "  → lazygit (git TUI)..."; \
-		curl -fsSL "https://github.com/jesseduffield/lazygit/releases/download/v0.43.1/lazygit_0.43.1_Linux_x86_64.tar.gz" \
+		curl -fsSL "https://github.com/jesseduffield/lazygit/releases/download/v$(LAZYGIT_VERSION)/lazygit_$(LAZYGIT_VERSION)_Linux_x86_64.tar.gz" \
 			| tar -xz -C offline-packages/linux/ lazygit; \
 		chmod +x offline-packages/linux/lazygit; \
 	else \
@@ -380,7 +392,7 @@ update-linux:
 	@# jq - JSON processor
 	@if [ ! -f offline-packages/linux/jq ]; then \
 		echo "  → jq (JSON processor)..."; \
-		curl -fsSL "https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-amd64" \
+		curl -fsSL "https://github.com/jqlang/jq/releases/download/jq-$(JQ_VERSION)/jq-linux-amd64" \
 			-o offline-packages/linux/jq; \
 		chmod +x offline-packages/linux/jq; \
 	else \
@@ -406,7 +418,7 @@ update-linux:
 	@if [ ! -f offline-packages/linux/lua-language-server ]; then \
 		echo "  → lua-language-server (Lua LSP)..."; \
 		mkdir -p /tmp/lua-ls-download; \
-		curl -fsSL "https://github.com/LuaLS/lua-language-server/releases/download/3.10.5/lua-language-server-3.10.5-linux-x64.tar.gz" \
+		curl -fsSL "https://github.com/LuaLS/lua-language-server/releases/download/$(LUA_LS_VERSION)/lua-language-server-$(LUA_LS_VERSION)-linux-x64.tar.gz" \
 			| tar -xz -C /tmp/lua-ls-download; \
 		mv /tmp/lua-ls-download/bin/lua-language-server offline-packages/linux/; \
 		chmod +x offline-packages/linux/lua-language-server; \
@@ -420,7 +432,7 @@ update-linux:
 	@if [ ! -f offline-packages/linux/shellcheck ]; then \
 		echo "  → shellcheck (Shell linter)..."; \
 		mkdir -p /tmp/shellcheck-download; \
-		curl -fsSL "https://github.com/koalaman/shellcheck/releases/download/v0.10.0/shellcheck-v0.10.0.linux.x86_64.tar.xz" \
+		curl -fsSL "https://github.com/koalaman/shellcheck/releases/download/v$(SHELLCHECK_VERSION)/shellcheck-v$(SHELLCHECK_VERSION).linux.x86_64.tar.xz" \
 			| tar -xJ -C /tmp/shellcheck-download --strip-components=1; \
 		mv /tmp/shellcheck-download/shellcheck offline-packages/linux/; \
 		chmod +x offline-packages/linux/shellcheck; \
@@ -428,17 +440,19 @@ update-linux:
 	else \
 		echo "  ✓ shellcheck already present"; \
 	fi
+	@printf '%s\n' "$(LINUX_PAYLOAD_VERSIONS)" > offline-packages/linux/.versions
 
 update-fonts:
 	@echo "Checking fonts..."
 	@mkdir -p fonts
-	@if [ ! -f fonts/JetBrainsMono.zip ] || [ $$(stat -f%z fonts/JetBrainsMono.zip 2>/dev/null || stat -c%s fonts/JetBrainsMono.zip 2>/dev/null) -lt 1000000 ]; then \
+	@if [ "$$(cat fonts/.version 2>/dev/null)" != "$(NERD_FONT_VERSION)" ] || [ ! -f fonts/JetBrainsMono.zip ] || [ $$(stat -f%z fonts/JetBrainsMono.zip 2>/dev/null || stat -c%s fonts/JetBrainsMono.zip 2>/dev/null) -lt 1000000 ]; then \
 		echo "  → JetBrainsMono Nerd Font..."; \
 		curl -fsSL "https://github.com/ryanoasis/nerd-fonts/releases/download/$(NERD_FONT_VERSION)/JetBrainsMono.zip" \
 			-o fonts/JetBrainsMono.zip; \
 	else \
 		echo "  ✓ JetBrainsMono Nerd Font already present"; \
 	fi
+	@printf '%s\n' "$(NERD_FONT_VERSION)" > fonts/.version
 
 verify:
 	@./scripts/verify-packages.sh
@@ -537,7 +551,7 @@ package-with-config: verify version-file
 	@rm -f VERSION
 
 docker-test: package
-	@bash scripts/docker-smoke-test airgap-dev-kit.tar.gz
+	@bash scripts/docker-smoke-test airgap-dev-kit-linux-x86_64.tar.gz
 
 test-cli-package:
 	@bash test/scripts/test-nvim-config-syntax.sh

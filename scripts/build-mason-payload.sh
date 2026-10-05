@@ -74,6 +74,16 @@ test -d "$packages_dir"
 test -x "$data_dir/mason/bin/gopls"
 test -x "$data_dir/mason/bin/bash-language-server"
 
+# Mason generates this launcher with an absolute build-host path. Resolve its
+# package through the bin symlink so it also works after offline extraction.
+cat > "$packages_dir/lua-language-server/lua-language-server" <<'SH'
+#!/bin/sh
+set -eu
+launcher=$(readlink -f -- "$0")
+exec "$(dirname -- "$launcher")/libexec/bin/lua-language-server" "$@"
+SH
+chmod +x "$packages_dir/lua-language-server/lua-language-server"
+
 # JavaScript-based Mason tools need a runtime after transfer to the offline host.
 node_version=v22.23.2
 node_tarball="node-${node_version}-linux-x64.tar.xz"

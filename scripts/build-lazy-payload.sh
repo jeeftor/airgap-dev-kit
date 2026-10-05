@@ -18,6 +18,12 @@ config_dir="$config_home/nvim"
 mkdir -p "$config_dir"
 cp -R "$LAZY_CONFIG/." "$config_dir/"
 
+# Lazy reads its lockfile from the data directory, so seed that path before sync.
+mkdir -p "$data_home/nvim"
+if [ -f "$config_dir/lazy-lock.json" ]; then
+  cp "$config_dir/lazy-lock.json" "$data_home/nvim/lazy-lock.json"
+fi
+
 # The checked-in configuration is intentionally offline-first. Permit this
 # one connected build to fetch exactly the lockfile-pinned plugin set.
 lazy_config_file="$config_dir/lua/config/lazy.lua"
@@ -51,8 +57,7 @@ XDG_CACHE_HOME="$cache_home" \
 
 lazy_dir="$data_home/nvim/lazy"
 test -d "$lazy_dir"
-test -f "$config_dir/lazy-lock.json"
+test -f "$data_home/nvim/lazy-lock.json"
 
 mkdir -p "$(dirname "$LAZY_OUTPUT")"
-cp "$config_dir/lazy-lock.json" "$data_home/nvim/lazy-lock.json"
 tar -C "$data_home/nvim" -czf "$LAZY_OUTPUT" lazy lazy-lock.json

@@ -119,6 +119,11 @@ func installKit(cmd *cobra.Command, options installOptions) error {
 		writeInstallPlan(cmd, root, payload, home, dataHome, options, "interactive dry run")
 		return nil
 	}
+	if options.Scope == "system" {
+		if err := authenticateSudo(cmd); err != nil {
+			return err
+		}
+	}
 	binDir, appDataDir := installLocations(home, options.Scope)
 	nvimDataDir := dataHome
 	if options.Scope == "system" {
@@ -411,14 +416,33 @@ func makeInstallDir(path, scope string) error {
 	return os.MkdirAll(path, 0755)
 }
 
+// authenticateSudo lets sudo own the terminal before progress rendering starts.
+func authenticateSudo(cmd *cobra.Command) error {
+	if os.Geteuid() == 0 {
+		return nil
+	}
+	fmt.Fprintln(cmd.OutOrStdout(), "Your system-wide installation needs administrator access. Authenticate with sudo to continue.")
+	authentication := exec.Command("sudo", "-v")
+	authentication.Stdin = cmd.InOrStdin()
+	authentication.Stdout = cmd.OutOrStdout()
+	authentication.Stderr = cmd.ErrOrStderr()
+	if err := authentication.Run(); err != nil {
+		return fmt.Errorf("authenticate sudo: %w", err)
+	}
+	return nil
+}
+
 func runSudo(args ...string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("missing privileged command")
+	}
 	command := "sudo"
 	if os.Geteuid() == 0 {
 		command = args[0]
 		args = args[1:]
-	}
-	if len(args) == 0 {
-		return fmt.Errorf("missing privileged command")
+	} else {
+		// Progress rendering owns the terminal; authentication happens beforehand.
+		args = append([]string{"-n"}, args...)
 	}
 	if output, err := exec.Command(command, args...).CombinedOutput(); err != nil {
 		return fmt.Errorf("%s: %w: %s", command, err, strings.TrimSpace(string(output)))
@@ -550,7 +574,21 @@ func installedPayloadName(name string) string {
 
 // installWezTermAppImage adds a FUSE-free fallback for minimal Linux hosts.
 func installWezTermAppImage(source, binDir, appDataDir, scope string, record *installRecord) error {
-	return installAppImage(source, binDir, appDataDir, scope, "wezterm.AppImage", "wezterm", record)
+	if err := installAppImage(source, binDir, appDataDir, scope, "wezterm.AppImage", "wezterm", record); err != nil {
+		return err
+	}
+	executable := filepath.Join(binDir, "wezterm")
+	// Desktop entries have separate string and command-line escaping rules.
+	executable = strings.NewReplacer("\\", "\\\\", "\"", "\\\"", "`", "\\`", "$", "\\$", "%", "%%").Replace(executable)
+	executable = strings.ReplaceAll(executable, "\\", "\\\\")
+	entry := "[Desktop Entry]\nType=Application\nName=WezTerm (Airgap)\nComment=Your offline terminal\n" +
+		"Exec=\"" + executable + "\" start\nIcon=utilities-terminal\nTerminal=false\nCategories=System;TerminalEmulator;\n"
+	destination := filepath.Join(filepath.Dir(appDataDir), "applications", "airgap-wezterm.desktop")
+	if err := writeFileForScope(destination, []byte(entry), 0644, scope); err != nil {
+		return err
+	}
+	record.Paths = append(record.Paths, destination)
+	return nil
 }
 
 // installTmuxAppImage exposes the bundled tmux AppImage as tmux and uses its
@@ -607,7 +645,7 @@ func installNvimPayload(root, payload, home, dataHome, binDir, nvimDataDir, scop
 		return fmt.Errorf("bundled Neovim runtime is incomplete: %w", err)
 	}
 	record.Paths = append(record.Paths, runtimeDestination)
-	launcher := "#!/bin/sh\nset -eu\nexport VIMRUNTIME=\"" + runtimeDestination + "\"\nexec \"" + filepath.Join(binDir, "nvim-airgap") + "\" \"$@\"\n"
+	launcher := "#!/bin/sh\nset -eu\nexport VIMRUNTIME=\"" + runtimeDestination + "\"\nexport PATH=\"" + filepath.Join(dataHome, "nvim", "mason", "node", "bin") + ":$PATH\"\nexec \"" + filepath.Join(binDir, "nvim-airgap") + "\" \"$@\"\n"
 	if err := writeFileForScope(filepath.Join(binDir, "nvim"), []byte(launcher), 0755, scope); err != nil {
 		return err
 	}
@@ -815,6 +853,11 @@ func uninstallRecorded(cmd *cobra.Command, dryRun bool) error {
 	if err := json.Unmarshal(raw, &record); err != nil {
 		return err
 	}
+	if record.Scope == "system" && !dryRun {
+		if err := authenticateSudo(cmd); err != nil {
+			return err
+		}
+	}
 	for index := len(record.Paths) - 1; index >= 0; index-- {
 		item := record.Paths[index]
 		if dryRun {
@@ -850,7 +893,7 @@ func removeInstalledPath(path, scope string) error {
 		return os.RemoveAll(path)
 	}
 	clean := filepath.Clean(path)
-	if strings.HasPrefix(clean, "/usr/local/bin/") || strings.HasPrefix(clean, "/usr/local/share/airgap-dev-kit/") {
+	if strings.HasPrefix(clean, "/usr/local/bin/") || strings.HasPrefix(clean, "/usr/local/share/airgap-dev-kit/") || clean == "/usr/local/share/applications/airgap-wezterm.desktop" {
 		return runSudo("rm", "-rf", clean)
 	}
 	if strings.HasPrefix(clean, "/usr/local/") {

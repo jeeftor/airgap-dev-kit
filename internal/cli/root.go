@@ -140,7 +140,7 @@ func kitRoot() (string, error) {
 }
 
 func kitRootNotFoundError() error {
-	return fmt.Errorf("cannot find kit root: searched AIRGAP_KIT_DIR, the airgap executable's directory tree, and the current directory tree; run this command from an extracted kit (containing kit-manifest.json and offline-packages/linux/) or set AIRGAP_KIT_DIR=/path/to/kit")
+	return fmt.Errorf("cannot find kit root: searched AIRGAP_KIT_DIR, the airgap executable's directory tree, the current directory tree, and installation records; run this command from an extracted kit (containing kit-manifest.json and offline-packages/linux/) or set AIRGAP_KIT_DIR=/path/to/kit")
 }
 
 func discoveredKitRoot() (string, bool) {
@@ -156,6 +156,14 @@ func discoveredKitRoot() (string, bool) {
 	if cwd, err := os.Getwd(); err == nil {
 		if root, ok := findKitRootAtOrAbove(cwd); ok {
 			return root, true
+		}
+	}
+	if path, err := installRecordPath(); err == nil {
+		if raw, err := os.ReadFile(path); err == nil {
+			var record installRecord
+			if json.Unmarshal(raw, &record) == nil && isKitRoot(record.KitDir) {
+				return record.KitDir, true
+			}
 		}
 	}
 	if state, err := loadUpdateState(); err == nil && isKitRoot(state.KitDir) {

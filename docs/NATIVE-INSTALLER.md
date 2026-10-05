@@ -11,8 +11,14 @@ The installer separates shared commands from per-user state.
 - `--scope=system` installs commands in `/usr/local/bin` and shared runtime
   assets in `/usr/local/share/airgap-dev-kit`. It uses `sudo` only for those
   paths.
+- System authentication runs after the setup review and before installation
+  progress, so your password prompt has normal terminal input.
 - Neovim configuration, fonts, FZF integration, and shell startup changes are
   always owned by the invoking user, in either scope.
+- WezTerm adds a `WezTerm (Airgap)` applications-menu entry for the selected
+  scope. Uninstall removes that entry.
+- Neovim uses the bundled Node runtime for Mason's JavaScript language tools.
+  Mason launchers resolve their installed package rather than a build-host path.
 
 The interactive installer asks for the scope first and shows it again on the
 review screen. Noninteractive system installs use:
@@ -35,9 +41,12 @@ item or `a` to select or clear the complete list.
 - Existing Neovim state is preserved by default; `replace` backs it up and
   `overwrite` explicitly removes it.
 - Uninstall uses the recorded paths. For a system record, it refuses to remove
-  anything outside `/usr/local/bin` and `/usr/local/share/airgap-dev-kit`.
+  shared paths outside `/usr/local/bin`, `/usr/local/share/airgap-dev-kit`, and
+  the exact `/usr/local/share/applications/airgap-wezterm.desktop` file.
 - Config files are copied rather than symlinked, so an extracted removable kit
-  can be disconnected or removed after installation.
+  can be disconnected after installation. Keep the extracted kit available for
+  `doctor --verify`: installed commands discover it through the installation
+  record without requiring `AIRGAP_KIT_DIR`.
 
 ## Legacy migration
 
