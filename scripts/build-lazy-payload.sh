@@ -47,7 +47,16 @@ XDG_CONFIG_HOME="$config_home" \
 XDG_DATA_HOME="$data_home" \
 XDG_STATE_HOME="$state_home" \
 XDG_CACHE_HOME="$cache_home" \
-  "$NVIM" --headless '+lua require("lazy").sync({wait = true, lockfile = true})' +qa
+  "$NVIM" --headless '+Lazy! install' +qa
+
+# Lazy rewrites its lock while bootstrapping missing plugins. Restore the
+# immutable input after bootstrap, then check out those revisions explicitly.
+cp "$LAZY_CONFIG/lazy-lock.json" "$data_home/nvim/lazy-lock.json"
+XDG_CONFIG_HOME="$config_home" \
+XDG_DATA_HOME="$data_home" \
+XDG_STATE_HOME="$state_home" \
+XDG_CACHE_HOME="$cache_home" \
+  "$NVIM" --headless '+Lazy! restore' +qa
 
 lazy_dir="$data_home/nvim/lazy"
 test -d "$lazy_dir"
