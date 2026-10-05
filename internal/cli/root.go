@@ -24,7 +24,7 @@ func New(version, commit string) *cobra.Command {
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if demo {
-				return installKit(cmd, installOptions{ConfigureShell: true, NvimMode: "preserve", Scope: "user", Demo: true})
+				return installKit(cmd, installOptions{ConfigureShell: true, NvimMode: "preserve", Scope: "user", Demo: true, DesktopIntegration: "menu"})
 			}
 			return writeHelp(cmd)
 		},

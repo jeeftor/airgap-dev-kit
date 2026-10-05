@@ -15,8 +15,16 @@ The installer separates shared commands from per-user state.
   progress, so your password prompt has normal terminal input.
 - Neovim configuration, fonts, FZF integration, and shell startup changes are
   always owned by the invoking user, in either scope.
-- WezTerm adds a `WezTerm (Airgap)` applications-menu entry for the selected
-  scope. Uninstall removes that entry.
+- When you select WezTerm, the interactive installer shows your Linux
+  distribution and desktop session and offers an applications-menu entry,
+  a menu entry plus an optional desktop shortcut, or no shortcuts. CLI-only
+  installs skip this question. Distribution detection uses `os-release`;
+  menu entries use the common Linux desktop-entry format.
+- The applications-menu entry defaults to `WezTerm (Airgap)` in the selected
+  scope. User menu entries honor `XDG_DATA_HOME`. Desktop shortcuts always
+  belong to the invoking user and honor `XDG_DESKTOP_DIR` in your
+  `user-dirs.dirs` configuration, including localized desktop directories.
+  Uninstall removes the recorded menu entry and shortcut.
 - Neovim uses the bundled Node runtime for Mason's JavaScript language tools.
   Mason launchers resolve their installed package rather than a build-host path.
 
@@ -26,6 +34,19 @@ review screen. Noninteractive system installs use:
 ```sh
 ./airgap install --yes --scope=system
 ```
+
+For automation, choose GUI registration explicitly:
+
+```sh
+./airgap install --yes --desktop-integration=menu              # default
+./airgap install --yes --desktop-integration=menu-and-desktop  # optional shortcut
+./airgap install --yes --desktop-integration=none              # no shortcuts
+```
+
+A desktop shortcut requires desktop icons to be enabled. Your desktop may
+also require you to choose **Allow Launching** or trust the launcher before
+opening it. The installer creates an executable shortcut; it does not change
+your desktop's trust policy or install desktop extensions.
 
 Use `./airgap --demo` (or `./airgap install --demo`) for an interactive dry
 run: it exercises the full setup without writing files or requesting sudo.
