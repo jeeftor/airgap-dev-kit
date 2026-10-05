@@ -46,7 +46,8 @@ env PATH="$logs_dir/empty-path" "$HOME/.local/bin/nvim" --headless -u NONE -i NO
   -l "$logs_dir/no-provider.lua" > "$logs_dir/no-provider.log" 2>&1
 
 test_middle_paste() {
-  local window="$1"
+  local window="$1" pane
+  pane=$("$HOME/.local/bin/jq" -r '.[0].pane_id' "$logs_dir/menu-panes.log")
   cat > "$logs_dir/mouse-paste.lua" <<'LUA'
 dofile(vim.env.HOME .. "/.config/nvim/lua/config/options.lua")
 assert(vim.fn.executable("xclip") == 0, "test editor can see xclip")
@@ -57,9 +58,9 @@ vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI" }, {
   end,
 })
 LUA
-  timeout 15s "$HOME/.local/bin/wezterm" cli spawn -- /usr/bin/env \
+  timeout 15s "$HOME/.local/bin/wezterm" cli spawn --pane-id "$pane" -- /usr/bin/env \
     PATH="$logs_dir/empty-path" "$HOME/.local/bin/nvim" -u NONE -i NONE \
-    -c 'lua dofile(vim.env.AIRGAP_GUI_TEST_LOGS .. "/mouse-paste.lua")' > "$logs_dir/mouse-pane.log"
+    -c 'lua dofile(vim.env.AIRGAP_GUI_TEST_LOGS .. "/mouse-paste.lua")' > "$logs_dir/mouse-pane.log" 2>&1
   sleep 3
   printf '%s' 'airgap middle-click clipboard test' | xclip -selection primary
   xdotool windowfocus --sync "$window"
