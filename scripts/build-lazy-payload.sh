@@ -93,5 +93,18 @@ AIRGAP_LOCKFILE="$LAZY_CONFIG/lazy-lock.json" AIRGAP_LAZY_DIR="$lazy_dir" \
 AIRGAP_TS_PLUGIN="$lazy_dir/nvim-treesitter" AIRGAP_TS_SITE="$site_dir" \
   "$NVIM" --headless -u NONE -i NONE -l "$work_dir/build-parsers.lua"
 
+# Tree-sitter links query directories to absolute builder paths. Materialize
+# only links within this disposable build so extraction is safe and portable.
+while IFS= read -r -d '' link; do
+  target=$(readlink -f -- "$link")
+  case "$target" in
+    "$work_dir"/*) ;;
+    *) echo "Parser payload link escapes the build: $link -> $target" >&2; exit 1 ;;
+  esac
+done < <(find "$site_dir" -type l -print0)
+cp -RL "$site_dir" "$work_dir/portable-site"
+rm -rf "$site_dir"
+mv "$work_dir/portable-site" "$site_dir"
+
 mkdir -p "$(dirname "$LAZY_OUTPUT")"
 tar -C "$data_home/nvim" -czf "$LAZY_OUTPUT" lazy lazy-lock.json site

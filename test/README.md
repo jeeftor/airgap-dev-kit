@@ -230,3 +230,9 @@ invalid Lua, starts highlighting, runs the bundled Tree-sitter CLI, and checks
 internal yank behavior. The `editor-health-evidence` artifact retains the full
 health buffer and startup log. Optional provider and headless UI warnings are
 informational; required editor behavior fails the job.
+
+The GUI launch job also opens the full kit LazyVim profile in a real WezTerm
+terminal UI, checks Snacks input/picker/dashboard registration after startup,
+and captures `editor-ui-checkhealth.txt`. This separates actual UI failures from
+warnings caused by running UI health checks in headless Neovim. The offline
+editor job verifies that the bundled Lua language server initializes as well.

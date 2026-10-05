@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -53,13 +54,16 @@ func wezPresetArgs(preset string) ([]string, error) {
 	case "plain":
 		args = append(args, "--skip-config")
 	case "kit", "x11":
-		root, err := kitRoot()
-		if err != nil {
-			return nil, err
-		}
-		config := filepath.Join(root, "config", "wezterm", ".config", "wezterm", "wezterm.lua")
-		if _, err := os.Stat(config); err != nil {
-			return nil, fmt.Errorf("find bundled WezTerm configuration: %w", err)
+		config, found := installedWezPresetPath()
+		if !found {
+			root, err := kitRoot()
+			if err != nil {
+				return nil, err
+			}
+			config = filepath.Join(root, "config", "wezterm", ".config", "wezterm", "wezterm.lua")
+			if _, err := os.Stat(config); err != nil {
+				return nil, fmt.Errorf("find bundled WezTerm configuration: %w", err)
+			}
 		}
 		args = append(args, "--config-file", config)
 		if preset == "x11" {
@@ -69,4 +73,36 @@ func wezPresetArgs(preset string) ([]string, error) {
 		return nil, fmt.Errorf("unknown WezTerm preset %q; run 'airgap wez list'", preset)
 	}
 	return append(args, "start", "--always-new-process"), nil
+}
+
+// installedWezPresetPath only trusts a preset tracked by this installation.
+func installedWezPresetPath() (string, bool) {
+	path, err := installRecordPath()
+	if err != nil {
+		return "", false
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return "", false
+	}
+	var record installRecord
+	if json.Unmarshal(raw, &record) != nil || (record.Scope != "user" && record.Scope != "system") {
+		return "", false
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", false
+	}
+	_, appDataDir := installLocations(home, record.Scope)
+	preset := filepath.Join(appDataDir, "wezterm-preset.lua")
+	for _, managed := range record.Paths {
+		if managed == preset {
+			info, err := os.Stat(preset)
+			if err == nil && info.Mode().IsRegular() {
+				return preset, true
+			}
+			break
+		}
+	}
+	return "", false
 }

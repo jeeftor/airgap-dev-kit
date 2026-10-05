@@ -124,8 +124,10 @@ airgap wez start x11 --dry-run
 ```
 
 These commands select a preset for the new window without changing your saved
-configuration or existing windows. `kit` and `x11` require the extracted kit to
-remain available. Run them on your Linux desktop, rather than inside a remote
+configuration or existing windows. Installation stores a managed preset with the
+WezTerm application, so `kit` and `x11` continue to work after you remove the USB.
+Before installation, they use the configuration in the extracted kit. Existing
+personal WezTerm configuration is preserved. Run them on your Linux desktop, rather than inside a remote
 SSH session. The X11 preset requires an X11/XWayland display; compare it with
 `kit` when testing window-edge resizing. CI verifies X11 launch and mouse paste;
 it does not prove behavior on your GNOME/KDE Wayland desktop.
@@ -135,7 +137,9 @@ it does not prove behavior on your GNOME/KDE Wayland desktop.
 New editor payloads include the manifest's compiled Tree-sitter parsers, matching
 queries, and a checksum-verified Tree-sitter CLI. The connected Linux builder
 compiles them; editor startup does not install or update parsers. LuaRocks is
-disabled because the bundled plugin set does not require it. Existing Neovim
+disabled because the bundled plugin set does not require it. Mason does not
+request downloads for unbundled tools; already installed language servers remain
+available. Existing Neovim
 profiles are preserved by default: choose `--nvim-mode=replace` to back up your
 profile and install the kit configuration and payloads.
 

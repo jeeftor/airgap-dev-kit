@@ -154,6 +154,19 @@ func installKit(cmd *cobra.Command, options installOptions) error {
 			if err := copyPayloadBinaries(payload, binDir, appDataDir, options.Scope, options.CLIOnly, options.Tools, &record); err != nil {
 				return err
 			}
+			if guiSelected(options) {
+				if _, err := os.Stat(filepath.Join(payload, "wezterm.AppImage")); err == nil {
+					preset, err := os.ReadFile(filepath.Join(root, "config", "wezterm", ".config", "wezterm", "wezterm.lua"))
+					if err != nil {
+						return fmt.Errorf("read bundled WezTerm preset: %w", err)
+					}
+					path := filepath.Join(appDataDir, "wezterm-preset.lua")
+					if err := writeFileForScope(path, preset, 0644, options.Scope); err != nil {
+						return err
+					}
+					record.Paths = append(record.Paths, path)
+				}
+			}
 			path := filepath.Join(binDir, "vim-empty")
 			if err := writeFileForScope(path, []byte("#!/bin/sh\nexec nvim -u NONE -i NONE \"$@\"\n"), 0755, options.Scope); err != nil {
 				return err
@@ -233,6 +246,11 @@ func writeInstallPlan(cmd *cobra.Command, root, payload, home, dataHome string, 
 	fmt.Fprintf(cmd.OutOrStdout(), "Airgap install (%s)\n", mode)
 	for _, path := range installPlan(root, payload, binDir, nvimDataDir, options) {
 		fmt.Fprintln(cmd.OutOrStdout(), "  would install "+path)
+	}
+	if guiSelected(options) {
+		if _, err := os.Stat(filepath.Join(payload, "wezterm.AppImage")); err == nil {
+			fmt.Fprintln(cmd.OutOrStdout(), "  would install "+filepath.Join(appDataDir, "wezterm-preset.lua"))
+		}
 	}
 	menuPath, shortcutPath, err := desktopIntegrationPaths(home, dataHome, options)
 	if err != nil {
@@ -726,6 +744,13 @@ func copyManagedConfig(root, home string, nvim bool, record *installRecord) erro
 			}
 			if !entry.Type().IsRegular() {
 				return nil
+			}
+			if pkg.Name() == "wezterm" {
+				if _, err := os.Lstat(destination); err == nil {
+					return nil
+				} else if !os.IsNotExist(err) {
+					return err
+				}
 			}
 			if err := copyFile(path, destination, 0644); err != nil {
 				return err

@@ -90,10 +90,43 @@ LUA
   return 1
 }
 
+test_editor_ui_health() {
+  local pane
+  pane=$("$HOME/.local/bin/jq" -r '.[0].pane_id' "$logs_dir/menu-panes.log")
+  cat > "$logs_dir/editor-ui-health.lua" <<'LUA'
+local ok, err = pcall(function()
+  assert(#vim.api.nvim_list_uis() > 0, "Test has no terminal UI")
+  assert(Snacks.did_setup, "Snacks setup did not run")
+  assert(vim.ui.input == require("snacks.input").input, "Input UI was not registered")
+  assert(vim.ui.select == Snacks.picker.select, "Picker UI was not registered")
+  if Snacks.config.dashboard.enabled then
+    assert(Snacks.dashboard.status.did_setup, "Dashboard setup did not run")
+  end
+  vim.cmd("checkhealth")
+  vim.fn.writefile(vim.api.nvim_buf_get_lines(0, 0, -1, false), vim.env.AIRGAP_GUI_TEST_LOGS .. "/editor-ui-checkhealth.txt")
+end)
+vim.fn.writefile({ ok and "PASS: editor UI setup and health capture" or tostring(err) }, vim.env.AIRGAP_GUI_TEST_LOGS .. "/editor-ui-result.txt")
+vim.cmd("qa!")
+LUA
+  timeout 15s "$HOME/.local/bin/wezterm" cli spawn --pane-id "$pane" -- \
+    "$HOME/.local/bin/nvim" -c 'lua vim.defer_fn(function() dofile(vim.env.AIRGAP_GUI_TEST_LOGS .. "/editor-ui-health.lua") end, 1000)' \
+    > "$logs_dir/editor-ui-pane.log" 2>&1
+  for _ in {1..30}; do
+    if [[ -f "$logs_dir/editor-ui-result.txt" ]]; then
+      cat "$logs_dir/editor-ui-result.txt"
+      grep -qx 'PASS: editor UI setup and health capture' "$logs_dir/editor-ui-result.txt"
+      return
+    fi
+    sleep 1
+  done
+  echo "The installed editor did not complete UI health checks" >&2
+  return 1
+}
+
 launch_entry() {
   local entry="$1" label="$2" window=""
   if [[ "$label" == preset-* ]]; then
-    PATH="$HOME/.local/bin:$PATH" ./airgap wez start "${label#preset-}" > "$logs_dir/$label.log" 2>&1 &
+    PATH="$HOME/.local/bin:$PATH" "$HOME/.local/bin/airgap" wez start "${label#preset-}" > "$logs_dir/$label.log" 2>&1 &
   elif [[ "$label" == menu ]]; then
     desktop-file-validate "$entry"
     timeout 15s gtk-launch airgap-wezterm.desktop > "$logs_dir/$label.log" 2>&1
@@ -117,6 +150,7 @@ launch_entry() {
   "$HOME/.local/bin/jq" -e 'length > 0' "$logs_dir/$label-panes.log" >/dev/null
   import -window root "$logs_dir/$label.png"
   if [[ "$label" == menu ]]; then
+    test_editor_ui_health
     test_middle_paste "$window"
   fi
   xkill -id "$window"
@@ -134,6 +168,9 @@ launch_entry() {
 # Each entry must create its own window; an earlier launch cannot satisfy both.
 launch_entry "$menu" menu
 launch_entry "$shortcut" desktop
+# Exercise the installed command after the removable source kit is unavailable.
+cd "$HOME"
+mv "$kit_dir/airgap-dev-kit" "$kit_dir/source-unavailable"
 for preset in current kit plain x11; do
   launch_entry "" "preset-$preset"
 done
@@ -145,8 +182,9 @@ if timeout 15s gio launch "$logs_dir/broken.desktop" > "$logs_dir/broken.log" 2>
   exit 1
 fi
 
-./airgap uninstall --yes > "$logs_dir/uninstall.log" 2>&1
+"$HOME/.local/bin/airgap" uninstall --yes > "$logs_dir/uninstall.log" 2>&1
 test ! -f "$menu"
 test ! -f "$shortcut"
 test ! -f "$HOME/.local/bin/vim-empty"
+test ! -f "$HOME/.local/share/airgap-dev-kit/wezterm-preset.lua"
 echo "PASS: GUI entries validate, launch, reject a broken Exec, and uninstall"

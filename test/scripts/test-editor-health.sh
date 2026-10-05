@@ -22,14 +22,14 @@ env HOME="$test_home" XDG_CONFIG_HOME="$test_home/.config" \
   AIRGAP_HEALTH_RESULTS="$results" AIRGAP_HEALTH_SCRIPT="$repo_root/test/scripts/editor-health.lua" \
   AIRGAP_TEST_KIT="$kit" bash <<'SH'
 set -euo pipefail
+trap 'cp "$XDG_STATE_HOME/nvim/lsp.log" "$AIRGAP_HEALTH_RESULTS/lsp.log" 2>/dev/null || true' EXIT
 "$AIRGAP_TEST_KIT/airgap" install --yes --cli-only --nvim-mode=replace --configure-shell=false
 export PATH="$HOME/.local/bin:$PATH"
-# -l does not load the normal profile; use :luafile after normal startup instead.
-nvim --headless '+lua dofile(vim.env.AIRGAP_HEALTH_SCRIPT)' '+qa!' > "$AIRGAP_HEALTH_RESULTS/behavior.txt" 2>&1
+# Let VimEnter and scheduled plugin setup finish before testing and capturing
+# health. Immediate +checkhealth/+qa can report setup that has not run yet.
+timeout 90s nvim --headless -c 'lua vim.defer_fn(function() local ok, err = pcall(dofile, vim.env.AIRGAP_HEALTH_SCRIPT); if not ok then print(err); vim.cmd("cquit 1"); return end; vim.cmd("checkhealth"); vim.fn.writefile(vim.api.nvim_buf_get_lines(0, 0, -1, false), vim.env.AIRGAP_HEALTH_RESULTS .. "/checkhealth.txt"); vim.cmd("qa!") end, 200)' > "$AIRGAP_HEALTH_RESULTS/behavior.txt" 2>&1
 rg -q 'Offline editor parsers, queries, highlighting, CLI, and yank verified' "$AIRGAP_HEALTH_RESULTS/behavior.txt"
-# Retain the full diagnostic buffer. Optional provider/UI warnings are not gates.
-nvim --headless '+checkhealth' '+lua vim.fn.writefile(vim.api.nvim_buf_get_lines(0, 0, -1, false), vim.env.AIRGAP_HEALTH_RESULTS .. "/checkhealth.txt")' '+qa!' \
-  > "$AIRGAP_HEALTH_RESULTS/startup.txt" 2>&1
+# Optional provider and disabled-feature diagnostics remain in the full buffer.
 test -s "$AIRGAP_HEALTH_RESULTS/checkhealth.txt"
 cat "$AIRGAP_HEALTH_RESULTS/behavior.txt"
 SH

@@ -71,3 +71,28 @@ func TestEditorPayloadInstallsExecutableCLIParsersAndLock(t *testing.T) {
 		})
 	}
 }
+
+func TestWezTermConfigInstallPreservesPersonalFile(t *testing.T) {
+	root, home := t.TempDir(), t.TempDir()
+	source := filepath.Join(root, "config", "wezterm", ".config", "wezterm", "wezterm.lua")
+	destination := filepath.Join(home, ".config", "wezterm", "wezterm.lua")
+	for _, path := range []string{source, destination} {
+		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(source, []byte("kit preset"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(destination, []byte("personal config"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	var record installRecord
+	if err := copyManagedConfig(root, home, false, &record); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(destination)
+	if err != nil || string(data) != "personal config" || len(record.Paths) != 0 {
+		t.Fatalf("personal config overwritten or tracked for removal: %q %v %#v", data, err, record.Paths)
+	}
+}

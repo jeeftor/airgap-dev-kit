@@ -27,6 +27,7 @@ NVIM_APPNAME=nvim-mason-test "$NVIM" --headless '+Lazy! sync' +qa
 installer=$(mktemp "${TMPDIR:-/tmp}/airgap-mason.XXXXXX.lua")
 trap 'rm -f "$installer"' EXIT HUP INT TERM
 cat > "$installer" <<'LUA'
+vim.opt.rtp:prepend(vim.fn.stdpath("data") .. "/lazy/mason.nvim")
 require("mason").setup()
 local registry = require("mason-registry")
 local manifest = dofile(vim.env.MASON_MANIFEST)
@@ -37,37 +38,54 @@ for _, group in ipairs({ "lsp_servers", "formatters", "linters" }) do
   end
 end
 
-registry.refresh()
-local completed, failures = 0, {}
+local registry_ready, registry_success, registry_errors = false, false, nil
+registry.refresh(function(success, errors)
+  registry_success, registry_errors, registry_ready = success, errors, true
+end)
+assert(vim.wait(300000, function() return registry_ready end, 100), "Timed out refreshing Mason registry")
+assert(registry_success, "Mason registry refresh failed: " .. vim.inspect(registry_errors))
+local installs = {}
 for _, package_name in ipairs(packages) do
   if not registry.has_package(package_name) then
     error("Mason registry is missing package: " .. package_name)
   end
   local package = registry.get_package(package_name)
-  if package:is_installed() then
-    completed = completed + 1
-  else
-    package:once("closed", function()
-      if package:is_installed() then
-        completed = completed + 1
-      else
-        table.insert(failures, package_name)
-      end
-    end)
-    package:install()
+  if not package:is_installed() then
+    -- closed belongs to the returned InstallHandle, not the Package emitter.
+    installs[package_name] = package:install()
   end
 end
 
-if not vim.wait(300000, function() return completed + #failures == #packages end, 500) then
-  error("Timed out while installing Mason packages")
+local finished = vim.wait(300000, function()
+  for _, handle in pairs(installs) do
+    if not handle:is_closed() then return false end
+  end
+  return true
+end, 100)
+local failures = {}
+for _, package_name in ipairs(packages) do
+  local handle = installs[package_name]
+  if (handle and not handle:is_closed()) or not registry.get_package(package_name):is_installed() then
+    table.insert(failures, package_name)
+    io.stderr:write("Mason package failed or unfinished: " .. package_name .. "\n")
+    if handle then
+      io.stderr:write("Install state: " .. handle.state .. "\n")
+      for _, stream in ipairs({ "stdout", "stderr" }) do
+        io.stderr:write(table.concat(handle.stdio_sink.buffers[stream]))
+      end
+      if not handle:is_closed() then handle:terminate() end
+    end
+  end
 end
-if #failures > 0 then
-  error("Mason failed to install: " .. table.concat(failures, ", "))
-end
+assert(finished and #failures == 0, "Mason packages missing or unfinished: " .. table.concat(failures, ", ")
+  .. "; see " .. vim.fn.stdpath("log") .. "/mason.log")
+print("All " .. #packages .. " manifest Mason packages installed")
 LUA
 
+# Script mode propagates Lua failures as a nonzero exit; :luafile followed by
+# :qa can otherwise report an error and still let an incomplete archive publish.
 MASON_MANIFEST="$MASON_MANIFEST" \
-  NVIM_APPNAME=nvim-mason-test "$NVIM" --headless -c "luafile $installer" -c qa
+  NVIM_APPNAME=nvim-mason-test "$NVIM" --headless -u NONE -i NONE -l "$installer"
 
 packages_dir="$data_dir/mason/packages"
 test -d "$packages_dir"
