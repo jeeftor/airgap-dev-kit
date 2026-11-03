@@ -79,11 +79,33 @@ cat /tmp/nvim-health.txt
 If startup fails before writing the report, inspect `/tmp/nvim-health-startup.txt`.
 Use normal `nvim` for this report so your configured plugins are checked.
 
-The bundled WezTerm handles middle-click itself, including inside LazyVim, and
-pastes the desktop primary selection at the editor cursor. Existing WezTerm
-configuration is preserved by installation; to use this behavior there, add the
-`mouse_bindings` entry from the kit's WezTerm configuration. With default WezTerm
-bindings, holding Shift while middle-clicking provides the same bypass.
+The bundled WezTerm handles middle-click itself, including inside tmux,
+LazyVim, and OpenCode, and pastes the system **CLIPBOARD** at the application
+cursor. Ctrl+Shift+V pastes the same clipboard. Mouse selection outside tmux
+also updates this clipboard with WezTerm's default bindings.
+
+The bundled tmux configuration copies selections through OSC 52 to WezTerm.
+It accepts application clipboard writes and enables passthrough for OpenCode's
+wrapped clipboard sequences. This text copy/paste path needs no `xclip`, `xsel`,
+or `wl-clipboard`, works over SSH, and lets WezTerm access the local X11 or
+Wayland clipboard. It does not provide image paste or programmatic clipboard
+reads to applications.
+
+Drag to select in an ordinary tmux pane; release to copy, then middle-click to
+paste. In OpenCode, use its own mouse selection and copy action (copy on release
+in versions that support it, or Ctrl+C with a selection). If an application
+captures dragging, press Ctrl+B then `[` to enter tmux copy mode before dragging.
+That selection stays inside the originating tmux pane, including with adjacent
+splits. If you release over another pane and copy mode stays open, press `y`
+to finish copying. Do not use terminal-wide Shift-drag for pane-aware selection.
+
+Installation preserves existing WezTerm configuration. To try the updated
+configuration without replacing yours, run `airgap wez start kit`. To adopt it
+in your configuration, copy both middle-click entries from the kit's
+`config/wezterm/.config/wezterm/wezterm.lua`. Reload the installed tmux
+configuration with `tmux source-file ~/.tmux.conf`; detach and reattach if
+terminal capabilities were changed. Existing tmux servers must load the new
+configuration as well as installing the updated kit.
 
 Neovim's `"+` and `"*` clipboard registers require a desktop clipboard provider.
 Install `wl-clipboard` for a Wayland session or `xclip` for X11 from your approved

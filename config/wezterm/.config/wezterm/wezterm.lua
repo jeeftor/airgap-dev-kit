@@ -30,14 +30,20 @@ config.command_palette_fg_color = "#c0caf5"
 config.command_palette_rows = 14
 config.ui_key_cap_rendering = "Emacs"
 
--- Paste the desktop selection directly even when Neovim captures mouse events.
--- This avoids requiring xclip/wl-paste just to middle-click inside the editor.
+-- Paste the same CLIPBOARD that tmux and OpenCode write through OSC 52.
+-- Handle the click even when tmux or an application captures mouse events.
 config.mouse_bindings = {
   {
     event = { Down = { streak = 1, button = "Middle" } },
     mods = "NONE",
+    mouse_reporting = false,
+    action = wezterm.action.PasteFrom("Clipboard"),
+  },
+  {
+    event = { Down = { streak = 1, button = "Middle" } },
+    mods = "NONE",
     mouse_reporting = true,
-    action = wezterm.action.PasteFrom("PrimarySelection"),
+    action = wezterm.action.PasteFrom("Clipboard"),
   },
 }
 
