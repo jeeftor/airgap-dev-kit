@@ -112,7 +112,9 @@ def main() -> None:
 
                 pane = json.loads(wez("list", "--format", "json"))[0]
                 (logs / "terminal-size.json").write_text(json.dumps(pane, indent=2))
-                window = run("xdotool", "search", "--pid", str(process.pid), "--class", "org.wezfurlong.wezterm").splitlines()[0]
+                # AppImage extraction can leave a launcher parent above the GUI process.
+                gui_pid = Path(env["WEZTERM_UNIX_SOCKET"]).name.removeprefix("gui-sock-")
+                window = run("xdotool", "search", "--pid", gui_pid, "--class", "org.wezfurlong.wezterm").splitlines()[0]
                 run("xdotool", "windowfocus", "--sync", window)
                 wait_for(lambda: "pane-selection-marker" in tmux("capture-pane", "-p"), "fixture did not render")
                 target = tmux("display-message", "-p", "#{pane_id}").strip()
