@@ -16,7 +16,12 @@ from collections.abc import Callable
 
 def run(*args: str, env: dict[str, str] | None = None) -> str:
     """Run a bounded command and report useful diagnostics on failure."""
-    return subprocess.check_output(args, env=env, text=True, stderr=subprocess.STDOUT, timeout=20)
+    try:
+        result = subprocess.run(args, env=env, text=True, capture_output=True, check=True, timeout=20)
+    except subprocess.CalledProcessError as error:
+        print(error.stderr, file=sys.stderr, end="")
+        raise
+    return result.stdout
 
 
 def wait_for(check: Callable[[], bool], description: str) -> None:
