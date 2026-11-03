@@ -198,7 +198,7 @@ The CLI-only package omits WezTerm and JetBrainsMono Nerd Font to keep installs 
 ## 🚀 Features
 
 - ✅ **Zero Internet Dependency** - All binaries are static or self-contained
-- ✅ **Automated Updates** - GitHub Actions builds fresh releases weekly
+- ✅ **Automated Update Checks** - GitHub Actions checks tool versions weekly and opens update PRs after Linux validation; pushing a `vX.Y.Z` tag publishes a release
 - ✅ **Linux-Focused** - Supports Linux x86_64 install and package workflows
 - ✅ **Air-Gap Ready** - Neovim plugins pre-bundled for offline use
 - ✅ **One-Command Install** - `./airgap install` does everything
