@@ -57,6 +57,9 @@ passed that mouse workflow.
 
 ## Updating portable artifacts
 
+Kitty is pinned to 0.43.1 for older glibc compatibility: the 0.50.0 bundle
+requires glibc 2.35 and fails on the tested AlmaLinux 9 host.
+
 Kitty and Ghostty versions are pinned in `Makefile`. Their reviewed upstream
 SHA-256 digests are pinned in `scripts/download-terminals.sh`; update both
 when changing a terminal version. The weekly version updater currently does

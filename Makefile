@@ -3,7 +3,7 @@
 HOST_OS := $(shell uname -s)
 
 # Version variables - update these when new releases are available
-KITTY_VERSION := 0.50.0
+KITTY_VERSION := 0.43.1
 GHOSTTY_VERSION := 1.4.0
 WEZTERM_VERSION := 20240203-110809-5046fc22
 FZF_VERSION := 0.74.5

@@ -124,7 +124,12 @@ def main() -> None:
                     wait_for(find_window, "Kitty did not start")
                     window = find_window().splitlines()[0]
                     wait_for(lambda: Path(socket).exists(), "tmux socket did not appear")
-                    wait_for(lambda: "pane-selection-marker" in tmux("capture-pane", "-p"), "fixture did not render")
+                    def fixture_ready() -> bool:
+                        """A socket can appear before the tmux server accepts commands."""
+                        result = subprocess.run([args.tmux, "-S", socket, "capture-pane", "-p"],
+                                                env=env, text=True, capture_output=True, timeout=20)
+                        return result.returncode == 0 and "pane-selection-marker" in result.stdout
+                    wait_for(fixture_ready, "Kitty tmux fixture did not render")
                     geometry = dict(line.split("=") for line in
                                     run("xdotool", "getwindowgeometry", "--shell", window).splitlines())
                     cols, rows = tmux("display-message", "-p", "#{client_width} #{client_height}").split()

@@ -5,7 +5,7 @@ kitty_version=$1
 ghostty_version=$2
 # Update these digests when changing the pinned versions in Makefile.
 case "$kitty_version" in
-  0.50.0) kitty_sha=f04b11775574d6aabfb529b7e734cc0a7d7d12c7df9fb8ec1843e45420e514ee ;;
+  0.43.1) kitty_sha=f2026ef8cec6fd21b58e3ae501f707c2fc922ddb9b3e79685917fc60197449fb ;;
   *) echo "No reviewed Kitty digest for $kitty_version" >&2; exit 1 ;;
 esac
 case "$ghostty_version" in
