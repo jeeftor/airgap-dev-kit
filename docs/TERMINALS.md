@@ -24,7 +24,9 @@ CLIPBOARD for native selection and middle-click so application OSC 52 copies
 and terminal selections share the same destination. PRIMARY remains a separate
 Linux selection and can contain different text.
 
-The tmux preset keeps application mouse reporting and pane-aware selection.
+Kitty and Ghostty advertise `xterm-256color`, which the bundled tmux AppImage
+recognizes without installing additional terminfo entries. The tmux preset
+keeps application mouse reporting and pane-aware selection.
 OpenCode 2 can copy through OSC 52 without xclip or wl-clipboard installed.
 Keyboard paste working alone does not establish that mouse paste works.
 
