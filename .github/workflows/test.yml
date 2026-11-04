@@ -390,8 +390,9 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Install RHEL font and archive dependencies
+        timeout-minutes: 5
         run: |
-          dnf -y install --setopt=install_weak_deps=False \
+          dnf -y --setopt=timeout=30 --setopt=retries=3 install --setopt=install_weak_deps=False \
             fontconfig tar gzip
 
       - name: Download packaged kit
