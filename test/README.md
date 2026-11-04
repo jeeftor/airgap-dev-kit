@@ -246,17 +246,56 @@ This tells LazyVim to use pre-installed plugins only.
 - Mason docs: https://github.com/mason-org/mason.nvim
 - Mason package list: https://mason-registry.dev/registry/list
 
-The **Test installed editor without network** job runs
+The **Offline editor** jobs run four independent suites (`core`, `languages`,
+`formatting`, and `plugins`) with `fail-fast: false`. Each runs
 `bash test/scripts/test-editor-health.sh <archive>` in a Linux network namespace
 without network access. It installs the release archive into a disposable home,
 loads every manifest parser and its highlighting queries, parses valid and
 invalid Lua, starts highlighting, runs the bundled Tree-sitter CLI, and checks
-internal yank behavior. The `editor-health-evidence` artifact retains the full
-health buffer and startup log. Optional provider and headless UI warnings are
-informational; required editor behavior fails the job.
+internal yank behavior. Every suite also saves a file, reopens it in a second
+Neovim process, and verifies the plugin lockfile stayed unchanged.
+
+The additional behavior checks in `scripts/editor-integration.lua` cover:
+
+- Initialization and attachment of all nine manifest language servers. Adding
+  a server to the manifest requires adding a fixture; missing coverage fails.
+- Real Lua LSP completion and go-to-definition, plus errors appearing on invalid
+  code and clearing after repair.
+- Formatting Lua, JSON, YAML, JavaScript, TypeScript, and shell buffers through the installed Conform
+  configuration with StyLua, Prettier, and shfmt, then checking saved content.
+- ShellCheck diagnostics and the eslint_d launcher.
+- File discovery, text search, fuzzy filtering, Snacks file/grep pickers and
+  explorer, completion's Lua fuzzy matcher, and normal-mode yank/paste.
+
+The offline editor configuration connects bundled Prettier to Conform for its
+supported web/document filetypes and selects Blink's Lua matcher explicitly.
+Completion therefore works without downloading a native library on first use.
+
+The language suite uses the runner's preinstalled Go and Rust toolchains for
+workspace support. Those toolchains are not bundled in the kit. Node-based
+Mason tools use the kit's bundled Node runtime. Go module downloads, automatic
+Go toolchain downloads, and Cargo network access are disabled in the tests.
+No language fixture requires third-party dependencies.
+
+The `editor-health-evidence-<suite>` artifacts retain the full health buffer,
+startup and integration logs, per-case JSON results, and the LSP log, including
+on failures. Optional provider and headless UI warnings are informational;
+required editor behavior fails the job. The tag-triggered release workflow
+runs all suites against its own archive before publishing; its evidence is
+saved as `release-editor-health-<tag>`.
+
+To reproduce all checks on a Linux host with Go and Rust installed:
+
+```bash
+sudo env PATH="$PATH" RUSTUP_HOME="$HOME/.rustup" CARGO_HOME="$HOME/.cargo" \
+  AIRGAP_HEALTH_RESULTS=/tmp/editor-health-results \
+  unshare --net bash test/scripts/test-editor-health.sh airgap-dev-kit-linux-x86_64.tar.gz
+```
+
+Set `AIRGAP_EDITOR_SUITE` to a suite name to run that group with the core checks.
 
 The GUI launch job also opens the full kit LazyVim profile in a real WezTerm
 terminal UI, checks Snacks input/picker/dashboard registration after startup,
 and captures `editor-ui-checkhealth.txt`. This separates actual UI failures from
 warnings caused by running UI health checks in headless Neovim. The offline
-editor job verifies that the bundled Lua language server initializes as well.
+editor jobs verify language servers and formatting separately from the desktop UI.

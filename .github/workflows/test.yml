@@ -253,9 +253,14 @@ jobs:
           retention-days: 7
 
   test-editor-health:
-    name: Test installed editor without network
+    name: Offline editor (${{ matrix.suite }})
     runs-on: ubuntu-latest
     needs: test-build-linux
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [core, languages, formatting, plugins]
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -266,16 +271,27 @@ jobs:
           name: airgap-dev-kit-linux
           path: release
 
-      - name: Verify offline parsers and capture health
+      - name: Verify offline editor behavior and capture health
         run: |
-          sudo env AIRGAP_HEALTH_RESULTS="$RUNNER_TEMP/editor-health-results" \
+          sudo env PATH="$PATH" RUSTUP_HOME="$HOME/.rustup" CARGO_HOME="$HOME/.cargo" \
+            AIRGAP_EDITOR_SUITE="${{ matrix.suite }}" \
+            AIRGAP_HEALTH_RESULTS="$RUNNER_TEMP/editor-health-results" \
             unshare --net bash test/scripts/test-editor-health.sh release/airgap-dev-kit-linux-x86_64.tar.gz
+
+      - name: Summarize editor integration cases
+        if: always()
+        run: |
+          report="$RUNNER_TEMP/editor-health-results/${{ matrix.suite }}-results.json"
+          if [[ -f "$report" ]]; then
+            jq -r '.[] | "- \(if .passed then "PASS" else "FAIL" end): \(.name)"' "$report" >> "$GITHUB_STEP_SUMMARY"
+            jq -r '.[] | select(.passed == false) | "::error title=Offline editor::\(.name)"' "$report"
+          fi
 
       - name: Upload complete health report and behavior results
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: editor-health-evidence
+          name: editor-health-evidence-${{ matrix.suite }}
           path: ${{ runner.temp }}/editor-health-results
           retention-days: 7
 

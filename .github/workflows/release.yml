@@ -183,7 +183,8 @@ jobs:
 
       - name: Verify release editor without network
         run: |
-          sudo env AIRGAP_HEALTH_RESULTS="$RUNNER_TEMP/release-editor-health" \
+          sudo env PATH="$PATH" RUSTUP_HOME="$HOME/.rustup" CARGO_HOME="$HOME/.cargo" \
+            AIRGAP_HEALTH_RESULTS="$RUNNER_TEMP/release-editor-health" \
             unshare --net bash test/scripts/test-editor-health.sh airgap-dev-kit-linux-x86_64.tar.gz
 
       - name: Upload release editor health evidence
