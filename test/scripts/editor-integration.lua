@@ -15,7 +15,7 @@ local function check(name, callback)
 end
 
 local function run(group)
-	return suite == "all" or suite == group
+	return suite == "all" or suite == group or (suite == "minimal" and (group == "formatting" or group == "plugins"))
 end
 
 local function fixture(directory, files, filename)
@@ -285,6 +285,10 @@ if run("plugins") then
 		assert(#lines == 2 and lines[1] == lines[2], "Normal-mode yank/paste changed the text")
 		vim.cmd.write()
 	end)
+end
+
+if run("projects") then
+	dofile(vim.env.AIRGAP_PROJECT_SCRIPT)(check, fixture, attached, root)
 end
 
 vim.fn.writefile({ vim.json.encode(results) }, vim.env.AIRGAP_HEALTH_RESULTS .. "/" .. suite .. "-results.json")

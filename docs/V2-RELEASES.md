@@ -34,6 +34,11 @@ airgap update download --output /media/airgap-update
 airgap update apply --from /media/airgap-update --yes
 ```
 
+Offline updates and rollback preserve an existing user installation's shell
+integration choice. Enabled integration remains tracked so uninstall removes
+the managed startup block; updating does not enable it when it was declined.
+Existing personal Neovim profiles and terminal configurations remain preserved.
+
 ## Build and publish path
 
 There is one release path:

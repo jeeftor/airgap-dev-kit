@@ -430,12 +430,29 @@ func extractSafeTarGz(archive, dst string) error {
 }
 
 func runKitInstaller(cmd *cobra.Command, kit string) error {
+	options := installOptions{Yes: true, NvimMode: "preserve", Scope: "user", DesktopIntegration: "menu"}
+	path, err := installRecordPath()
+	if err != nil {
+		return err
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("read existing installation before update: %w", err)
+	}
+	if err == nil {
+		var record installRecord
+		if err := json.Unmarshal(raw, &record); err != nil {
+			return fmt.Errorf("read existing installation before update: %w", err)
+		}
+		// Keep the user's existing shell-integration choice and its uninstall ownership.
+		options.ConfigureShell = record.Scope == "user" && len(record.ShellRCs) > 0
+	}
 	previous := os.Getenv("AIRGAP_KIT_DIR")
 	if err := os.Setenv("AIRGAP_KIT_DIR", kit); err != nil {
 		return err
 	}
 	defer os.Setenv("AIRGAP_KIT_DIR", previous)
-	return installKit(cmd, installOptions{Yes: true, NvimMode: "preserve", Scope: "user", DesktopIntegration: "menu"})
+	return installKit(cmd, options)
 }
 
 func statePath() (string, error) {
