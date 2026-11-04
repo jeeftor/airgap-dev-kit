@@ -35,6 +35,12 @@ heading "Verifying offline payload"
 printf '\n'
 heading "Core Linux binaries"
 check_executable offline-packages/linux/wezterm.AppImage wezterm.AppImage
+check_executable offline-packages/linux/ghostty.AppImage ghostty.AppImage
+if tar -tzf offline-packages/linux/kitty.tar.gz > /dev/null 2>&1; then
+  ok kitty.tar.gz
+else
+  bad "kitty.tar.gz - missing or invalid portable bundle"
+fi
 check_executable offline-packages/linux/tmux-3.4-static-x86_64 tmux-3.4-static-x86_64
 check_executable offline-packages/linux/nvim-static-x86_64 nvim-static-x86_64
 if [ -d offline-packages/linux/nvim-runtime ]; then ok nvim-runtime/; else bad "nvim-runtime/ - missing (re-run make update-linux to download)"; fi

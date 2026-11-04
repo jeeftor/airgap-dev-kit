@@ -51,7 +51,9 @@ for entry in "$root/offline-packages/linux/amd64"/*; do
 done
 if [ "$flavor" = cli ]; then
   touch "$root/.airgap-cli-only"
-  rm -f "$root/offline-packages/linux/amd64/wezterm.AppImage"
+  for terminal in wezterm.AppImage ghostty.AppImage kitty.tar.gz; do
+    rm -f "$root/offline-packages/linux/amd64/$terminal" "$root/offline-packages/linux/$terminal"
+  done
 else
   [ -d fonts ] && cp -R fonts "$root/"
 fi

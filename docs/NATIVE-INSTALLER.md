@@ -218,3 +218,10 @@ report and separately gates real offline parser loading, queries, highlighting,
 the bundled CLI, and internal yank behavior.
 The release workflow repeats the offline editor checks against the actual
 release archive before signing and publishing, and retains its health evidence.
+
+## Additional portable terminals
+
+The full kit also offers Kitty and experimental Ghostty as independently
+selectable components, with Nerd Font presets and applications-menu integration.
+Existing personal terminal configs are preserved. See [terminal setup and mouse
+limitations](TERMINALS.md) before evaluating Ghostty inside tmux or OpenCode.

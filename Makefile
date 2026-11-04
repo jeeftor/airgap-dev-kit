@@ -3,6 +3,8 @@
 HOST_OS := $(shell uname -s)
 
 # Version variables - update these when new releases are available
+KITTY_VERSION := 0.50.0
+GHOSTTY_VERSION := 1.4.0
 WEZTERM_VERSION := 20240203-110809-5046fc22
 FZF_VERSION := 0.74.5
 TMUX_VERSION := 3.5a
@@ -35,7 +37,7 @@ SHELLCHECK_VERSION := 0.11.0
 TREE_SITTER_VERSION := v0.26.6
 TREE_SITTER_SOURCE_SHA256 := b4218185a48a791d4022ab3969709e271a70a0253e94792abbcf18d7fcf4291c
 TREE_SITTER_BUILD_SHA256 := 2b9595064a7d9dbe208c6f09f521d73061f8039e4ffcc2fd08979d249aeabb54
-LINUX_PAYLOAD_VERSIONS := $(WEZTERM_VERSION) $(FZF_VERSION) $(TMUX_VERSION) $(NVIM_VERSION) $(BTOP_VERSION) $(LSD_VERSION) $(ZOX_VERSION) $(DELTA_VERSION) $(DIFFTASTIC_VERSION) $(GUM_VERSION) $(GLOW_VERSION) $(BROOT_VERSION) $(FASTFETCH_VERSION) $(DUST_VERSION) $(GDU_VERSION) $(USBTREE_VERSION) $(MKCERT_VERSION) $(DIRENV_VERSION) $(SVU_VERSION) $(GPING_VERSION) $(FD_VERSION) $(RG_VERSION) $(BAT_VERSION) $(STARSHIP_VERSION) $(LAZYGIT_VERSION) $(JQ_VERSION) $(LUA_LS_VERSION) $(SHELLCHECK_VERSION)
+LINUX_PAYLOAD_VERSIONS := $(KITTY_VERSION) $(GHOSTTY_VERSION) $(WEZTERM_VERSION) $(FZF_VERSION) $(TMUX_VERSION) $(NVIM_VERSION) $(BTOP_VERSION) $(LSD_VERSION) $(ZOX_VERSION) $(DELTA_VERSION) $(DIFFTASTIC_VERSION) $(GUM_VERSION) $(GLOW_VERSION) $(BROOT_VERSION) $(FASTFETCH_VERSION) $(DUST_VERSION) $(GDU_VERSION) $(USBTREE_VERSION) $(MKCERT_VERSION) $(DIRENV_VERSION) $(SVU_VERSION) $(GPING_VERSION) $(FD_VERSION) $(RG_VERSION) $(BAT_VERSION) $(STARSHIP_VERSION) $(LAZYGIT_VERSION) $(JQ_VERSION) $(LUA_LS_VERSION) $(SHELLCHECK_VERSION)
 RELEASE_DIR ?= .
 FLAVOR ?= full
 OUTPUT ?= .
@@ -94,11 +96,13 @@ update-linux:
 	@mkdir -p offline-packages/linux
 	@# A version change must replace existing binaries, including old tracked copies.
 	@if [ "$$(cat offline-packages/linux/.versions 2>/dev/null)" != "$(LINUX_PAYLOAD_VERSIONS)" ]; then \
-		for tool in wezterm.AppImage tmux-3.4-static-x86_64 nvim-static-x86_64 fzf fd rg bat starship btop lsd zoxide direnv dust gdu mkcert usbtree gping delta difft gum glow broot fastfetch lazygit jq svu lua-language-server shellcheck; do \
+		for tool in kitty.tar.gz ghostty.AppImage wezterm.AppImage tmux-3.4-static-x86_64 nvim-static-x86_64 fzf fd rg bat starship btop lsd zoxide direnv dust gdu mkcert usbtree gping delta difft gum glow broot fastfetch lazygit jq svu lua-language-server shellcheck; do \
 			rm -f "offline-packages/linux/$$tool"; \
 		done; \
 		rm -f offline-packages/linux/fzf-scripts/key-bindings.* offline-packages/linux/fzf-scripts/completion.*; \
 	fi
+
+	@./scripts/download-terminals.sh "$(KITTY_VERSION)" "$(GHOSTTY_VERSION)"
 
 	@# WezTerm AppImage
 	@if [ ! -f offline-packages/linux/wezterm.AppImage ] || [ $$(stat -f%z offline-packages/linux/wezterm.AppImage 2>/dev/null || stat -c%s offline-packages/linux/wezterm.AppImage 2>/dev/null) -lt 1000 ]; then \

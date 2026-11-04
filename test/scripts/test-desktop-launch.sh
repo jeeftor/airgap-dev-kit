@@ -219,9 +219,22 @@ python3 "$script_dir/test-tmux-clipboard.py" \
   --config-root "$kit_dir/source-unavailable/config" \
   --logs "$logs_dir/tmux-clipboard" --opencode "$AIRGAP_TEST_OPENCODE"
 
+python3 "$script_dir/test-tmux-clipboard.py" \
+  --kitty "$HOME/.local/bin/kitty" --tmux "$HOME/.local/bin/tmux" \
+  --config-root "$kit_dir/source-unavailable/config" \
+  --logs "$logs_dir/kitty-clipboard" --opencode "$AIRGAP_TEST_OPENCODE"
+
+"$HOME/.local/bin/ghostty" --version > "$logs_dir/ghostty-version.txt" 2>&1
+
 "$HOME/.local/bin/airgap" uninstall --yes > "$logs_dir/uninstall.log" 2>&1
 test ! -f "$menu"
 test ! -f "$shortcut"
 test ! -f "$HOME/.local/bin/vim-empty"
 test ! -f "$HOME/.local/share/airgap-dev-kit/wezterm-preset.lua"
+for terminal in kitty ghostty; do
+  test ! -e "$HOME/.local/bin/$terminal"
+  test ! -e "$HOME/.local/share/applications/airgap-$terminal.desktop"
+done
+test ! -e "$HOME/.local/share/airgap-dev-kit/kitty"
+test ! -e "$HOME/.local/share/airgap-dev-kit/ghostty.AppImage"
 echo "PASS: GUI entries validate, launch, reject a broken Exec, and uninstall"
