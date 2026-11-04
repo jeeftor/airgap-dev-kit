@@ -206,7 +206,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             python3 xvfb xauth dbus-x11 desktop-file-utils libglib2.0-bin libgtk-3-bin x11-utils imagemagick xclip xdotool \
             libgl1 libglx-mesa0 libgl1-mesa-dri libegl1 libegl-mesa0 \
-            libgles2 libxkbcommon-x11-0 libxcb-cursor0
+            libgles2 libxkbcommon-x11-0 libxcb-cursor0 libxcursor1 libxinerama1 libxi6 libxrandr2
 
       # OpenCode is a pinned GUI test fixture, never part of the shipped payload.
       - name: Download checksum-pinned OpenCode mouse test fixture

@@ -1,0 +1,10 @@
+# The bundled tmux terminfo database supports this portable terminal type.
+term = xterm-256color
+# Experimental portable Ghostty preset. See docs/TERMINALS.md for mouse limits.
+font-family = JetBrainsMono Nerd Font
+font-size = 12
+copy-on-select = clipboard
+middle-click-action = clipboard-paste
+clipboard-write = allow
+keybind = ctrl+shift+c=copy_to_clipboard
+keybind = ctrl+shift+v=paste_from_clipboard

@@ -385,7 +385,7 @@ func expectedPayloadCommands(payloadDir string) []string {
 			continue
 		}
 		info, err := entry.Info()
-		if err != nil || !info.Mode().IsRegular() || (!isAppImagePayload(entry.Name()) && info.Mode()&0111 == 0) {
+		if err != nil || !info.Mode().IsRegular() || (!isBundledPayload(entry.Name()) && info.Mode()&0111 == 0) {
 			continue
 		}
 		if entry.Name() == "nvim-static-x86_64" {

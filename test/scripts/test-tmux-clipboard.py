@@ -53,6 +53,7 @@ def main() -> None:
     """Verify pane selection, application OSC 52, and real middle-click paste."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--wezterm", default="wezterm")
+    parser.add_argument("--kitty", help="Test the portable Kitty executable instead of WezTerm")
     parser.add_argument("--tmux", default="tmux")
     parser.add_argument("--config-root", type=Path, required=True)
     parser.add_argument("--logs", type=Path, required=True)
@@ -94,27 +95,59 @@ def main() -> None:
             except subprocess.CalledProcessError:
                 return ""
 
-        with (logs / "wezterm.log").open("w") as log:
+        terminal = "Kitty" if args.kitty else "WezTerm"
+        if args.kitty:
+            terminal_command = [
+                args.kitty, "--config", str(args.config_root / "kitty/.config/kitty/kitty.conf"),
+                "--title", "airgap-clipboard-test", "--override", "window_padding_width=0",
+                "--override", "window_margin_width=0", "--override", "hide_window_decorations=yes",
+                "--override", "initial_window_width=100c", "--override", "initial_window_height=30c",
+            ]
+        else:
+            terminal_command = [args.wezterm, "--config-file",
+                                str(args.config_root / "wezterm/.config/wezterm/wezterm.lua"),
+                                "start", "--always-new-process", "--cwd", str(logs), "--"]
+        with (logs / (terminal.lower() + ".log")).open("w") as log:
             process = subprocess.Popen([
-                args.wezterm, "--config-file", str(args.config_root / "wezterm/.config/wezterm/wezterm.lua"),
-                "start", "--always-new-process", "--cwd", str(logs), "--", "/usr/bin/env", *isolated_home,
+                *terminal_command, "/usr/bin/env", *isolated_home,
                 args.tmux, "-S", socket,
                 "-f", str(args.config_root / "tmux/.tmux.conf"), "new-session", "-s", "clipboard",
                 sys.executable, str(Path(__file__).resolve()), "--fixture", str(output),
             ], env=gui_env, stdout=log, stderr=log, cwd=logs)
             try:
-                wait_for(lambda: bool(list(runtime.glob("wezterm/gui-sock-*"))), "WezTerm did not start")
-                env["WEZTERM_UNIX_SOCKET"] = str(next(runtime.glob("wezterm/gui-sock-*")))
+                if args.kitty:
+                    def find_window() -> str:
+                        """Find the isolated Kitty test window without a window manager."""
+                        result = subprocess.run(["xdotool", "search", "--name", "^airgap-clipboard-test$"],
+                                                env=env, text=True, capture_output=True, timeout=20)
+                        return result.stdout.strip()
+                    wait_for(find_window, "Kitty did not start")
+                    window = find_window().splitlines()[0]
+                    wait_for(lambda: Path(socket).exists(), "tmux socket did not appear")
+                    def fixture_ready() -> bool:
+                        """A socket can appear before the tmux server accepts commands."""
+                        result = subprocess.run([args.tmux, "-S", socket, "capture-pane", "-p"],
+                                                env=env, text=True, capture_output=True, timeout=20)
+                        return result.returncode == 0 and "pane-selection-marker" in result.stdout
+                    wait_for(fixture_ready, "Kitty tmux fixture did not render")
+                    geometry = dict(line.split("=") for line in
+                                    run("xdotool", "getwindowgeometry", "--shell", window).splitlines())
+                    cols, rows = tmux("display-message", "-p", "#{client_width} #{client_height}").split()
+                    pane = {"size": {"cols": int(cols), "rows": int(rows),
+                                     "pixel_width": int(geometry["WIDTH"]), "pixel_height": int(geometry["HEIGHT"])}}
+                else:
+                    wait_for(lambda: bool(list(runtime.glob("wezterm/gui-sock-*"))), "WezTerm did not start")
+                    env["WEZTERM_UNIX_SOCKET"] = str(next(runtime.glob("wezterm/gui-sock-*")))
 
-                def wez(*command: str) -> str:
-                    """Send input to the real terminal instance."""
-                    return run(args.wezterm, "cli", "--no-auto-start", *command, env=env)
+                    def wez(*command: str) -> str:
+                        """Send input to the real terminal instance."""
+                        return run(args.wezterm, "cli", "--no-auto-start", *command, env=env)
 
-                pane = json.loads(wez("list", "--format", "json"))[0]
-                (logs / "terminal-size.json").write_text(json.dumps(pane, indent=2))
-                # AppImage extraction can leave a launcher parent above the GUI process.
-                gui_pid = Path(env["WEZTERM_UNIX_SOCKET"]).name.removeprefix("gui-sock-")
-                window = run("xdotool", "search", "--pid", gui_pid, "--class", "org.wezfurlong.wezterm").splitlines()[0]
+                    pane = json.loads(wez("list", "--format", "json"))[0]
+                    (logs / "terminal-size.json").write_text(json.dumps(pane, indent=2))
+                    # AppImage extraction can leave a launcher parent above the GUI process.
+                    gui_pid = Path(env["WEZTERM_UNIX_SOCKET"]).name.removeprefix("gui-sock-")
+                    window = run("xdotool", "search", "--pid", gui_pid, "--class", "org.wezfurlong.wezterm").splitlines()[0]
                 run("xdotool", "windowfocus", "--sync", window)
                 wait_for(lambda: "pane-selection-marker" in tmux("capture-pane", "-p"), "fixture did not render")
                 target = tmux("display-message", "-p", "#{pane_id}").strip()
@@ -126,21 +159,22 @@ def main() -> None:
                     size = pane["size"]
                     width = size["pixel_width"] / size["cols"]
                     height = size["pixel_height"] / size["rows"]
-                    y = str(round(6 + (row - 0.5) * height))
+                    left, top = (0, 0) if args.kitty else (8, 6)
+                    y = str(round(top + (row - 0.5) * height))
                     commands = ["xdotool", "mousemove", "--window", window,
-                                str(round(8 + (column - 0.5) * width)), y,
+                                str(round(left + (column - 0.5) * width)), y,
                                 "mousedown", "1", "sleep", "0.2"]
                     # A jump directly into a neighboring pane omits every motion in the source pane.
                     for cell in range(column + 1, end_column + 1):
                         commands += ["mousemove", "--window", window,
-                                     str(round(8 + (cell - 0.5) * width)), y, "sleep", "0.01"]
+                                     str(round(left + (cell - 0.5) * width)), y, "sleep", "0.01"]
                     run(*commands, "sleep", "0.2", "mouseup", "1")
 
                 def middle_paste(expected: str) -> None:
                     """Ensure a real middle-click pastes CLIPBOARD rather than stale PRIMARY."""
                     subprocess.run(["xclip", "-selection", "primary"], input=b"stale-primary-marker", env=env, check=True)
                     before = output.stat().st_size
-                    time.sleep(0.6)  # Separate single clicks from WezTerm's multi-click interval.
+                    time.sleep(0.6)  # Separate single clicks from the terminal's multi-click interval.
                     run("xdotool", "mousemove", "--window", window, "150", "100", "click", "2")
                     wait_for(lambda: expected.encode() in output.read_bytes()[before:], "middle-click did not paste " + expected)
 
@@ -148,11 +182,22 @@ def main() -> None:
                 terminal_tty = tmux("display-message", "-p", "#{client_tty}").strip()
                 with open(terminal_tty, "wb", buffering=0) as stream:
                     stream.write(b"\033]52;c;" + base64.b64encode(b"direct-terminal-marker") + b"\a")
-                wait_for(lambda: clipboard() == "direct-terminal-marker", "direct OSC 52 did not update WezTerm CLIPBOARD")
-                print("PASS: direct WezTerm OSC 52 clipboard write", flush=True)
+                wait_for(lambda: clipboard() == "direct-terminal-marker", "direct OSC 52 did not update " + terminal + " CLIPBOARD")
+                print("PASS: direct " + terminal + " OSC 52 clipboard write", flush=True)
                 tmux("set-buffer", "-w", "manual-tmux-marker")
                 wait_for(lambda: clipboard() == "manual-tmux-marker", "tmux set-buffer -w did not update CLIPBOARD")
                 print("PASS: tmux set-buffer -w clipboard write", flush=True)
+
+                if args.kitty:
+                    # Native terminal selection must use the same clipboard as applications.
+                    tmux("set-option", "-g", "mouse", "off")
+                    time.sleep(0.3)
+                    drag(2, 2, 23)
+                    wait_for(lambda: clipboard() == "pane-selection-marker", "native terminal drag did not reach CLIPBOARD")
+                    middle_paste("pane-selection-marker")
+                    tmux("set-option", "-g", "mouse", "on")
+                    time.sleep(0.3)
+                    print("PASS: native terminal selection and middle-click")
 
                 # Drag enters tmux copy mode, including across a pane boundary.
                 drag(2, 2, 22)
@@ -169,7 +214,7 @@ def main() -> None:
 
                 for key, expected in [("r", "raw-application-marker"), ("w", "wrapped-application-marker")]:
                     tmux("send-keys", "-t", target, "-l", key)
-                    wait_for(lambda: clipboard() == expected, expected + " did not reach WezTerm")
+                    wait_for(lambda: clipboard() == expected, expected + " did not reach " + terminal)
                     middle_paste(expected)
                     print("PASS: " + expected + " and middle-click")
 
@@ -187,7 +232,7 @@ def main() -> None:
                 row = next(i for i, line in enumerate(lines) if marker in line)
                 column = lines[row].index(marker)
                 drag(column + 1, row + 1, column + len(marker) + 1)
-                wait_for(lambda: clipboard() == marker, "OpenCode mouse selection did not reach WezTerm")
+                wait_for(lambda: clipboard() == marker, "OpenCode mouse selection did not reach " + terminal)
                 # Clear input, then paste with the actual mouse; never submit it.
                 tmux("send-keys", "-t", target, "C-u")
                 wait_for(lambda: marker not in tmux("capture-pane", "-p", "-t", target), "OpenCode input did not clear before paste")

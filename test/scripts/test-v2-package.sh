@@ -13,6 +13,9 @@ printf '%s\n' '#!/bin/sh' 'exit 0' > "$fixture/offline-packages/linux/example-to
 printf '%s\n' '#!/bin/sh' 'echo airgap' > "$fixture/airgap"
 printf '%s\n' 'lazy payload' > "$fixture/offline-packages/lazy-plugins.tar.gz"
 printf '%s\n' 'mason payload' > "$fixture/offline-packages/mason-lsp.tar.gz"
+for terminal in wezterm.AppImage ghostty.AppImage kitty.tar.gz; do
+  printf '%s\n' 'terminal fixture' > "$fixture/offline-packages/linux/$terminal"
+done
 chmod +x "$fixture/airgap" "$fixture/offline-packages/linux/example-tool"
 
 (
@@ -49,6 +52,20 @@ assert_missing_payload_is_rejected() {
 
 # A successful package must be self-contained: both archives are needed to
 # install LazyVim and Mason without reaching the network on the target host.
+(
+  cd "$fixture"
+  sh scripts/package-v2.sh --binary ./airgap --flavor cli --version v0.0.0 --output "$tmp_dir/cli-output"
+)
+mkdir "$tmp_dir/cli-extract"
+tar -xzf "$tmp_dir/cli-output/airgap-dev-kit-cli-linux-x86_64.tar.gz" -C "$tmp_dir/cli-extract"
+for terminal in wezterm.AppImage ghostty.AppImage kitty.tar.gz; do
+  for path in "$tmp_dir/cli-extract/airgap-dev-kit/offline-packages/linux/$terminal" "$tmp_dir/cli-extract/airgap-dev-kit/offline-packages/linux/amd64/$terminal"; do
+    if [ -e "$path" ] || [ -L "$path" ]; then
+      echo "CLI-only package includes GUI payload: $path" >&2; exit 1
+    fi
+  done
+done
+
 assert_missing_payload_is_rejected lazy-plugins.tar.gz
 assert_missing_payload_is_rejected mason-lsp.tar.gz
 

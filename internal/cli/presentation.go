@@ -411,7 +411,7 @@ func (m *installModel) applyChoice() {
 func (m installModel) componentTools() []toolChoice {
 	choices := make([]toolChoice, 0, len(m.tools))
 	for _, tool := range m.tools {
-		if !m.options.CLIOnly || tool.Name != "wezterm" {
+		if !m.options.CLIOnly || !isGUICommand(tool.Name) {
 			choices = append(choices, tool)
 		}
 	}
@@ -534,11 +534,11 @@ func planInstall(cmd *cobra.Command, options installOptions, existingNvim bool, 
 }
 
 func (m installModel) hasGUI() bool {
-	if !guiSelected(m.options) {
+	if m.options.CLIOnly {
 		return false
 	}
 	for _, tool := range m.tools {
-		if tool.Name == "wezterm" {
+		if isGUICommand(tool.Name) && (m.options.Tools == nil || m.options.Tools[tool.Name]) {
 			return true
 		}
 	}

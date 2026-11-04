@@ -214,6 +214,28 @@ func installKit(cmd *cobra.Command, options installOptions) error {
 			return installWezTermDesktop(binDir, menuPath, shortcutPath, options.Scope, &record)
 		}})
 	}
+	for _, terminal := range []string{"kitty", "ghostty"} {
+		payloadName := "kitty.tar.gz"
+		if terminal == "ghostty" {
+			payloadName = "ghostty.AppImage"
+		}
+		if options.CLIOnly || (options.Tools != nil && !options.Tools[terminal]) {
+			continue
+		}
+		if _, err := os.Stat(filepath.Join(payload, payloadName)); err != nil {
+			continue
+		}
+		menu, shortcut, err := terminalDesktopPaths(home, dataHome, terminal, options)
+		if err != nil {
+			return err
+		}
+		if menu == "" {
+			continue
+		}
+		steps = append(steps, installStep{label: "Register " + terminal, result: "Registered", details: "Applications-menu entry", action: func() error {
+			return installTerminalDesktop(binDir, menu, shortcut, options.Scope, terminal, &record)
+		}})
+	}
 	if installNvim {
 		steps = append(steps, installStep{label: "Install Neovim and editor payload", result: "Installed", details: "Bundled Neovim, LazyVim, and Mason payload", action: func() error {
 			return installNvimPayload(root, payload, home, dataHome, binDir, nvimDataDir, options.Scope, options.NvimMode, &record)
@@ -293,6 +315,26 @@ func writeInstallPlan(cmd *cobra.Command, root, payload, home, dataHome string, 
 		fmt.Fprintln(cmd.OutOrStdout(), "  would register "+menuPath)
 		if shortcutPath != "" {
 			fmt.Fprintln(cmd.OutOrStdout(), "  would create "+shortcutPath)
+		}
+	}
+	for _, terminal := range []string{"kitty", "ghostty"} {
+		payloadName := "kitty.tar.gz"
+		if terminal == "ghostty" {
+			payloadName = "ghostty.AppImage"
+		}
+		if _, err := os.Stat(filepath.Join(payload, payloadName)); err != nil {
+			continue
+		}
+		menu, shortcut, err := terminalDesktopPaths(home, dataHome, terminal, options)
+		if err != nil {
+			fmt.Fprintln(cmd.OutOrStdout(), "  "+err.Error())
+			continue
+		}
+		if menu != "" {
+			fmt.Fprintln(cmd.OutOrStdout(), "  would register "+menu)
+		}
+		if shortcut != "" {
+			fmt.Fprintln(cmd.OutOrStdout(), "  would create "+shortcut)
 		}
 	}
 }
@@ -482,7 +524,7 @@ func installPlan(root, payload, binDir, appDataDir string, options installOption
 			continue
 		}
 		info, err := entry.Info()
-		if err != nil || !info.Mode().IsRegular() || (!isAppImagePayload(entry.Name()) && info.Mode()&0111 == 0) {
+		if err != nil || !info.Mode().IsRegular() || (!isBundledPayload(entry.Name()) && info.Mode()&0111 == 0) {
 			continue
 		}
 		name := installedPayloadName(entry.Name())
@@ -581,12 +623,24 @@ func copyPayloadBinaries(payload, binDir, appDataDir, scope string, cliOnly bool
 			continue
 		}
 		info, err := entry.Info()
-		if err != nil || !info.Mode().IsRegular() || (!isAppImagePayload(entry.Name()) && info.Mode()&0111 == 0) {
+		if err != nil || !info.Mode().IsRegular() || (!isBundledPayload(entry.Name()) && info.Mode()&0111 == 0) {
 			continue
 		}
 		name := entry.Name()
 		installedName := installedPayloadName(name)
 		if installedName != "airgap" && tools != nil && !tools[installedName] {
+			continue
+		}
+		if name == "kitty.tar.gz" {
+			if err := installKittyBundle(filepath.Join(payload, name), binDir, appDataDir, scope, record); err != nil {
+				return err
+			}
+			continue
+		}
+		if name == "ghostty.AppImage" {
+			if err := installAppImage(filepath.Join(payload, name), binDir, appDataDir, scope, "ghostty.AppImage", "ghostty", record); err != nil {
+				return err
+			}
 			continue
 		}
 		if name == "wezterm.AppImage" {
@@ -620,7 +674,7 @@ func availableCLIChoices(payload string) []toolChoice {
 		return nil
 	}
 	descriptions := map[string]string{
-		"bat": "syntax-highlighted cat", "broot": "interactive directory navigator", "btop": "resource monitor", "delta": "Git pager", "difft": "structural diff", "direnv": "directory environment loader", "dust": "disk usage summary", "fastfetch": "system information", "fd": "fast file finder", "fzf": "fuzzy finder", "gdu": "disk usage analyzer", "glow": "Markdown reader", "gping": "ping graph", "gum": "interactive shell UI", "jq": "JSON processor", "lazygit": "Git TUI", "lsd": "modern ls", "mkcert": "local development certificates", "rg": "fast text search", "shellcheck": "shell linter", "starship": "shell prompt", "svu": "semantic-version utility", "tmux": "terminal multiplexer", "usbtree": "USB device inspector", "wezterm": "GPU terminal emulator", "zoxide": "smart directory jump",
+		"bat": "syntax-highlighted cat", "broot": "interactive directory navigator", "btop": "resource monitor", "delta": "Git pager", "difft": "structural diff", "direnv": "directory environment loader", "dust": "disk usage summary", "fastfetch": "system information", "fd": "fast file finder", "fzf": "fuzzy finder", "gdu": "disk usage analyzer", "glow": "Markdown reader", "gping": "ping graph", "gum": "interactive shell UI", "jq": "JSON processor", "lazygit": "Git TUI", "lsd": "modern ls", "mkcert": "local development certificates", "rg": "fast text search", "shellcheck": "shell linter", "starship": "shell prompt", "svu": "semantic-version utility", "tmux": "terminal multiplexer", "usbtree": "USB device inspector", "wezterm": "GPU terminal emulator", "kitty": "portable GPU terminal", "ghostty": "experimental portable terminal; mouse limits in docs", "zoxide": "smart directory jump",
 	}
 	var choices []toolChoice
 	for _, entry := range entries {
@@ -629,7 +683,7 @@ func availableCLIChoices(payload string) []toolChoice {
 			continue
 		}
 		info, err := entry.Info()
-		if err != nil || !info.Mode().IsRegular() || (!isAppImagePayload(name) && info.Mode()&0111 == 0) {
+		if err != nil || !info.Mode().IsRegular() || (!isBundledPayload(name) && info.Mode()&0111 == 0) {
 			continue
 		}
 		installedName := installedPayloadName(name)
@@ -649,14 +703,22 @@ func installablePayloadName(name string, cliOnly bool) bool {
 	if name == "lua-language-server" || strings.HasSuffix(name, ".md") || strings.HasSuffix(name, ".1") || upper == "COPYING" || upper == "UNLICENSE" || strings.HasPrefix(upper, "LICENSE") {
 		return false
 	}
-	return !(cliOnly && name == "wezterm.AppImage")
+	return !(cliOnly && isGUICommand(installedPayloadName(name)))
 }
 
 func isAppImagePayload(name string) bool {
-	return name == "wezterm.AppImage" || name == "tmux-3.4-static-x86_64"
+	return name == "wezterm.AppImage" || name == "ghostty.AppImage" || name == "tmux-3.4-static-x86_64"
 }
 
+func isBundledPayload(name string) bool { return isAppImagePayload(name) || name == "kitty.tar.gz" }
+
 func installedPayloadName(name string) string {
+	if name == "kitty.tar.gz" {
+		return "kitty"
+	}
+	if name == "ghostty.AppImage" {
+		return "ghostty"
+	}
 	if name == "wezterm.AppImage" {
 		return "wezterm"
 	}
@@ -683,7 +745,7 @@ func installAppImage(source, binDir, appDataDir, scope, imageName, command strin
 		return err
 	}
 	// A fusermount command does not guarantee compatible libraries or device access.
-	wrapper := "#!/bin/sh\nset -eu\nimage=\"" + image + "\"\nexec \"$image\" --appimage-extract-and-run \"$@\"\n"
+	wrapper := "#!/bin/sh\nset -eu\nimage='" + strings.ReplaceAll(image, "'", "'\"'\"'") + "'\nexec \"$image\" --appimage-extract-and-run \"$@\"\n"
 	destination := filepath.Join(binDir, command)
 	if err := writeFileForScope(destination, []byte(wrapper), 0755, scope); err != nil {
 		return err
@@ -783,7 +845,7 @@ func copyManagedConfig(root, home string, nvim bool, record *installRecord) erro
 			if !entry.Type().IsRegular() {
 				return nil
 			}
-			if pkg.Name() == "wezterm" {
+			if isGUICommand(pkg.Name()) {
 				if _, err := os.Lstat(destination); err == nil {
 					return nil
 				} else if !os.IsNotExist(err) {
@@ -1007,7 +1069,7 @@ func removeInstalledPath(path, scope string) error {
 		return os.RemoveAll(path)
 	}
 	clean := filepath.Clean(path)
-	if strings.HasPrefix(clean, "/usr/local/bin/") || strings.HasPrefix(clean, "/usr/local/share/airgap-dev-kit/") || clean == "/usr/local/share/applications/airgap-wezterm.desktop" {
+	if strings.HasPrefix(clean, "/usr/local/bin/") || strings.HasPrefix(clean, "/usr/local/share/airgap-dev-kit/") || (clean == "/usr/local/share/applications/airgap-wezterm.desktop" || clean == "/usr/local/share/applications/airgap-kitty.desktop" || clean == "/usr/local/share/applications/airgap-ghostty.desktop") {
 		return runSudo("rm", "-rf", clean)
 	}
 	if strings.HasPrefix(clean, "/usr/local/") {

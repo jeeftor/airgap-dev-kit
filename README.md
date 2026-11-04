@@ -93,6 +93,10 @@ wezterm start -- tmux new-session nvim
 
 ### WezTerm and tmux
 
+The full package also includes portable Kitty and **experimental Ghostty**, with
+Nerd Font and mouse clipboard presets. See [portable terminals](docs/TERMINALS.md)
+for installation, preserved configurations, and Ghostty mouse limitations.
+
 The full package installs a WezTerm configuration at `~/.config/wezterm/wezterm.lua`.
 The installer detects your Linux distribution and desktop session, then offers
 **WezTerm (Airgap)** in your applications menu, an optional desktop shortcut,
@@ -353,7 +357,7 @@ For an unattended replacement of a previous Neovim setup, run `./airgap install 
     └── nvim/lazy/     # Pre-installed Neovim plugins
 ```
 
-CLI-only installs do not create `~/.local/share/fonts/` from this kit and do not install `wezterm`.
+CLI-only installs do not create `~/.local/share/fonts/` from this kit and do not install `wezterm`, `kitty`, or `ghostty`.
 
 ## 🔧 Requirements
 

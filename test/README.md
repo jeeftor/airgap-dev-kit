@@ -24,6 +24,15 @@ copy mode with neighboring panes, and real middle-clicks must paste CLIPBOARD
 even when PRIMARY deliberately contains different text. Raw OSC 52 and tmux DCS
 passthrough writes are tested separately.
 
+The same harness accepts `--kitty /path/to/kitty/bin/kitty` to exercise the
+portable Kitty bundle with `config/kitty/.config/kitty/kitty.conf`. The bundle
+must remain intact, including its libraries and resources. Both terminal paths
+check tmux selection with adjacent panes and application OSC 52 writes. The
+Kitty path additionally checks native terminal selection. Middle-click must work without modifier keys even
+when an application captures the mouse; keyboard shortcuts are supplementary.
+These are X11 checks; Wayland and the target Debian/Red Hat desktop still need
+separate acceptance tests.
+
 A checksum-pinned OpenCode 2.1.2 binary is downloaded only as a test fixture;
 it is not bundled or installed by the kit. The test selects text in OpenCode's
 prompt inside tmux with its native mouse handling, checks the external clipboard,

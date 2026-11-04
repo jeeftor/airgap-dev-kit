@@ -78,17 +78,32 @@ func userDesktopDirectory(home string) (string, error) {
 	return filepath.Clean(path), nil
 }
 
-func wezTermDesktopEntry(binDir string) []byte {
-	executable := filepath.Join(binDir, "wezterm")
+func wezTermDesktopEntry(binDir string) []byte { return terminalDesktopEntry(binDir, "wezterm") }
+
+func isGUICommand(name string) bool { return name == "wezterm" || name == "kitty" || name == "ghostty" }
+
+func terminalDesktopEntry(binDir, terminal string) []byte {
+	title, arguments := "WezTerm", " start"
+	switch terminal {
+	case "kitty":
+		title, arguments = "Kitty", ""
+	case "ghostty":
+		title, arguments = "Ghostty (Experimental)", ""
+	}
+	executable := filepath.Join(binDir, terminal)
 	// Desktop entries have separate string and command-line escaping rules.
 	executable = strings.NewReplacer("\\", "\\\\", "\"", "\\\"", "`", "\\`", "$", "\\$", "%", "%%").Replace(executable)
 	executable = strings.ReplaceAll(executable, "\\", "\\\\")
-	return []byte("[Desktop Entry]\nType=Application\nName=WezTerm (Airgap)\nComment=Your offline terminal\n" +
-		"Exec=\"" + executable + "\" start\nIcon=utilities-terminal\nTerminal=false\nCategories=System;TerminalEmulator;\n")
+	return []byte("[Desktop Entry]\nType=Application\nName=" + title + " (Airgap)\nComment=Your offline terminal\n" +
+		"Exec=\"" + executable + "\"" + arguments + "\nIcon=utilities-terminal\nTerminal=false\nCategories=System;TerminalEmulator;\n")
 }
 
 func installWezTermDesktop(binDir, menuPath, shortcutPath, scope string, record *installRecord) error {
-	entry := wezTermDesktopEntry(binDir)
+	return installTerminalDesktop(binDir, menuPath, shortcutPath, scope, "wezterm", record)
+}
+
+func installTerminalDesktop(binDir, menuPath, shortcutPath, scope, terminal string, record *installRecord) error {
+	entry := terminalDesktopEntry(binDir, terminal)
 	if err := writeFileForScope(menuPath, entry, 0644, scope); err != nil {
 		return err
 	}
@@ -107,12 +122,16 @@ func guiSelected(options installOptions) bool {
 }
 
 func desktopIntegrationPaths(home, dataHome string, options installOptions) (string, string, error) {
-	if !guiSelected(options) || options.DesktopIntegration == "none" {
+	return terminalDesktopPaths(home, dataHome, "wezterm", options)
+}
+
+func terminalDesktopPaths(home, dataHome, terminal string, options installOptions) (string, string, error) {
+	if options.CLIOnly || (options.Tools != nil && !options.Tools[terminal]) || options.DesktopIntegration == "none" {
 		return "", "", nil
 	}
-	menu := filepath.Join(dataHome, "applications", "airgap-wezterm.desktop")
+	menu := filepath.Join(dataHome, "applications", "airgap-"+terminal+".desktop")
 	if options.Scope == "system" {
-		menu = "/usr/local/share/applications/airgap-wezterm.desktop"
+		menu = "/usr/local/share/applications/airgap-" + terminal + ".desktop"
 	}
 	if options.DesktopIntegration != "menu-and-desktop" {
 		return menu, "", nil
@@ -121,5 +140,5 @@ func desktopIntegrationPaths(home, dataHome string, options installOptions) (str
 	if err != nil {
 		return "", "", err
 	}
-	return menu, filepath.Join(desktop, "airgap-wezterm.desktop"), nil
+	return menu, filepath.Join(desktop, "airgap-"+terminal+".desktop"), nil
 }
