@@ -15,9 +15,24 @@ independently. Each launch must produce a visible WezTerm window and a terminal
 pane. A broken `Exec` must fail. Uninstall must remove both registered files.
 
 The same job checks internal Neovim registers without a clipboard provider, then
-seeds an X11 primary selection and sends a real middle-click into Neovim inside
+seeds an X11 CLIPBOARD selection and sends a real middle-click into Neovim inside
 WezTerm. The editor cannot find desktop clipboard tools on its PATH; the test
 requires the pasted text in its buffer and saves a screenshot.
+The job also runs `scripts/test-tmux-clipboard.py` with the installed tmux and
+WezTerm binaries and the archive's configurations. Real mouse drags verify tmux
+copy mode with neighboring panes, and real middle-clicks must paste CLIPBOARD
+even when PRIMARY deliberately contains different text. Raw OSC 52 and tmux DCS
+passthrough writes are tested separately.
+
+A checksum-pinned OpenCode 2.1.2 binary is downloaded only as a test fixture;
+it is not bundled or installed by the kit. The test selects text in OpenCode's
+prompt inside tmux with its native mouse handling, checks the external clipboard,
+clears the prompt, and middle-clicks to paste it back. OpenCode cannot find
+desktop clipboard utilities on its PATH. No prompt is submitted or model
+provider required. Set `AIRGAP_TEST_OPENCODE` to this binary when running the
+desktop-launch script yourself. Python is used only by the GUI test harness,
+not required by the deployed clipboard configuration.
+
 It verifies `vim-empty` bypasses a broken user configuration and environment
 initialization, skips plugins, and is removed during uninstall.
 

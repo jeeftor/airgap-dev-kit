@@ -2,8 +2,11 @@
 # Run inside Xvfb and a D-Bus session with a disposable installation home.
 set -euo pipefail
 
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+
 : "${AIRGAP_GUI_TEST_HOME:?Set a disposable GUI test home}"
 : "${AIRGAP_GUI_TEST_LOGS:?Set a directory for GUI test evidence}"
+: "${AIRGAP_TEST_OPENCODE:?Set the path to the pinned test-only OpenCode binary}"
 [[ "$HOME" == "$AIRGAP_GUI_TEST_HOME" ]] || { echo "Your home must be the disposable GUI test home" >&2; exit 1; }
 archive=$(realpath "${1:?Pass the packaged Linux kit}")
 logs_dir="$AIRGAP_GUI_TEST_LOGS"
@@ -91,7 +94,7 @@ LUA
   [[ -f "$logs_dir/mouse-ready.txt" ]] || { echo "LazyVim mouse fixture did not start" >&2; return 1; }
   cat "$logs_dir/mouse-ready.txt"
   grep -qx 'PASS: installed LazyVim mouse fixture ready' "$logs_dir/mouse-ready.txt"
-  printf '%s' 'airgap middle-click clipboard test' | xclip -selection primary
+  printf '%s' 'airgap middle-click clipboard test' | xclip -selection clipboard
   xdotool windowfocus --sync "$window"
   xdotool mousemove --window "$window" 150 150 click 2
   for _ in {1..10}; do
@@ -209,6 +212,12 @@ if timeout 15s gio launch "$logs_dir/broken.desktop" > "$logs_dir/broken.log" 2>
   echo "A broken desktop entry unexpectedly launched" >&2
   exit 1
 fi
+
+# Use installed Linux binaries and the configurations from the actual archive.
+python3 "$script_dir/test-tmux-clipboard.py" \
+  --wezterm "$HOME/.local/bin/wezterm" --tmux "$HOME/.local/bin/tmux" \
+  --config-root "$kit_dir/source-unavailable/config" \
+  --logs "$logs_dir/tmux-clipboard" --opencode "$AIRGAP_TEST_OPENCODE"
 
 "$HOME/.local/bin/airgap" uninstall --yes > "$logs_dir/uninstall.log" 2>&1
 test ! -f "$menu"

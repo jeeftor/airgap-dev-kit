@@ -204,9 +204,20 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends \
-            xvfb xauth dbus-x11 desktop-file-utils libglib2.0-bin libgtk-3-bin x11-utils imagemagick xclip xdotool \
+            python3 xvfb xauth dbus-x11 desktop-file-utils libglib2.0-bin libgtk-3-bin x11-utils imagemagick xclip xdotool \
             libgl1 libglx-mesa0 libgl1-mesa-dri libegl1 libegl-mesa0 \
             libgles2 libxkbcommon-x11-0 libxcb-cursor0
+
+      # OpenCode is a pinned GUI test fixture, never part of the shipped payload.
+      - name: Download checksum-pinned OpenCode mouse test fixture
+        run: |
+          set -euo pipefail
+          fixture_dir="$RUNNER_TEMP/opencode-fixture"
+          mkdir -p "$fixture_dir"
+          curl -fsSL https://opencode.ai/files/bin/2.1.2/opencode-linux-x64-baseline.tar.gz \
+            -o "$fixture_dir/opencode.tar.gz"
+          printf '%s  %s\n' 911e9778fac07559678c5f46d8b130856e237a7f021091509273e81a2dada183 "$fixture_dir/opencode.tar.gz" | sha256sum --check
+          tar -xzf "$fixture_dir/opencode.tar.gz" -C "$fixture_dir"
 
       - name: Download packaged kit
         uses: actions/download-artifact@v8
@@ -223,6 +234,7 @@ jobs:
           chmod 0700 "$gui_test_home/.runtime"
           env -u WAYLAND_DISPLAY HOME="$gui_test_home" AIRGAP_GUI_TEST_HOME="$gui_test_home" \
             AIRGAP_GUI_TEST_LOGS="$RUNNER_TEMP/airgap-desktop-launch-results" \
+            AIRGAP_TEST_OPENCODE="$RUNNER_TEMP/opencode-fixture/opencode" \
             XDG_CONFIG_HOME="$gui_test_home/.config" \
             XDG_DATA_HOME="$gui_test_home/.local/share" \
             XDG_STATE_HOME="$gui_test_home/.local/state" \
@@ -378,8 +390,9 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Install RHEL font and archive dependencies
+        timeout-minutes: 5
         run: |
-          dnf -y install --setopt=install_weak_deps=False \
+          dnf -y --setopt=timeout=30 --setopt=retries=3 install --setopt=install_weak_deps=False \
             fontconfig tar gzip
 
       - name: Download packaged kit
