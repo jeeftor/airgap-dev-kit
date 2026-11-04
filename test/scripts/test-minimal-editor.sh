@@ -25,6 +25,6 @@ docker create --platform linux/amd64 --network none --name "$container" \
 docker cp "$archive" "$container:/work/kit.tar.gz"
 docker cp "$repo_root/test" "$container:/work/test"
 docker cp "$repo_root/config" "$container:/work/config"
-docker inspect --format '{{.HostConfig.NetworkMode}}' "$container" | rg -x none
+test "$(docker inspect --format '{{.HostConfig.NetworkMode}}' "$container")" = none
 docker start --attach "$container"
 test "$(docker inspect --format '{{.State.ExitCode}}' "$container")" = 0

@@ -30,6 +30,14 @@ func TestOfflineUpdateRetainsShellIntegrationOwnership(t *testing.T) {
 			t.Setenv("XDG_DATA_HOME", filepath.Join(home, ".local", "share"))
 			t.Setenv("XDG_STATE_HOME", filepath.Join(home, ".local", "state"))
 			t.Setenv("SHELL", "/bin/bash")
+			tools := t.TempDir()
+			// This regression checks shell ownership; font rendering is covered by Linux acceptance.
+			for _, name := range []string{"fc-cache", "fc-match"} {
+				if err := os.WriteFile(filepath.Join(tools, name), []byte("#!/bin/sh\necho 'JetBrainsMono Nerd Font'\n"), 0755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			t.Setenv("PATH", tools+string(os.PathListSeparator)+os.Getenv("PATH"))
 			for name, content := range map[string]string{
 				filepath.Join(home, ".bashrc"):                                     "# personal shell configuration\n",
 				filepath.Join(home, ".config", "nvim", "init.lua"):                 "-- personal editor\n",

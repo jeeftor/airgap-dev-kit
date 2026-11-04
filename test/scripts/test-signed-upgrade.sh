@@ -37,16 +37,19 @@ find .config/nvim .config/wezterm .config/kitty .config/ghostty \
 
 verify_personal_files() {
   sha256sum --check "$results/personal-files.sha256"
-  rg -q '^export PERSONAL_SETTING=kept$' "$HOME/.bashrc"
+  awk '$0 == "export PERSONAL_SETTING=kept" { found = 1 } END { exit !found }' "$HOME/.bashrc"
   test "$(personal-tool)" = 'personal tool'
 }
 
 verify_installation() {
   local version=$1
-  airgap version | tee "$results/installed-$version.txt" | rg -F "airgap $version ("
+  local identity
+  identity=$(airgap version)
+  printf '%s\n' "$identity" | tee "$results/installed-$version.txt"
+  [[ "$identity" == "airgap $version ("* ]]
   "$updater" doctor --verify > "$results/doctor-$version.txt"
   verify_personal_files
-  test "$(rg -c '^# >>> airgap dev kit >>>$' "$HOME/.bashrc")" = 1
+  test "$(awk '$0 == "# >>> airgap dev kit >>>" { count++ } END { print count + 0 }' "$HOME/.bashrc")" = 1
   bash --noprofile --rcfile "$HOME/.bashrc" -ic \
     'test "$PERSONAL_SETTING" = kept; command -v starship' \
     > "$results/shell-$version.txt" 2>&1
@@ -62,8 +65,9 @@ verify_installation v2.7.1
 "$updater" update rollback --yes > "$results/rollback.txt" 2>&1
 verify_installation v2.7.0
 "$updater" uninstall --yes > "$results/uninstall.txt" 2>&1
+hash -r
 verify_personal_files
-if rg -q '^# >>> airgap dev kit >>>$' "$HOME/.bashrc"; then
+if awk '$0 == "# >>> airgap dev kit >>>" { found = 1 } END { exit !found }' "$HOME/.bashrc"; then
   echo 'Uninstall left its shell integration behind' >&2
   exit 1
 fi
