@@ -30,7 +30,7 @@ stage=$(mktemp -d "${TMPDIR:-/tmp}/airgap-v2.XXXXXX")
 trap 'rm -rf "$stage"' EXIT HUP INT TERM
 root="$stage/$name"
 mkdir -p "$root/offline-packages/linux/amd64"
-cp README.md "$root/"
+cp README.md CHANGELOG.md "$root/"
 printf '%s\n' "$version" > "$root/VERSION"
 cp -R config docs "$root/"
 cp -R offline-packages/linux/. "$root/offline-packages/linux/amd64/"

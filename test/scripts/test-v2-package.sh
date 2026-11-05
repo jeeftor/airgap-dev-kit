@@ -8,7 +8,7 @@ trap 'rm -rf "$tmp_dir"' EXIT HUP INT TERM
 fixture="$tmp_dir/fixture"
 mkdir -p "$fixture/offline-packages/linux" "$fixture/config" "$fixture/scripts" "$fixture/docs"
 cp "$repo_root/scripts/package-v2.sh" "$fixture/scripts/"
-cp "$repo_root/README.md" "$fixture/"
+cp "$repo_root/README.md" "$repo_root/CHANGELOG.md" "$fixture/"
 printf '%s\n' '#!/bin/sh' 'exit 0' > "$fixture/offline-packages/linux/example-tool"
 printf '%s\n' '#!/bin/sh' 'echo airgap' > "$fixture/airgap"
 printf '%s\n' 'lazy payload' > "$fixture/offline-packages/lazy-plugins.tar.gz"
@@ -25,6 +25,7 @@ chmod +x "$fixture/airgap" "$fixture/offline-packages/linux/example-tool"
 
 archive="$tmp_dir/output/airgap-dev-kit-linux-x86_64.tar.gz"
 test -f "$archive"
+tar -tzf "$archive" | grep -Fx 'airgap-dev-kit/CHANGELOG.md'
 tar -tzf "$archive" | grep -Fx 'airgap-dev-kit/airgap'
 tar -tzf "$archive" | grep -Fx 'airgap-dev-kit/offline-packages/linux/amd64/airgap'
 tar -tzf "$archive" | grep -Fx 'airgap-dev-kit/offline-packages/lazy-plugins.tar.gz'
