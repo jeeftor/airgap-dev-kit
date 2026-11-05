@@ -139,3 +139,46 @@ func TestWezStartsExecutableWithoutChangingConfig(t *testing.T) {
 		t.Fatalf("config changed: %q %v", data, err)
 	}
 }
+
+func TestWezPresetThemeKeepsSharedConfigUnchanged(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_STATE_HOME", filepath.Join(home, "state"))
+	_, appData := installLocations(home, "user")
+	preset := filepath.Join(appData, "wezterm-preset.lua")
+	original := "local config = {}\nreturn config\n"
+	if err := writeAtomic(preset, []byte(original), 0444); err != nil {
+		t.Fatal(err)
+	}
+	personal := filepath.Join(home, ".config", "wezterm", "wezterm.lua")
+	if err := writeAtomic(personal, []byte("personal config"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := saveInstallRecord(installRecord{Scope: "user", Paths: []string{preset}}); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"paper", "default"} {
+		command := New("test", "test")
+		var output bytes.Buffer
+		command.SetOut(&output)
+		command.SetArgs([]string{"theme", "set", name, "--terminal", "wezterm"})
+		if err := command.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		args, err := wezPresetArgs("kit")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := strings.Contains(strings.Join(args, " "), "colors=dofile("); got != (name == "paper") {
+			t.Fatalf("theme override for %s: %v", name, args)
+		}
+		data, err := os.ReadFile(preset)
+		if err != nil || string(data) != original {
+			t.Fatalf("managed preset was modified: %q %v", data, err)
+		}
+		data, err = os.ReadFile(personal)
+		if err != nil || string(data) != "personal config" {
+			t.Fatalf("personal config was modified: %q %v", data, err)
+		}
+	}
+}

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"archive/zip"
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 type installRecord struct {
@@ -78,10 +80,7 @@ func installCmd() *cobra.Command {
 func uninstallCmd() *cobra.Command {
 	var dryRun, yes bool
 	c := &cobra.Command{Use: "uninstall", Short: "Uninstall only paths recorded by airgap", RunE: func(cmd *cobra.Command, _ []string) error {
-		if !dryRun && !yes {
-			return fmt.Errorf("uninstall requires --yes unless --dry-run is used")
-		}
-		return uninstallRecorded(cmd, dryRun)
+		return uninstallRecorded(cmd, dryRun, yes)
 	}}
 	c.Flags().BoolVarP(&dryRun, "dry-run", "n", false, "Show tracked paths without changing files")
 	c.Flags().BoolVarP(&yes, "yes", "y", false, "Confirm removal of tracked paths")
@@ -467,6 +466,7 @@ func writeAirgapShellFile(path string) error {
 		"export EDITOR=nvim\n" +
 		"alias vim=nvim\n" +
 		"alias vi=nvim\n" +
+		"alias theme='airgap theme'\n" +
 		"[ -x \"$HOME/.local/bin/lsd\" ] && alias ls='lsd' && alias ll='lsd -la'\n" +
 		"[ -x \"$HOME/.local/bin/bat\" ] && alias cat='bat --paging=never'\n" +
 		"if [ -n \"${ZSH_VERSION:-}\" ]; then _airgap_shell=zsh; else _airgap_shell=bash; fi\n" +
@@ -1012,7 +1012,7 @@ func saveInstallRecord(record installRecord) error {
 	return writeAtomic(path, raw, 0600)
 }
 
-func uninstallRecorded(cmd *cobra.Command, dryRun bool) error {
+func uninstallRecorded(cmd *cobra.Command, dryRun, yes bool) error {
 	path, err := installRecordPath()
 	if err != nil {
 		return err
@@ -1029,27 +1029,45 @@ func uninstallRecorded(cmd *cobra.Command, dryRun bool) error {
 	if err := json.Unmarshal(raw, &record); err != nil {
 		return err
 	}
-	if record.Scope == "system" && !dryRun {
+	if !dryRun && !yes {
+		input, ok := cmd.InOrStdin().(*os.File)
+		if !ok || !term.IsTerminal(int(input.Fd())) {
+			return fmt.Errorf("uninstall requires an interactive terminal or --yes; use --dry-run to preview removal")
+		}
+	}
+	if dryRun || !yes {
+		fmt.Fprintf(cmd.OutOrStdout(), "Uninstall Airgap %s (%s installation):\n", record.Version, record.Scope)
+		for index := len(record.Paths) - 1; index >= 0; index-- {
+			fmt.Fprintln(cmd.OutOrStdout(), "would remove "+record.Paths[index])
+		}
+		for _, rc := range record.ShellRCs {
+			fmt.Fprintln(cmd.OutOrStdout(), "would remove Airgap block from "+rc)
+		}
+		if dryRun {
+			return nil
+		}
+		confirmed, err := confirmUninstall(cmd)
+		if err != nil {
+			return err
+		}
+		if !confirmed {
+			fmt.Fprintln(cmd.OutOrStdout(), "Uninstall cancelled.")
+			return nil
+		}
+	}
+	if record.Scope == "system" {
 		if err := authenticateSudo(cmd); err != nil {
 			return err
 		}
 	}
 	for index := len(record.Paths) - 1; index >= 0; index-- {
 		item := record.Paths[index]
-		if dryRun {
-			fmt.Fprintln(cmd.OutOrStdout(), "would remove "+item)
-			continue
-		}
 		if err := removeInstalledPath(item, record.Scope); err != nil && !os.IsNotExist(err) {
 			return err
 		}
 		fmt.Fprintln(cmd.OutOrStdout(), "removed "+item)
 	}
 	for _, rc := range record.ShellRCs {
-		if dryRun {
-			fmt.Fprintln(cmd.OutOrStdout(), "would remove Airgap block from "+rc)
-			continue
-		}
 		raw, err := os.ReadFile(rc)
 		if err != nil && !os.IsNotExist(err) {
 			return err
@@ -1058,10 +1076,26 @@ func uninstallRecorded(cmd *cobra.Command, dryRun bool) error {
 			return err
 		}
 	}
-	if !dryRun {
-		return os.Remove(path)
+	return os.Remove(path)
+}
+
+func confirmUninstall(cmd *cobra.Command) (bool, error) {
+	if _, err := fmt.Fprint(cmd.OutOrStdout(), "Continue with uninstall? [y/N] "); err != nil {
+		return false, err
 	}
-	return nil
+	answer, err := bufio.NewReader(cmd.InOrStdin()).ReadString('\n')
+	if err == io.EOF {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("read uninstall confirmation: %w", err)
+	}
+	switch strings.ToLower(strings.TrimSpace(answer)) {
+	case "y", "yes":
+		return true, nil
+	default:
+		return false, nil
+	}
 }
 
 func removeInstalledPath(path, scope string) error {

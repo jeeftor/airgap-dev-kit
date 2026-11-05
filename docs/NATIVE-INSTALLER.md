@@ -35,6 +35,19 @@ review screen. Noninteractive system installs use:
 ./airgap install --yes --scope=system
 ```
 
+Run `airgap uninstall` as the same user who installed the kit to review the
+recorded paths and confirm removal with `y` or `yes`. Enter cancels. System
+uninstall requests sudo after confirmation. Use `airgap uninstall --dry-run`
+for a preview, or `airgap uninstall --yes` for automation. Without an interactive
+terminal, removal requires `--yes`. If no installation record exists, the
+command reports that and leaves your files unchanged.
+
+Terminal presets default to Monokai. Shell integration adds `theme` as a
+shortcut for `airgap theme`. Use `theme start kitty paper` to try a palette in a
+new window, or `theme set monokai` to save matching colors for kit-managed
+terminal configurations. Personal configs are preserved. See
+[offline color themes](TERMINALS.md#offline-color-themes) for all palettes.
+
 AppImage launchers use extraction mode so they also work when FUSE libraries or
 device access are unavailable. They still require the application's normal Linux
 graphics libraries.

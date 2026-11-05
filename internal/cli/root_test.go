@@ -181,6 +181,9 @@ func TestManagedShellInitializesZoxideLast(t *testing.T) {
 	if starship < 0 || zoxide < 0 || starship > zoxide {
 		t.Fatalf("managed shell file must initialize Starship before zoxide:\n%s", content)
 	}
+	if !strings.Contains(string(content), "alias theme='airgap theme'\n") {
+		t.Fatalf("managed shell is missing the terminal theme shortcut:\n%s", content)
+	}
 }
 
 func TestInstallPlannerSelectsRecoverableReplaceAndNoShellChanges(t *testing.T) {

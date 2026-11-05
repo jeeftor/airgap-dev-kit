@@ -206,6 +206,12 @@ for preset in current kit plain x11; do
   launch_entry "" "preset-$preset"
 done
 
+# Exercise saved theme overrides with the actual Linux GUI and no source kit.
+"$HOME/.local/bin/airgap" theme set paper > "$logs_dir/theme-paper.log" 2>&1
+launch_entry "" preset-kit
+"$HOME/.local/bin/airgap" theme set monokai > "$logs_dir/theme-monokai.log" 2>&1
+launch_entry "" preset-kit
+
 # Confirm a broken Exec is rejected rather than counted as a successful launch.
 sed 's|^Exec=.*|Exec=/airgap-test/nonexistent-command|' "$menu" > "$logs_dir/broken.desktop"
 if timeout 15s gio launch "$logs_dir/broken.desktop" > "$logs_dir/broken.log" 2>&1; then
@@ -237,4 +243,8 @@ for terminal in kitty ghostty; do
 done
 test ! -e "$HOME/.local/share/airgap-dev-kit/kitty"
 test ! -e "$HOME/.local/share/airgap-dev-kit/ghostty.AppImage"
+for terminal in kitty ghostty wezterm; do
+  test ! -e "$HOME/.config/$terminal/airgap-theme.conf"
+  test ! -e "$HOME/.config/$terminal/airgap-theme.lua"
+done
 echo "PASS: GUI entries validate, launch, reject a broken Exec, and uninstall"
