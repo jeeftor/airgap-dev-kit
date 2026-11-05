@@ -256,11 +256,11 @@ jobs:
     name: Offline editor (${{ matrix.suite }})
     runs-on: ubuntu-latest
     needs: test-build-linux
-    timeout-minutes: 15
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        suite: [core, languages, formatting, plugins]
+        suite: [core, languages, formatting, plugins, projects]
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -270,6 +270,10 @@ jobs:
         with:
           name: airgap-dev-kit-linux
           path: release
+
+      - name: Prepare Rust workspace support
+        if: matrix.suite == 'projects'
+        run: rustup component add rust-src rustfmt
 
       - name: Verify offline editor behavior and capture health
         run: |
@@ -293,6 +297,68 @@ jobs:
         with:
           name: editor-health-evidence-${{ matrix.suite }}
           path: ${{ runner.temp }}/editor-health-results
+          retention-days: 7
+
+  test-minimal-editor:
+    name: Minimal offline Linux (${{ matrix.image }})
+    runs-on: ubuntu-latest
+    needs: test-build-linux
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ['debian:12-slim', 'ubuntu:22.04']
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: airgap-dev-kit-linux
+          path: release
+      - name: Install and exercise the editor as an offline unprivileged user
+        env:
+          AIRGAP_MINIMAL_IMAGE: ${{ matrix.image }}
+          AIRGAP_HEALTH_RESULTS: ${{ runner.temp }}/minimal-editor-results
+        run: bash test/scripts/test-minimal-editor.sh release/airgap-dev-kit-linux-x86_64.tar.gz
+      - name: Retain minimal-system evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: minimal-editor-${{ strategy.job-index }}
+          path: ${{ runner.temp }}/minimal-editor-results
+          retention-days: 7
+
+  test-signed-upgrade:
+    name: Signed offline upgrade and rollback
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Download the fixed signed upgrade fixtures
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for version in v2.7.0 v2.7.1; do
+            gh release download "$version" --repo "$GITHUB_REPOSITORY" \
+              --dir "$RUNNER_TEMP/upgrade-releases/$version" \
+              --pattern airgap-dev-kit-linux-x86_64.tar.gz \
+              --pattern release-manifest.json --pattern release-manifest.sig
+          done
+      - name: Test the current updater with authentic releases and networking disabled
+        run: |
+          go build -trimpath -o "$RUNNER_TEMP/airgap-under-test" ./main.go
+          sudo unshare --net sudo -u "$USER" env PATH="$PATH" \
+            AIRGAP_UPGRADE_RESULTS="$RUNNER_TEMP/upgrade-results" \
+            bash test/scripts/test-signed-upgrade.sh "$RUNNER_TEMP/airgap-under-test" "$RUNNER_TEMP/upgrade-releases"
+      - name: Retain upgrade and rollback evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: signed-upgrade-evidence
+          path: ${{ runner.temp }}/upgrade-results
           retention-days: 7
 
   test-install-ubuntu:

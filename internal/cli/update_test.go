@@ -2,6 +2,7 @@ package cli
 
 import (
 	"archive/tar"
+	"archive/zip"
 	"compress/gzip"
 	"context"
 	"crypto/ed25519"
@@ -9,15 +10,102 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/jeeftor/airgap-dev-kit/internal/release"
 	"github.com/spf13/cobra"
 )
+
+func TestOfflineUpdateRetainsShellIntegrationOwnership(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		t.Run(fmt.Sprintf("shell-enabled-%t", enabled), func(t *testing.T) {
+			home, kit := t.TempDir(), t.TempDir()
+			t.Setenv("HOME", home)
+			t.Setenv("XDG_DATA_HOME", filepath.Join(home, ".local", "share"))
+			t.Setenv("XDG_STATE_HOME", filepath.Join(home, ".local", "state"))
+			t.Setenv("SHELL", "/bin/bash")
+			tools := t.TempDir()
+			// This regression checks shell ownership; font rendering is covered by Linux acceptance.
+			for _, name := range []string{"fc-cache", "fc-match"} {
+				if err := os.WriteFile(filepath.Join(tools, name), []byte("#!/bin/sh\necho 'JetBrainsMono Nerd Font'\n"), 0755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			t.Setenv("PATH", tools+string(os.PathListSeparator)+os.Getenv("PATH"))
+			for name, content := range map[string]string{
+				filepath.Join(home, ".bashrc"):                                     "# personal shell configuration\n",
+				filepath.Join(home, ".config", "nvim", "init.lua"):                 "-- personal editor\n",
+				filepath.Join(kit, "kit-manifest.json"):                            `{"schema_version":1,"version":"v2.7.1","target":"linux/amd64","payload_dir":"offline-packages/linux/amd64"}`,
+				filepath.Join(kit, "airgap"):                                       "#!/bin/sh\nexit 0\n",
+				filepath.Join(kit, "offline-packages", "linux", "amd64", "airgap"): "#!/bin/sh\nexit 0\n",
+			} {
+				if err := os.MkdirAll(filepath.Dir(name), 0755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(name, []byte(content), 0755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			for _, directory := range []string{"config", "fonts"} {
+				if err := os.MkdirAll(filepath.Join(kit, directory), 0755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			fontArchive, err := os.Create(filepath.Join(kit, "fonts", "JetBrainsMono.zip"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			writer := zip.NewWriter(fontArchive)
+			font, err := writer.Create("test.ttf")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := font.Write([]byte("fixture font")); err != nil {
+				t.Fatal(err)
+			}
+			if err := writer.Close(); err != nil {
+				t.Fatal(err)
+			}
+			if err := fontArchive.Close(); err != nil {
+				t.Fatal(err)
+			}
+			record := installRecord{Scope: "user"}
+			if enabled {
+				if err := configureShells(home, &record); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := saveInstallRecord(record); err != nil {
+				t.Fatal(err)
+			}
+			command := New("v2.7.1-test", "fixture")
+			command.SetOut(io.Discard)
+			command.SetErr(io.Discard)
+			if err := runKitInstaller(command, kit); err != nil {
+				t.Fatal(err)
+			}
+			if err := uninstallRecorded(command, false); err != nil {
+				t.Fatal(err)
+			}
+			content, err := os.ReadFile(filepath.Join(home, ".bashrc"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if strings.Contains(string(content), shellBlockStart) {
+				t.Fatalf("update lost shell ownership; uninstall left startup lines: %s", content)
+			}
+			if string(content) != "# personal shell configuration\n" {
+				t.Fatalf("personal shell content changed: %q", content)
+			}
+		})
+	}
+}
 
 func TestFetchManifestSkipsLegacyRelease(t *testing.T) {
 	public, private, err := ed25519.GenerateKey(rand.Reader)

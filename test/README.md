@@ -294,6 +294,48 @@ sudo env PATH="$PATH" RUSTUP_HOME="$HOME/.rustup" CARGO_HOME="$HOME/.cargo" \
 
 Set `AIRGAP_EDITOR_SUITE` to a suite name to run that group with the core checks.
 
+## Minimal systems, projects, and signed upgrades
+
+The **Minimal offline Linux** jobs use Debian 12 slim and Ubuntu 22.04 images.
+Only Git and certificate packages are added before the container starts with
+`--network none`. The editor installs as an unprivileged user. Preflight rejects
+host Node/npm, Python, Go, Rust, C compilers, curl, and wget. The core editor,
+formatter, and picker tests then run against the actual archive. Bundled Node
+must supply the JavaScript tools; no host module or editor caches are mounted.
+Evidence is retained as `minimal-editor-<index>`.
+
+```bash
+AIRGAP_MINIMAL_IMAGE=debian:12-slim \
+  bash test/scripts/test-minimal-editor.sh airgap-dev-kit-linux-x86_64.tar.gz
+```
+
+The **Offline editor (projects)** job adds dependency-free Lua, Bash, Python,
+Go, Rust, JavaScript, and TypeScript projects. It executes their assertions,
+tests project-symbol completion and definition lookup, and checks that language
+errors appear and clear after repair. JSON/YAML document symbols and syntax
+diagnostics and Markdown links are tested through their language servers.
+Go/Cargo build and module caches start empty; package downloads and automatic
+Go toolchain downloads remain disabled. This suite requires preinstalled Go,
+Rust (including rust-src/rustfmt and a system linker), and Python. TypeScript's
+compiler and Node come from the kit. These host toolchains are test prerequisites,
+not additional kit payloads. The release workflow runs these checks too.
+
+The **Signed offline upgrade and rollback** job downloads the fixed published
+v2.7.0 and v2.7.1 fixtures while connected, then uses the current source-built
+updater with networking disabled as a normal user. The production public key
+must validate both releases. Personal editor data, terminal configurations,
+shell settings, an unrelated executable, and project files are checksummed
+across upgrade, rollback, and uninstall. Shell integration must stay functional,
+occur once, and disappear on uninstall. Logs are retained as
+`signed-upgrade-evidence`; no test-only signing key replaces release trust.
+
+Physical desktop acceptance remains separate: transfer the verified archive to
+the actual Debian/Red Hat machine, extract it on a Linux filesystem, run
+`./airgap doctor --verify`, install as your normal user, and test fonts, desktop
+launching, selection/copy/middle-click paste, and SSH/tmux on the actual X11 or
+Wayland session. Record the kit version, distribution, session type, and results.
+Xvfb and container tests do not establish physical GPU or Wayland acceptance.
+
 The GUI launch job also opens the full kit LazyVim profile in a real WezTerm
 terminal UI, checks Snacks input/picker/dashboard registration after startup,
 and captures `editor-ui-checkhealth.txt`. This separates actual UI failures from

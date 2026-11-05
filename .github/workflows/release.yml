@@ -183,6 +183,7 @@ jobs:
 
       - name: Verify release editor without network
         run: |
+          rustup component add rust-src rustfmt
           sudo env PATH="$PATH" RUSTUP_HOME="$HOME/.rustup" CARGO_HOME="$HOME/.cargo" \
             AIRGAP_HEALTH_RESULTS="$RUNNER_TEMP/release-editor-health" \
             unshare --net bash test/scripts/test-editor-health.sh airgap-dev-kit-linux-x86_64.tar.gz
