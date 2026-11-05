@@ -90,7 +90,7 @@ func TestOfflineUpdateRetainsShellIntegrationOwnership(t *testing.T) {
 			if err := runKitInstaller(command, kit); err != nil {
 				t.Fatal(err)
 			}
-			if err := uninstallRecorded(command, false); err != nil {
+			if err := uninstallRecorded(command, false, true); err != nil {
 				t.Fatal(err)
 			}
 			content, err := os.ReadFile(filepath.Join(home, ".bashrc"))

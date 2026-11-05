@@ -69,6 +69,18 @@ func wezPresetArgs(preset string) ([]string, error) {
 		if preset == "x11" {
 			args = append(args, "--config", "enable_wayland=false")
 		}
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return nil, err
+		}
+		themePath := filepath.Join(home, ".config", "wezterm", "airgap-theme.lua")
+		if colors, err := os.ReadFile(themePath); err == nil {
+			if !strings.HasPrefix(string(colors), "-- Airgap theme: default\n") {
+				args = append(args, "--config", fmt.Sprintf("colors=dofile(%q)", themePath))
+			}
+		} else if !os.IsNotExist(err) {
+			return nil, fmt.Errorf("read terminal theme: %w", err)
+		}
 	default:
 		return nil, fmt.Errorf("unknown WezTerm preset %q; run 'airgap wez list'", preset)
 	}

@@ -5,6 +5,9 @@ A complete, offline-ready terminal development environment for Linux, designed f
 [![GitHub Actions](https://img.shields.io/github/actions/workflow/status/jeeftor/airgap-dev-kit/release.yml)](https://github.com/jeeftor/airgap-dev-kit/actions)
 [![Latest Release](https://img.shields.io/github/v/release/jeeftor/airgap-dev-kit)](https://github.com/jeeftor/airgap-dev-kit/releases/latest)
 
+See the [v2.8.0 release notes](CHANGELOG.md) for terminal themes, interactive
+uninstall, and expanded offline acceptance checks.
+
 ## ⚡ Quick Start
 
 ### Choose a Package
@@ -106,7 +109,7 @@ use `/usr/local/share/applications/`. Desktop shortcuts honor your configured
 desktop directory and may require **Allow Launching** in your desktop.
 Use `--desktop-integration=menu|menu-and-desktop|none` for automation.
 The launchers use the installed binary's absolute path and are removed by
-`airgap uninstall --yes`.
+`airgap uninstall`.
 It uses JetBrainsMono Nerd Font, retains native window resizing, and shows a tab bar
 when you open more than one WezTerm tab. It intentionally does not redefine pane
 shortcuts: tmux owns terminal splits, navigation, and resizing.
@@ -284,10 +287,17 @@ different release and cannot operate on the extracted kit.
 ./airgap install --demo      # Walk through the interactive setup without changing files
 ./airgap --demo              # Shortcut for the same interactive walkthrough
 ./airgap status              # Show every kit application and installed component
+./airgap theme list          # List matching offline terminal palettes
+./airgap theme start kitty paper # Try a light theme in a new window
+./airgap theme set monokai   # Save a theme for kit-managed terminal configs
 ```
 
+Terminal presets default to Monokai. Shell integration adds the shortcut
+`theme` for `airgap theme`; see [offline terminal themes](docs/TERMINALS.md#offline-color-themes)
+for the five palettes, temporary previews, and per-terminal choices.
+
 After installation, restart your shell. `airgap update`, `airgap status`, and
-`airgap uninstall --yes` then use the installed command in `~/.local/bin`.
+`airgap uninstall` then use the installed command in `~/.local/bin`.
 The installation record lets these commands find your extracted kit from other
 directories. Keep that kit directory in place; `AIRGAP_KIT_DIR` is an optional
 override rather than a required shell setting. For a system-wide install, run
@@ -419,12 +429,18 @@ payload. Backups are kept under `~/.local/share/airgap-dev-kit/backups/`.
 ## 🗑️ Uninstallation
 
 The v2 CLI removes only paths it recorded during installation. Preview the
-tracked paths first, then confirm removal:
+tracked paths first, then confirm removal interactively:
 
 ```bash
 ./airgap uninstall --dry-run
-./airgap uninstall --yes
+./airgap uninstall
 ```
+
+The interactive command shows the recorded paths and asks
+`Continue with uninstall? [y/N]`. Enter keeps your installation. Use
+`./airgap uninstall --yes` to skip confirmation in scripts; without a terminal,
+removal requires `--yes`. Run as the same user who installed the kit, including
+for a system installation: the command requests sudo after you confirm.
 
 **Features:**
 - ✅ Reads the JSON install record at `~/.local/state/airgap-dev-kit/install.json` (or `$XDG_STATE_HOME/airgap-dev-kit/install.json`)

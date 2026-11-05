@@ -23,7 +23,7 @@ config.window_padding = {
 config.enable_tab_bar = true
 config.hide_tab_bar_if_only_one_tab = true
 
--- Keep the command palette readable without changing terminal or tmux colors.
+-- Keep the command palette readable.
 -- Ctrl+Shift+P is WezTerm's built-in command palette shortcut.
 config.command_palette_bg_color = "#16161e"
 config.command_palette_fg_color = "#c0caf5"
@@ -45,6 +45,15 @@ config.mouse_bindings = {
     mouse_reporting = true,
     action = wezterm.action.PasteFrom("Clipboard"),
   },
+}
+
+-- Airgap default: Monokai. Change it with airgap theme set <name>.
+config.colors = {
+  background = "#272822", foreground = "#f8f8f2",
+  cursor_bg = "#f8f8f2", cursor_fg = "#272822", cursor_border = "#f8f8f2",
+  selection_bg = "#49483e", selection_fg = "#f8f8f2",
+  ansi = {"#272822", "#f92672", "#a6e22e", "#f4bf75", "#66d9ef", "#ae81ff", "#a1efe4", "#f8f8f2"},
+  brights = {"#75715e", "#f92672", "#a6e22e", "#f4bf75", "#66d9ef", "#ae81ff", "#a1efe4", "#f9f8f5"},
 }
 
 return config
